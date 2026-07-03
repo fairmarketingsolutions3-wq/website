@@ -103,10 +103,17 @@
     var tl = gsap.timeline({ defaults: { ease: "power4.out" } });
     tl.from(".hero__word", { yPercent: 120, rotate: 4, duration: 1.2, stagger: 0.07 }, 0.1)
       .from(".hero__eyebrow", { y: 30, opacity: 0, duration: 0.9 }, 0.3)
+      .from(".hero__media", { opacity: 0, scale: 0.82, y: 60, rotate: 8, duration: 1.4, ease: "power4.out" }, 0.55)
+      .from(".hero__media-badge", { opacity: 0, x: -30, duration: 0.8 }, 1.2)
       .from(".hero__sub, .hero__cta", { y: 40, opacity: 0, duration: 1, stagger: 0.12 }, 0.7)
       .from(".hero__stat", { y: 40, opacity: 0, duration: 0.9, stagger: 0.08 }, 0.95)
       .from(".nav", { y: -80, opacity: 0, duration: 1 }, 0.6)
       .from(".hero__scroll", { opacity: 0, duration: 1 }, 1.3);
+
+    // gentle perpetual float on the hero portrait
+    gsap.to(".hero__media", {
+      y: -16, duration: 3.2, yoyo: true, repeat: -1, ease: "sine.inOut", delay: 2
+    });
 
     // stat counters
     document.querySelectorAll(".stat-num").forEach(function (el) {
@@ -196,6 +203,19 @@
       });
     });
 
+    // about banner: parallax drift + soft zoom-out reveal
+    var bannerImg = document.querySelector(".about__banner img");
+    if (bannerImg) {
+      gsap.fromTo(bannerImg, { yPercent: -12, scale: 1.15 }, {
+        yPercent: 0, scale: 1, ease: "none",
+        scrollTrigger: { trigger: ".about__banner", start: "top bottom", end: "bottom top", scrub: 1 }
+      });
+      gsap.from(".about__banner", {
+        clipPath: "inset(12% 6% 12% 6% round 30px)", duration: 1, ease: "power3.out",
+        scrollTrigger: { trigger: ".about__banner", start: "top 85%" }
+      });
+    }
+
     // pinned horizontal process
     var track = document.getElementById("processTrack");
     if (track) {
@@ -283,6 +303,39 @@
     var cr = document.getElementById("cursorRing");
     if (cd) cd.style.display = "none";
     if (cr) cr.style.display = "none";
+  }
+
+  /* ─────────── Service hover preview (follows cursor) ─────────── */
+  if (!isTouch && hasGSAP && !reduceMotion) {
+    var preview = document.getElementById("servicePreview");
+    if (preview) {
+      var pvImgs = preview.querySelectorAll("img");
+      var pvX = gsap.quickTo(preview, "x", { duration: 0.45, ease: "power3" });
+      var pvY = gsap.quickTo(preview, "y", { duration: 0.45, ease: "power3" });
+      var servicesList = document.querySelector(".services__list");
+
+      servicesList.addEventListener("mousemove", function (e) {
+        pvX(e.clientX); pvY(e.clientY);
+      });
+
+      document.querySelectorAll(".service-row").forEach(function (row) {
+        var idx = row.getAttribute("data-preview");
+        row.addEventListener("mouseenter", function () {
+          pvImgs.forEach(function (img) {
+            img.classList.toggle("is-active", img.getAttribute("data-preview-img") === idx);
+          });
+          gsap.to(preview, {
+            opacity: 1, scale: 1, rotate: -3, duration: 0.45, ease: "power3.out",
+            transformOrigin: "center", overwrite: "auto"
+          });
+        });
+        row.addEventListener("mouseleave", function () {
+          gsap.to(preview, { opacity: 0, scale: 0.85, duration: 0.35, ease: "power3.in", overwrite: "auto" });
+        });
+      });
+      // quickTo x/y works alongside translate(-50%,-50%) baseline
+      gsap.set(preview, { xPercent: -50, yPercent: -50 });
+    }
   }
 
   /* ─────────── Magnetic buttons ─────────── */
