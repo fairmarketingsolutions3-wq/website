@@ -787,6 +787,18 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
   .hero__scroll { display: none; }
   .hero__media { position: relative; right: auto; top: auto; width: min(300px, 74vw); margin: 30px auto 36px; }
   .hero { padding-top: calc(var(--nav-h) + 20px); }
+  /* process becomes a vertical stack — no pinned horizontal scroll on mobile */
+  .process__track { display: grid; grid-template-columns: 1fr; width: auto; gap: 16px; padding-inline: 4vw; }
+  .process-card { width: 100%; }
+  .process__spacer { display: none; }
+  .section-head--row { flex-direction: column; align-items: flex-start; gap: 18px; }
+  .mobile-menu { overflow-y: auto; }
+}
+@media (max-width: 400px) {
+  .hero__title { font-size: clamp(40px, 13vw, 52px); }
+  .cta__title { font-size: clamp(52px, 16vw, 64px); }
+  .section-title { font-size: clamp(30px, 8.6vw, 36px); }
+  .btn--big, .btn--big-ghost { padding: 20px 34px; width: 100%; justify-content: center; }
 }
 @media (min-width: 901px) and (max-width: 1200px) {
   .hero__media { width: clamp(220px, 22vw, 320px); top: 20%; }
