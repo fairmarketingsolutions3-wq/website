@@ -114,15 +114,6 @@
     gsap.to(".hero__media", {
       y: -16, duration: 3.2, yoyo: true, repeat: -1, ease: "sine.inOut", delay: 2
     });
-
-    // stat counters
-    document.querySelectorAll(".stat-num").forEach(function (el) {
-      var target = parseInt(el.getAttribute("data-count"), 10);
-      gsap.fromTo(el, { innerText: 0 }, {
-        innerText: target, duration: 2, delay: 1.1,
-        snap: { innerText: 1 }, ease: "power2.out"
-      });
-    });
   }
 
   if (!hasGSAP || reduceMotion) {
@@ -200,6 +191,15 @@
       gsap.from(row.querySelector(".service-row__inner"), {
         y: 80, opacity: 0, duration: 1, ease: "power4.out",
         scrollTrigger: { trigger: row, start: "top 90%" }
+      });
+    });
+
+    // stat counters count up when they scroll into view
+    document.querySelectorAll(".stat-num").forEach(function (el) {
+      var target = parseInt(el.getAttribute("data-count"), 10);
+      gsap.fromTo(el, { innerText: 0 }, {
+        innerText: target, duration: 2.2, snap: { innerText: 1 }, ease: "power2.out",
+        scrollTrigger: { trigger: el, start: "top 95%" }
       });
     });
 
@@ -303,39 +303,6 @@
     var cr = document.getElementById("cursorRing");
     if (cd) cd.style.display = "none";
     if (cr) cr.style.display = "none";
-  }
-
-  /* ─────────── Service hover preview (follows cursor) ─────────── */
-  if (!isTouch && hasGSAP && !reduceMotion) {
-    var preview = document.getElementById("servicePreview");
-    if (preview) {
-      var pvImgs = preview.querySelectorAll("img");
-      var pvX = gsap.quickTo(preview, "x", { duration: 0.45, ease: "power3" });
-      var pvY = gsap.quickTo(preview, "y", { duration: 0.45, ease: "power3" });
-      var servicesList = document.querySelector(".services__list");
-
-      servicesList.addEventListener("mousemove", function (e) {
-        pvX(e.clientX); pvY(e.clientY);
-      });
-
-      document.querySelectorAll(".service-row").forEach(function (row) {
-        var idx = row.getAttribute("data-preview");
-        row.addEventListener("mouseenter", function () {
-          pvImgs.forEach(function (img) {
-            img.classList.toggle("is-active", img.getAttribute("data-preview-img") === idx);
-          });
-          gsap.to(preview, {
-            opacity: 1, scale: 1, rotate: -3, duration: 0.45, ease: "power3.out",
-            transformOrigin: "center", overwrite: "auto"
-          });
-        });
-        row.addEventListener("mouseleave", function () {
-          gsap.to(preview, { opacity: 0, scale: 0.85, duration: 0.35, ease: "power3.in", overwrite: "auto" });
-        });
-      });
-      // quickTo x/y works alongside translate(-50%,-50%) baseline
-      gsap.set(preview, { xPercent: -50, yPercent: -50 });
-    }
   }
 
   /* ─────────── Magnetic buttons ─────────── */
