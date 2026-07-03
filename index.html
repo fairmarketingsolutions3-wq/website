@@ -1,1 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fair Marketing Solutions — Creative Growth Agency · Iringa, Tanzania</title>
+  <meta name="description" content="Fair Marketing Solutions (FMS) is a creative growth agency in Iringa, Tanzania. Branding, social media management, content creation and premium website design — one coordinated partner, measurable results." />
+  <meta property="og:title" content="Fair Marketing Solutions — Creative Growth Agency" />
+  <meta property="og:description" content="Branding · Social Media Management · Content Creation · Premium Website Design. We turn scattered promotion into a system that sells." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="preload" href="assets/fonts/space-grotesk-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="assets/fonts/montserrat-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
 
+  <!-- ═══════════ PRELOADER ═══════════ -->
+  <div class="preloader" id="preloader">
+    <div class="preloader__inner">
+      <div class="preloader__logo">
+        <span class="pl-char">f</span><span class="pl-char">m</span><span class="pl-char">s</span><span class="pl-char pl-dot">.</span>
+      </div>
+      <div class="preloader__bar"><span class="preloader__bar-fill" id="plBar"></span></div>
+      <div class="preloader__count" id="plCount">0</div>
+    </div>
+    <div class="preloader__curtain"></div>
+  </div>
+
+  <!-- ═══════════ CURSOR ═══════════ -->
+  <div class="cursor-dot" id="cursorDot"></div>
+  <div class="cursor-ring" id="cursorRing"></div>
+
+  <!-- ═══════════ NAV ═══════════ -->
+  <header class="nav" id="nav">
+    <a href="#hero" class="nav__logo" data-cursor="hover" aria-label="FMS home">
+      <svg class="nav__mark" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="waveGrad" x1="0" y1="0" x2="64" y2="64">
+            <stop offset="0%" stop-color="#7C3AED"/>
+            <stop offset="100%" stop-color="#00B8D9"/>
+          </linearGradient>
+        </defs>
+        <rect width="64" height="64" rx="16" fill="url(#waveGrad)"/>
+        <path d="M14 26c6-5 12 3 18 0s10-6 18-3v6c-8-3-12 0-18 3s-12-5-18 0v-6z" fill="#fff"/>
+        <path d="M14 38c6-5 12 3 18 0s10-6 18-3v6c-8-3-12 0-18 3s-12-5-18 0v-6z" fill="#fff" opacity=".85"/>
+      </svg>
+      <span class="nav__word">fms<i>.</i></span>
+    </a>
+    <nav class="nav__links" aria-label="Main navigation">
+      <a href="#about" class="nav__link" data-cursor="hover">About</a>
+      <a href="#services" class="nav__link" data-cursor="hover">Services</a>
+      <a href="#process" class="nav__link" data-cursor="hover">Process</a>
+      <a href="#packages" class="nav__link" data-cursor="hover">Packages</a>
+      <a href="#team" class="nav__link" data-cursor="hover">Team</a>
+    </nav>
+    <a href="#contact" class="btn btn--nav magnetic" data-cursor="hover"><span>Let's Talk</span></a>
+    <button class="nav__burger" id="burger" aria-label="Open menu" data-cursor="hover">
+      <span></span><span></span>
+    </button>
+  </header>
+
+  <!-- Mobile menu -->
+  <div class="mobile-menu" id="mobileMenu">
+    <nav class="mobile-menu__links">
+      <a href="#about" class="mobile-menu__link">About</a>
+      <a href="#services" class="mobile-menu__link">Services</a>
+      <a href="#process" class="mobile-menu__link">Process</a>
+      <a href="#packages" class="mobile-menu__link">Packages</a>
+      <a href="#team" class="mobile-menu__link">Team</a>
+      <a href="#contact" class="mobile-menu__link">Contact</a>
+    </nav>
+    <div class="mobile-menu__foot">
+      <p>Iringa, Tanzania</p>
+      <p>info@fms.co.tz · +255 677 157 279</p>
+    </div>
+  </div>
+
+  <main id="smooth-content">
+
+    <!-- ═══════════ HERO ═══════════ -->
+    <section class="hero" id="hero">
+      <div class="hero__blob hero__blob--violet" data-parallax="0.35"></div>
+      <div class="hero__blob hero__blob--cyan" data-parallax="0.2"></div>
+      <div class="hero__blob hero__blob--indigo" data-parallax="0.5"></div>
+      <div class="hero__grid-lines" aria-hidden="true"></div>
+
+      <div class="hero__inner container">
+        <p class="hero__eyebrow reveal-up"><span class="hero__pulse"></span>Creative Growth Agency · Iringa, Tanzania</p>
+        <h1 class="hero__title" aria-label="We build brands that move markets.">
+          <span class="hero__line"><span class="hero__word">We</span> <span class="hero__word">build</span> <span class="hero__word hero__word--outline">brands</span></span>
+          <span class="hero__line"><span class="hero__word">that</span> <span class="hero__word hero__word--grad">move</span></span>
+          <span class="hero__line"><span class="hero__word hero__word--outline">markets</span><span class="hero__word hero__word--grad">.</span></span>
+        </h1>
+        <div class="hero__bottom">
+          <p class="hero__sub reveal-up">Branding, social media, content and premium websites — brought together in one coordinated system that turns attention into paying customers.</p>
+          <div class="hero__cta reveal-up">
+            <a href="#packages" class="btn btn--primary magnetic" data-cursor="hover"><span>Explore Packages</span></a>
+            <a href="#services" class="btn btn--ghost magnetic" data-cursor="hover"><span>Our Services</span></a>
+          </div>
+        </div>
+        <div class="hero__stats">
+          <div class="hero__stat reveal-up"><span class="stat-num" data-count="4">0</span><em>Core services</em></div>
+          <div class="hero__stat reveal-up"><span class="stat-num" data-count="6">0</span><em>Step growth system</em></div>
+          <div class="hero__stat reveal-up"><span class="stat-num" data-count="6">0</span><em>Platforms mastered</em></div>
+          <div class="hero__stat reveal-up"><span class="stat-num" data-count="100">0</span><em>% transparent reporting</em></div>
+        </div>
+      </div>
+      <div class="hero__scroll" aria-hidden="true"><span>Scroll</span><i></i></div>
+    </section>
+
+    <!-- ═══════════ MARQUEE 1 ═══════════ -->
+    <div class="marquee marquee--dark" aria-hidden="true">
+      <div class="marquee__track" data-marquee-speed="1">
+        <div class="marquee__group">
+          <span>Branding</span><b>✦</b><span class="outline">Social Media</span><b>✦</b><span>Content Creation</span><b>✦</b><span class="outline">Web Design</span><b>✦</b>
+          <span>Branding</span><b>✦</b><span class="outline">Social Media</span><b>✦</b><span>Content Creation</span><b>✦</b><span class="outline">Web Design</span><b>✦</b>
+        </div>
+        <div class="marquee__group" aria-hidden="true">
+          <span>Branding</span><b>✦</b><span class="outline">Social Media</span><b>✦</b><span>Content Creation</span><b>✦</b><span class="outline">Web Design</span><b>✦</b>
+          <span>Branding</span><b>✦</b><span class="outline">Social Media</span><b>✦</b><span>Content Creation</span><b>✦</b><span class="outline">Web Design</span><b>✦</b>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════ ABOUT ═══════════ -->
+    <section class="about section" id="about">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-label reveal-up">01 — Who We Are</p>
+          <h2 class="section-title split-words">Not just posts. <em>A process</em> that turns interest into income.</h2>
+        </div>
+        <div class="about__grid">
+          <div class="about__text">
+            <p class="about__lead split-words">Fair Marketing Solutions is an integrated growth agency built for small and growing businesses across Tanzania. We replace scattered, inconsistent promotion with a structured system for attracting attention, building trust and converting interest into paying customers.</p>
+            <p class="about__body reveal-up">Instead of juggling separate suppliers for graphics, video, ads and branding, our clients work through a single coordinated partner — with clear deliverables, transparent reporting and quality checks at every stage.</p>
+            <div class="about__values">
+              <div class="value-chip reveal-up"><b>01</b>Clarity over noise</div>
+              <div class="value-chip reveal-up"><b>02</b>Results that matter</div>
+              <div class="value-chip reveal-up"><b>03</b>Honesty & transparency</div>
+              <div class="value-chip reveal-up"><b>04</b>Professional execution</div>
+            </div>
+          </div>
+          <div class="about__side">
+            <div class="about__card mv-card reveal-up" data-tilt>
+              <span class="mv-card__icon">◎</span>
+              <h3>Mission</h3>
+              <p>To help SMEs and growth-stage businesses organize their brand, communication and customer acquisition through practical solutions that grow with their needs.</p>
+            </div>
+            <div class="about__card mv-card mv-card--alt reveal-up" data-tilt>
+              <span class="mv-card__icon">✦</span>
+              <h3>Vision</h3>
+              <p>To become the trusted growth partner helping Tanzanian businesses build stronger visibility, customer trust and a scalable presence — digital and physical.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ SERVICES ═══════════ -->
+    <section class="services section" id="services">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-label reveal-up">02 — What We Do</p>
+          <h2 class="section-title split-words">Four engines. <em>One growth system.</em></h2>
+        </div>
+      </div>
+      <div class="services__list">
+        <a href="#contact" class="service-row" data-cursor="view">
+          <div class="service-row__bg"></div>
+          <div class="service-row__inner container">
+            <span class="service-row__num">01</span>
+            <h3 class="service-row__title">Branding</h3>
+            <div class="service-row__meta">
+              <p>Identity that builds trust — logo design, brand guidelines, company profiles, pitch decks and printed brand presence.</p>
+              <div class="service-row__tags"><span>Logo & Identity</span><span>Brand Guidelines</span><span>Company Profiles</span><span>Print & Signage</span></div>
+            </div>
+            <span class="service-row__arrow">→</span>
+          </div>
+        </a>
+        <a href="#contact" class="service-row" data-cursor="view">
+          <div class="service-row__bg"></div>
+          <div class="service-row__inner container">
+            <span class="service-row__num">02</span>
+            <h3 class="service-row__title">Social Media Management</h3>
+            <div class="service-row__meta">
+              <p>Structured posting, scheduling and engagement across your key platforms — consistent, professional and reported monthly.</p>
+              <div class="service-row__tags"><span>Content Calendars</span><span>Meta Ads</span><span>Community Engagement</span><span>Monthly Reports</span></div>
+            </div>
+            <span class="service-row__arrow">→</span>
+          </div>
+        </a>
+        <a href="#contact" class="service-row" data-cursor="view">
+          <div class="service-row__bg"></div>
+          <div class="service-row__inner container">
+            <span class="service-row__num">03</span>
+            <h3 class="service-row__title">Content Creation</h3>
+            <div class="service-row__meta">
+              <p>Reels, photography, videography and campaign creative that make your business look credible and communicate with confidence.</p>
+              <div class="service-row__tags"><span>Reels & TikTok</span><span>Photo & Video</span><span>Campaign Graphics</span><span>Branded Templates</span></div>
+            </div>
+            <span class="service-row__arrow">→</span>
+          </div>
+        </a>
+        <a href="#contact" class="service-row" data-cursor="view">
+          <div class="service-row__bg"></div>
+          <div class="service-row__inner container">
+            <span class="service-row__num">04</span>
+            <h3 class="service-row__title">Premium Website Design</h3>
+            <div class="service-row__meta">
+              <p>Fast, clear, easy-to-buy-from websites with WhatsApp conversion setup, SEO foundations and measurable results built in.</p>
+              <div class="service-row__tags"><span>Web Design</span><span>WhatsApp Conversion</span><span>SEO</span><span>Reporting & Insights</span></div>
+            </div>
+            <span class="service-row__arrow">→</span>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <!-- ═══════════ MARQUEE 2 (scroll-driven) ═══════════ -->
+    <div class="big-marquee" aria-hidden="true">
+      <div class="big-marquee__line" data-scroll-marquee="-1">move fast ✦ stay fair ✦ grow loud ✦ move fast ✦ stay fair ✦ grow loud ✦</div>
+      <div class="big-marquee__line big-marquee__line--outline" data-scroll-marquee="1">tech × creativity ✦ tech × creativity ✦ tech × creativity ✦</div>
+    </div>
+
+    <!-- ═══════════ PROCESS (pinned horizontal) ═══════════ -->
+    <section class="process section" id="process">
+      <div class="process__pin">
+        <div class="container">
+          <div class="section-head section-head--row">
+            <div>
+              <p class="section-label reveal-up">03 — How We Work</p>
+              <h2 class="section-title split-words">The <em>FMS method</em></h2>
+            </div>
+            <p class="process__hint reveal-up">A six-step customer-acquisition system — every engagement, every month.</p>
+          </div>
+        </div>
+        <div class="process__track" id="processTrack">
+          <article class="process-card"><span class="process-card__num">01</span><h3>Understand</h3><p>We study your business, offer, customers and market position before anything is designed or posted.</p></article>
+          <article class="process-card"><span class="process-card__num">02</span><h3>Plan</h3><p>A clear monthly calendar with defined deliverables, platforms and goals — no random activity.</p></article>
+          <article class="process-card"><span class="process-card__num">03</span><h3>Create</h3><p>Professional graphics, reels, motion and copy — produced, quality-checked and approved before publishing.</p></article>
+          <article class="process-card"><span class="process-card__num">04</span><h3>Advertise</h3><p>Targeted Meta campaigns built for reach, leads and sales — with ad spend kept fully transparent.</p></article>
+          <article class="process-card"><span class="process-card__num">05</span><h3>Convert</h3><p>WhatsApp funnels, sales scripts and conversion paths that turn interest into real inquiries.</p></article>
+          <article class="process-card"><span class="process-card__num">06</span><h3>Report</h3><p>Leads, cost per result, ROI — reported in plain language you can act on, every month.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ WHY US ═══════════ -->
+    <section class="why section">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-label reveal-up">04 — Why FMS</p>
+          <h2 class="section-title split-words">One partner. <em>Every step.</em></h2>
+        </div>
+        <div class="why__grid">
+          <div class="why-card reveal-up" data-tilt>
+            <div class="why-card__icon">⬡</div>
+            <h3>One coordinated partner</h3>
+            <p>Strategy, creative, advertising and brand all run through one structured team — no disconnected vendors to manage.</p>
+          </div>
+          <div class="why-card reveal-up" data-tilt>
+            <div class="why-card__icon">◉</div>
+            <h3>A process, not just posts</h3>
+            <p>We manage the full buying journey — content, ads, conversion and reporting — so marketing leads to real customer action.</p>
+          </div>
+          <div class="why-card reveal-up" data-tilt>
+            <div class="why-card__icon">✦</div>
+            <h3>Scalable & fair</h3>
+            <p>Start with the support you need most and grow in stages, with value-based pricing and ad spend kept transparent.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ PACKAGES ═══════════ -->
+    <section class="packages section" id="packages">
+      <div class="packages__glow" aria-hidden="true"></div>
+      <div class="container">
+        <div class="section-head section-head--center">
+          <p class="section-label reveal-up">05 — Packages · 2026</p>
+          <h2 class="section-title split-words">Pick your <em>growth speed</em></h2>
+          <p class="section-sub reveal-up">Value-based monthly retainers. Ad budgets are paid directly to Meta and stay separate from your package fee — always transparent.</p>
+        </div>
+        <div class="packages__grid">
+
+          <article class="pkg" data-tilt>
+            <header class="pkg__head">
+              <span class="pkg__badge">Package 01</span>
+              <h3>Silver</h3>
+              <p class="pkg__tag">Stay consistent. Build your first steady stream of leads.</p>
+              <div class="pkg__price"><small>TZS</small><b>450K</b><small>/mo</small></div>
+            </header>
+            <ul class="pkg__list">
+              <li>10 posters + 3 animated posters</li>
+              <li>4 high-quality reels · 1 motion graphic</li>
+              <li>Monthly content calendar</li>
+              <li>Full management — Instagram + Facebook</li>
+              <li>1 traffic + lead-gen campaign</li>
+              <li>Click-to-WhatsApp lead capture</li>
+              <li>Monthly report — leads & engagement</li>
+            </ul>
+            <a href="https://wa.me/255677157279?text=Hi%20FMS!%20I'm%20interested%20in%20the%20Silver%20package." class="btn btn--pkg magnetic" data-cursor="hover" target="_blank" rel="noopener"><span>Start with Silver</span></a>
+          </article>
+
+          <article class="pkg pkg--featured" data-tilt>
+            <span class="pkg__pop">★ Most Popular</span>
+            <header class="pkg__head">
+              <span class="pkg__badge">Package 02</span>
+              <h3>Gold</h3>
+              <p class="pkg__tag">Start converting. Turn followers into paying customers.</p>
+              <div class="pkg__price"><small>TZS</small><b>750K</b><small>/mo</small></div>
+            </header>
+            <ul class="pkg__list">
+              <li>18 posters + 6 animated posters</li>
+              <li>6 reels · 3 motion graphics · 8 stories/mo</li>
+              <li>Light brand refresh (quarterly)</li>
+              <li>3 platforms — IG + FB + TikTok</li>
+              <li>Full-funnel campaign + retargeting ads</li>
+              <li>WhatsApp funnel + sales scripts</li>
+              <li>Bi-weekly + monthly ROI reports</li>
+            </ul>
+            <a href="https://wa.me/255677157279?text=Hi%20FMS!%20I'm%20interested%20in%20the%20Gold%20package." class="btn btn--pkg btn--pkg-featured magnetic" data-cursor="hover" target="_blank" rel="noopener"><span>Go Gold</span></a>
+          </article>
+
+          <article class="pkg" data-tilt>
+            <header class="pkg__head">
+              <span class="pkg__badge">Package 03</span>
+              <h3>Platinum</h3>
+              <p class="pkg__tag">Scale up. Automate growth and run campaigns in parallel.</p>
+              <div class="pkg__price"><small>TZS</small><b>1.3M</b><small>/mo</small></div>
+            </header>
+            <ul class="pkg__list">
+              <li>25 posters + 10 animated posters</li>
+              <li>12 reels · 5 motion graphics · 12 stories</li>
+              <li>Full brand refresh · 4 platforms</li>
+              <li>2–3 simultaneous campaigns</li>
+              <li>WhatsApp automation / chatbot</li>
+              <li>Dedicated strategist + monthly call</li>
+              <li>Weekly dashboards + deep-dive reports</li>
+            </ul>
+            <a href="https://wa.me/255677157279?text=Hi%20FMS!%20I'm%20interested%20in%20the%20Platinum%20package." class="btn btn--pkg magnetic" data-cursor="hover" target="_blank" rel="noopener"><span>Scale with Platinum</span></a>
+          </article>
+
+          <article class="pkg pkg--dark" data-tilt>
+            <header class="pkg__head">
+              <span class="pkg__badge">Package 04 · Enterprise</span>
+              <h3>Tanzanite</h3>
+              <p class="pkg__tag">Dominate. Full-scale production and regional brand authority.</p>
+              <div class="pkg__price"><small>TZS</small><b>3.2M+</b><small>/mo</small></div>
+            </header>
+            <ul class="pkg__list">
+              <li>30+ posts & 20+ premium videos/mo</li>
+              <li>On-site shoots — Iringa & nearby</li>
+              <li>Full branding campaigns, all platforms</li>
+              <li>Multi-campaign scaling system</li>
+              <li>Full WhatsApp automation build</li>
+              <li>Dedicated team + campaign strategy</li>
+              <li>Weekly dashboards + ROI projections</li>
+            </ul>
+            <a href="https://wa.me/255677157279?text=Hi%20FMS!%20I'm%20interested%20in%20the%20Tanzanite%20package." class="btn btn--pkg magnetic" data-cursor="hover" target="_blank" rel="noopener"><span>Build Custom</span></a>
+          </article>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ TEAM ═══════════ -->
+    <section class="team section" id="team">
+      <div class="container">
+        <div class="section-head">
+          <p class="section-label reveal-up">06 — The Team</p>
+          <h2 class="section-title split-words">Lean, focused, <em>accountable.</em></h2>
+        </div>
+        <div class="team__grid">
+          <div class="team-card reveal-up" data-tilt>
+            <div class="team-card__avatar team-card__avatar--v">SU</div>
+            <h3>Suleiman</h3>
+            <p class="team-card__role">Business Strategist · Founder</p>
+            <p class="team-card__bio">Leads business development, positioning and growth planning — setting the strategic direction of the company.</p>
+          </div>
+          <div class="team-card reveal-up" data-tilt>
+            <div class="team-card__avatar team-card__avatar--c">MA</div>
+            <h3>Marei</h3>
+            <p class="team-card__role">Ads Specialist · Social Media Manager</p>
+            <p class="team-card__bio">Owns Meta Ads setup and optimization, social media management, performance tracking and client communication.</p>
+          </div>
+          <div class="team-card reveal-up" data-tilt>
+            <div class="team-card__avatar team-card__avatar--i">ER</div>
+            <h3>Eric</h3>
+            <p class="team-card__role">Content & Graphics Manager</p>
+            <p class="team-card__bio">Leads content planning, graphic design, short-video and photo coordination, and visual consistency across every campaign.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ CTA / CONTACT ═══════════ -->
+    <section class="cta section" id="contact">
+      <div class="cta__blob cta__blob--a" data-parallax="0.3"></div>
+      <div class="cta__blob cta__blob--b" data-parallax="0.15"></div>
+      <div class="container">
+        <p class="section-label section-label--center reveal-up">07 — Let's Talk</p>
+        <h2 class="cta__title">
+          <span class="cta__line">Ready to</span>
+          <span class="cta__line cta__line--grad">move?</span>
+        </h2>
+        <p class="cta__sub reveal-up">Tell us where your business is stuck — we'll show you the system that gets it moving. Straight answers, fair pricing, measurable results.</p>
+        <div class="cta__actions reveal-up">
+          <a href="https://wa.me/255677157279?text=Hi%20FMS!%20Let's%20talk%20about%20growing%20my%20business." class="btn btn--big magnetic" data-cursor="hover" target="_blank" rel="noopener"><span>Chat on WhatsApp ↗</span></a>
+          <a href="mailto:info@fms.co.tz" class="btn btn--ghost btn--big-ghost magnetic" data-cursor="hover"><span>info@fms.co.tz</span></a>
+        </div>
+        <div class="cta__details reveal-up">
+          <div><b>Visit</b><span>Iringa, Tanzania</span></div>
+          <div><b>Call</b><span>+255 677 157 279</span></div>
+          <div><b>Web</b><span>fms.co.tz</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ═══════════ FOOTER ═══════════ -->
+    <footer class="footer">
+      <div class="marquee marquee--footer" aria-hidden="true">
+        <div class="marquee__track" data-marquee-speed="0.6">
+          <div class="marquee__group">
+            <span>fair marketing solutions</span><b>✦</b><span class="outline">for the creatives</span><b>✦</b>
+            <span>fair marketing solutions</span><b>✦</b><span class="outline">for the creatives</span><b>✦</b>
+          </div>
+          <div class="marquee__group" aria-hidden="true">
+            <span>fair marketing solutions</span><b>✦</b><span class="outline">for the creatives</span><b>✦</b>
+            <span>fair marketing solutions</span><b>✦</b><span class="outline">for the creatives</span><b>✦</b>
+          </div>
+        </div>
+      </div>
+      <div class="container footer__inner">
+        <div class="footer__brand">
+          <span class="footer__logo">fms<i>.</i></span>
+          <p>A marketing, content & performance advertising agency — Iringa, Tanzania. We don't sell posts, we deliver a process.</p>
+        </div>
+        <div class="footer__col">
+          <b>Services</b>
+          <a href="#services">Branding</a>
+          <a href="#services">Social Media Management</a>
+          <a href="#services">Content Creation</a>
+          <a href="#services">Premium Website Design</a>
+        </div>
+        <div class="footer__col">
+          <b>Company</b>
+          <a href="#about">About</a>
+          <a href="#process">Process</a>
+          <a href="#packages">Packages</a>
+          <a href="#team">Team</a>
+        </div>
+        <div class="footer__col">
+          <b>Contact</b>
+          <a href="mailto:info@fms.co.tz">info@fms.co.tz</a>
+          <a href="tel:+255677157279">+255 677 157 279</a>
+          <a href="https://wa.me/255677157279" target="_blank" rel="noopener">WhatsApp</a>
+          <a href="https://fms.co.tz">fms.co.tz</a>
+        </div>
+      </div>
+      <div class="container footer__base">
+        <span>© 2026 Fair Marketing Solutions. All rights reserved.</span>
+        <span>Iringa · Tanzania · For the Creatives</span>
+      </div>
+    </footer>
+
+  </main>
+
+  <script src="js/vendor/gsap.min.js"></script>
+  <script src="js/vendor/ScrollTrigger.min.js"></script>
+  <script src="js/vendor/lenis.min.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
