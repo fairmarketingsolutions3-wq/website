@@ -475,6 +475,7 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
 .service-row {
   display: block; position: relative; overflow: hidden;
   border-bottom: 1px solid var(--line);
+  cursor: default;
 }
 .service-row__bg {
   position: absolute; inset: 0; background: var(--grad);
@@ -630,6 +631,7 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
   background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
 }
 .pkg__price small { font-size: 13px; color: var(--muted); font-weight: 600; }
+.pkg__custom { font-size: 13.5px; color: rgba(248, 250, 252, 0.78); margin: 18px 0 26px; flex: 1; }
 .pkg__list { list-style: none; margin: 18px 0 26px; display: grid; gap: 10px; flex: 1; }
 .pkg__list li {
   font-size: 13.5px; color: rgba(248, 250, 252, 0.78);
@@ -648,7 +650,11 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
 
 /* ═══════════ Team ═══════════ */
 .team { background: var(--ink-2); }
-.team__grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(18px, 2.5vw, 28px); }
+.team__grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(18px, 2.5vw, 28px);
+  max-width: 880px; margin-inline: auto;
+}
 .team-card {
   border-radius: 26px; padding: clamp(30px, 3.4vw, 46px);
   border: 1px solid var(--line);
