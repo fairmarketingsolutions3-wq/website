@@ -83,6 +83,12 @@ body {
   border-radius: var(--radius);
   overflow: hidden;
 }
+/* film grain for a premium finish on dark panels */
+.panel-dark::after {
+  content: ""; position: absolute; inset: 0; z-index: 30; pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  opacity: 0.07; mix-blend-mode: overlay;
+}
 
 img, svg { max-width: 100%; display: block; }
 img { height: auto; }
@@ -543,6 +549,61 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
 .step h3 { font-family: var(--font-display); font-size: clamp(19px, 2vw, 24px); margin-bottom: 8px; }
 .step p { color: var(--ink-muted); font-size: 14px; }
 
+/* ═══════════ Platforms strip ═══════════ */
+.platforms { padding: clamp(30px, 4vw, 56px) 0; text-align: center; }
+.platforms__label {
+  display: block;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3em; text-transform: uppercase;
+  color: rgba(17, 24, 39, 0.4); margin-bottom: 22px;
+}
+.platforms__row {
+  display: flex; flex-wrap: wrap; justify-content: center; align-items: baseline;
+  gap: clamp(14px, 3vw, 34px);
+}
+.platforms__row span {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(17px, 2.2vw, 26px); letter-spacing: -0.01em;
+  color: rgba(17, 24, 39, 0.35);
+  transition: color .35s, transform .35s;
+}
+.platforms__row span:hover { color: var(--graphite); transform: translateY(-2px); }
+.platforms__row i { color: var(--violet); font-style: normal; font-size: 12px; }
+
+/* ═══════════ Full-bleed image band ═══════════ */
+.band { padding: 0 var(--gutter); }
+.band__inner {
+  position: relative; border-radius: var(--radius); overflow: hidden;
+  height: clamp(340px, 62vh, 640px);
+}
+.band__inner img {
+  position: absolute; inset: 0; width: 100%; height: 116%; object-fit: cover;
+  will-change: transform;
+}
+.band__inner::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(14, 19, 34, 0.1) 30%, rgba(14, 19, 34, 0.72) 100%);
+}
+.band__overlay {
+  position: absolute; inset: auto 0 0 0; z-index: 2;
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 20px;
+  padding: clamp(22px, 3.4vw, 48px);
+  color: var(--cloud);
+}
+.band__word {
+  font-family: var(--font-display); font-weight: 700;
+  font-size: clamp(34px, 6.4vw, 88px); line-height: 0.95; letter-spacing: -0.03em;
+  max-width: 12ch;
+}
+.band__word em {
+  font-style: normal;
+  background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.band__year {
+  font-family: var(--font-display); font-size: clamp(13px, 1.4vw, 17px); font-weight: 600;
+  letter-spacing: 0.16em; text-transform: uppercase; color: rgba(248, 250, 252, 0.75);
+  white-space: nowrap;
+}
+
 /* ═══════════ Pricing (dark panel, light cards) ═══════════ */
 .pricing { padding: 0 var(--gutter); }
 .pricing__panel { padding: clamp(60px, 8vw, 110px) 0; }
@@ -624,6 +685,13 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
 /* ═══════════ FAQ ═══════════ */
 .faq__grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: clamp(40px, 5vw, 90px); align-items: start; }
 .faq__intro .section-side { margin-top: 20px; }
+.faq__photo {
+  margin-top: 30px; border-radius: 22px; overflow: hidden;
+  border: 1px solid var(--line-dark);
+  box-shadow: 0 28px 60px -30px rgba(36, 59, 128, 0.4);
+}
+.faq__photo img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; transition: transform .6s ease; }
+.faq__photo:hover img { transform: scale(1.04); }
 
 /* ═══════════ Big marquee ═══════════ */
 .big-marquee { overflow: hidden; padding: clamp(40px, 6vw, 90px) 0 clamp(20px, 3vw, 40px); }

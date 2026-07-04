@@ -205,6 +205,15 @@
       });
     }
 
+    // editorial band image parallax
+    var bandImg = document.querySelector(".band__inner img");
+    if (bandImg) {
+      gsap.fromTo(bandImg, { yPercent: -10 }, {
+        yPercent: 0, ease: "none",
+        scrollTrigger: { trigger: ".band__inner", start: "top bottom", end: "bottom top", scrub: 1 }
+      });
+    }
+
     // footer giant wordmark rise
     var footWord = document.querySelector(".footer__word");
     if (footWord) {
