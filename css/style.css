@@ -1046,3 +1046,102 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
 @media (max-width: 640px) {
   .facts__grid, .offer-grid, .outcome-grid, .contact__facts { grid-template-columns: 1fr; }
 }
+
+/* ══════════════════════════════════════════════════
+   THEME: Design One (original dark) applied to the
+   multi-page structure. Full dark ink base, glass
+   cards, cyan labels, gradient glows.
+   ══════════════════════════════════════════════════ */
+:root {
+  --bg: #0A0E1C;
+  --ink-muted: rgba(248, 250, 252, 0.62);
+  --line-dark: rgba(248, 250, 252, 0.12);
+  --card: linear-gradient(160deg, rgba(248, 250, 252, 0.055), rgba(248, 250, 252, 0.015));
+}
+body { color: var(--cloud); }
+.panel-dark { border: 1px solid rgba(248, 250, 252, 0.08); }
+
+/* design-one signature: faint grid lines in the hero panel */
+.hero__panel::before, .page-hero__panel::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image:
+    linear-gradient(rgba(248, 250, 252, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(248, 250, 252, 0.035) 1px, transparent 1px);
+  background-size: 90px 90px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 78%);
+  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 78%);
+}
+
+/* headings & labels */
+.section-title { color: var(--cloud); }
+.section-label { color: var(--cyan); }
+.page-hero__title { color: var(--cloud); }
+
+/* light cards → dark glass cards */
+.bento, .value-chip, .why-card, .step, .fact, .serve-card, .team-card, .outcome {
+  background: var(--card);
+  border-color: var(--line-dark);
+  color: var(--cloud);
+}
+.value-chip:hover { box-shadow: 0 16px 40px -18px rgba(124, 58, 237, 0.5); }
+.why-card:hover, .team-card:hover { box-shadow: 0 30px 60px -30px rgba(124, 58, 237, 0.5); }
+.bento--stat-dark { background: rgba(248, 250, 252, 0.03); border: 1px solid var(--line-dark); }
+.bento--vision { background: linear-gradient(140deg, rgba(0, 184, 217, 0.12), rgba(36, 59, 128, 0.28)); }
+.bento--mission { background: linear-gradient(140deg, rgba(124, 58, 237, 0.16), rgba(36, 59, 128, 0.28)); }
+.bento--mission p { color: var(--cloud-muted); }
+.serve-card--alt { background: linear-gradient(140deg, rgba(124, 58, 237, 0.18), rgba(36, 59, 128, 0.3)); }
+.team-card__role { color: var(--cyan); }
+.fact b { color: var(--cyan); }
+
+/* pricing cards go dark like design one */
+.price-card {
+  background: var(--card);
+  color: var(--cloud);
+  border: 1px solid var(--line-dark);
+}
+.price-card--featured {
+  outline-color: rgba(124, 58, 237, 0.8);
+  background: linear-gradient(165deg, rgba(124, 58, 237, 0.2), rgba(36, 59, 128, 0.24));
+}
+.price-card__badge { color: var(--cyan); }
+.price-card__list li::before { color: var(--cyan); }
+.price-card--dark { border-color: rgba(0, 184, 217, 0.35); }
+.btn--dark { border: 1px solid rgba(248, 250, 252, 0.25); }
+
+/* contact card */
+.contact__card { background: linear-gradient(160deg, #182036, #0E1322); color: var(--cloud); border: 1px solid var(--line-dark); }
+.contact__socials a { border-color: var(--line-dark); color: var(--cloud); }
+
+/* FAQ light accordion → dark */
+.acc--light { border-top-color: var(--line-dark); }
+.acc--light .acc__item { border-bottom-color: var(--line-dark); }
+.acc--light .acc__toggle { border-color: rgba(248, 250, 252, 0.3); }
+.acc--light .acc__content p { color: var(--cloud-muted); }
+.faq__photo { border-color: var(--line-dark); box-shadow: 0 28px 60px -28px rgba(124, 58, 237, 0.45); }
+
+/* platforms strip */
+.platforms__label { color: rgba(248, 250, 252, 0.4); }
+.platforms__row span { color: rgba(248, 250, 252, 0.35); }
+.platforms__row span:hover { color: #fff; }
+
+/* outline marquee */
+.big-marquee__line { -webkit-text-stroke-color: rgba(248, 250, 252, 0.32); }
+
+/* services page rows */
+.svc-row__media { border-color: var(--line-dark); box-shadow: 0 40px 80px -35px rgba(124, 58, 237, 0.45); }
+.svc-row__tags span { border-color: var(--line-dark); color: var(--cloud-muted); }
+
+/* footer */
+.footer__col a:hover { color: #fff; }
+.footer__col b { color: var(--cyan); }
+.footer__base { border-top-color: var(--line-dark); color: rgba(248, 250, 252, 0.4); }
+.footer__word { color: var(--cloud); }
+.footer__brand p { color: var(--cloud-muted); }
+
+/* ambient site glow like design one */
+body::before {
+  content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60vw 60vw at 85% -10%, rgba(124, 58, 237, 0.14), transparent 60%),
+    radial-gradient(50vw 50vw at -10% 110%, rgba(0, 184, 217, 0.1), transparent 60%);
+}
