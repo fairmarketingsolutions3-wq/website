@@ -223,21 +223,34 @@
       });
     }
 
-    // pill nav appears after leaving the hero
-    ScrollTrigger.create({
-      trigger: ".hero",
-      start: "bottom 120px",
-      onEnter: function () { document.getElementById("nav").classList.add("is-scrolled"); },
-      onLeaveBack: function () { document.getElementById("nav").classList.remove("is-scrolled"); }
-    });
+    // pill nav appears after leaving the hero (home only; subpages keep it fixed)
+    if (document.querySelector(".hero")) {
+      ScrollTrigger.create({
+        trigger: ".hero",
+        start: "bottom 120px",
+        onEnter: function () { document.getElementById("nav").classList.add("is-scrolled"); },
+        onLeaveBack: function () { document.getElementById("nav").classList.remove("is-scrolled"); }
+      });
+    }
+
+    // about page: timeline progress line scrubs with scroll
+    var tlProgress = document.getElementById("timelineProgress");
+    if (tlProgress) {
+      gsap.fromTo(tlProgress, { scaleY: 0 }, {
+        scaleY: 1, ease: "none",
+        scrollTrigger: { trigger: "#timeline", start: "top 75%", end: "bottom 55%", scrub: 1 }
+      });
+    }
 
     window.addEventListener("load", function () { ScrollTrigger.refresh(); });
   } else {
-    // no-motion fallback: show pill nav after scrolling past hero
-    window.addEventListener("scroll", function () {
-      var past = window.scrollY > window.innerHeight * 0.9;
-      document.getElementById("nav").classList.toggle("is-scrolled", past);
-    }, { passive: true });
+    // no-motion fallback: show pill nav after scrolling past hero (home only)
+    if (document.querySelector(".hero")) {
+      window.addEventListener("scroll", function () {
+        var past = window.scrollY > window.innerHeight * 0.9;
+        document.getElementById("nav").classList.toggle("is-scrolled", past);
+      }, { passive: true });
+    }
   }
 
   /* ─────────── Custom cursor ─────────── */

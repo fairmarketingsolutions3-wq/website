@@ -27,6 +27,13 @@ Six-step customer-acquisition system: Understand → Plan → Create → Adverti
 - Suleiman — Business Strategist, Founder
 - Marei — Managing Director
 
+## Site pages
+- Home: https://fms.co.tz/
+- About (story, mission, values, team): https://fms.co.tz/about.html
+- Services (branding, social media, content, web design): https://fms.co.tz/services.html
+- Pricing (packages, outcomes, FAQs): https://fms.co.tz/pricing.html
+- Contact: https://fms.co.tz/contact.html
+
 ## Contact
 - Location: Iringa, Tanzania
 - Website: https://fms.co.tz
