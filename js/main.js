@@ -321,6 +321,37 @@
     });
   }
 
+  /* ─────────── Lead form → WhatsApp / Email (no backend needed) ─────────── */
+  var leadForm = document.getElementById("leadForm");
+  if (leadForm) {
+    var leadText = function () {
+      var f = new FormData(leadForm);
+      return "New project inquiry — FMS website\n\n" +
+        "Name: " + (f.get("name") || "-") + "\n" +
+        "Business: " + (f.get("company") || "-") + "\n" +
+        "Email: " + (f.get("email") || "-") + "\n" +
+        "Phone: " + (f.get("phone") || "-") + "\n" +
+        "Service: " + f.get("service") + "\n" +
+        "Package: " + f.get("package") + "\n\n" +
+        "Project:\n" + (f.get("message") || "-");
+    };
+    leadForm.addEventListener("submit", function (e) {
+      e.preventDefault();
+      if (!leadForm.reportValidity()) return;
+      window.open("https://wa.me/255677157279?text=" + encodeURIComponent(leadText()), "_blank", "noopener");
+    });
+    var emailBtn = document.getElementById("leadFormEmail");
+    if (emailBtn) {
+      emailBtn.addEventListener("click", function () {
+        if (!leadForm.reportValidity()) return;
+        var name = new FormData(leadForm).get("name") || "FMS website";
+        window.location.href = "mailto:karibu@fms.co.tz?subject=" +
+          encodeURIComponent("New project inquiry — " + name) +
+          "&body=" + encodeURIComponent(leadText());
+      });
+    }
+  }
+
   /* ─────────── Mobile menu ─────────── */
   var burger = document.getElementById("burger");
   var mobileMenu = document.getElementById("mobileMenu");

@@ -95,6 +95,7 @@
       <span class="nav__word">fms<i>.</i></span>
     </a>
     <nav class="nav__links" aria-label="Main navigation">
+      <a href="index.html" class="nav__link" data-cursor="hover">Home</a>
       <a href="about.html" class="nav__link" data-cursor="hover">About</a>
       <a href="services.html" class="nav__link" data-cursor="hover">Services</a>
       <a href="pricing.html" class="nav__link" data-cursor="hover">Pricing</a>
@@ -153,18 +154,54 @@
               <div><b>Email</b><span>karibu@fms.co.tz</span></div>
               <div><b>Web</b><span>fms.co.tz</span></div>
             </div>
-          </div>
-          <div class="contact__card reveal-up">
-            <h3>Start the conversation</h3>
-            <a href="https://wa.me/255677157279?text=Hi%20FMS!%20Let's%20talk%20about%20growing%20my%20business." class="btn btn--grad btn--block magnetic" data-cursor="hover" target="_blank" rel="noopener"><span>Chat on WhatsApp ↗</span></a>
-            <a href="mailto:karibu@fms.co.tz" class="btn btn--dark btn--block magnetic" data-cursor="hover"><span>karibu@fms.co.tz</span></a>
-            <div class="contact__socials">
+            <div class="contact__socials reveal-up" style="justify-content:flex-start;margin-top:26px">
               <a href="https://www.instagram.com/fairmarketingsolution/" target="_blank" rel="noopener" aria-label="Instagram" data-cursor="hover"><svg><use href="#so-instagram"/></svg></a>
               <a href="https://www.facebook.com/profile.php?id=61573357633781" target="_blank" rel="noopener" aria-label="Facebook" data-cursor="hover"><svg><use href="#so-facebook"/></svg></a>
               <a href="https://www.tiktok.com/@fairmarketingsolutions?lang=en" target="_blank" rel="noopener" aria-label="TikTok" data-cursor="hover"><svg><use href="#so-tiktok"/></svg></a>
               <a href="https://www.youtube.com/channel/UC69V-7MvcZDvZfYg6cxVg5g" target="_blank" rel="noopener" aria-label="YouTube" data-cursor="hover"><svg><use href="#so-youtube"/></svg></a>
               <a href="https://wa.me/255677157279" target="_blank" rel="noopener" aria-label="WhatsApp" data-cursor="hover"><svg><use href="#so-whatsapp"/></svg></a>
             </div>
+          </div>
+          <div class="lead-card reveal-up">
+            <h3>Tell us about your project</h3>
+            <p>Fill this in and send it straight to our team — we reply within one business day.</p>
+            <form class="lead-form" id="leadForm" novalidate>
+              <div class="lead-form__row">
+                <label>Full name *<input type="text" name="name" required autocomplete="name" placeholder="Your name" /></label>
+                <label>Business / Company<input type="text" name="company" autocomplete="organization" placeholder="Business name" /></label>
+              </div>
+              <div class="lead-form__row">
+                <label>Email *<input type="email" name="email" required autocomplete="email" placeholder="you@business.co.tz" /></label>
+                <label>Phone / WhatsApp<input type="tel" name="phone" autocomplete="tel" placeholder="+255 ..." /></label>
+              </div>
+              <div class="lead-form__row">
+                <label>Service you need
+                  <select name="service">
+                    <option>Social Media Management</option>
+                    <option>Branding</option>
+                    <option>Content Creation</option>
+                    <option>Website Design</option>
+                    <option>Full growth package</option>
+                    <option>Not sure yet</option>
+                  </select>
+                </label>
+                <label>Package interest
+                  <select name="package">
+                    <option>Not sure yet</option>
+                    <option>Silver — TZS 450K/mo</option>
+                    <option>Gold — TZS 750K/mo</option>
+                    <option>Platinum — TZS 1.3M/mo</option>
+                    <option>Tanzanite — Custom</option>
+                  </select>
+                </label>
+              </div>
+              <label>Tell us about your project *<textarea name="message" rows="4" required placeholder="What are you trying to grow?"></textarea></label>
+              <div class="lead-form__actions">
+                <button type="submit" class="btn btn--grad magnetic" data-cursor="hover"><span>Send via WhatsApp ↗</span></button>
+                <button type="button" id="leadFormEmail" class="btn btn--dark magnetic" data-cursor="hover"><span>Send via Email</span></button>
+              </div>
+              <p class="lead-form__note">Your message opens pre-filled in WhatsApp or your email app — nothing is stored on this website.</p>
+            </form>
           </div>
         </div>
       </div>

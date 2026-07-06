@@ -142,6 +142,7 @@
       <span class="nav__word">fms<i>.</i></span>
     </a>
     <nav class="nav__links" aria-label="Main navigation">
+      <a href="index.html" class="nav__link nav__link--active" data-cursor="hover">Home</a>
       <a href="about.html" class="nav__link" data-cursor="hover">About</a>
       <a href="services.html" class="nav__link" data-cursor="hover">Services</a>
       <a href="pricing.html" class="nav__link" data-cursor="hover">Pricing</a>
@@ -163,6 +164,7 @@
   <!-- Mobile menu -->
   <div class="mobile-menu" id="mobileMenu">
     <nav class="mobile-menu__links">
+      <a href="index.html" class="mobile-menu__link">Home</a>
       <a href="about.html" class="mobile-menu__link">About</a>
       <a href="services.html" class="mobile-menu__link">Services</a>
       <a href="pricing.html" class="mobile-menu__link">Pricing</a>
@@ -186,6 +188,9 @@
     <!-- ═══════════ HERO (dark panel) ═══════════ -->
     <section class="hero" id="hero">
       <div class="hero__panel panel-dark">
+        <div class="hero__bg" aria-hidden="true">
+          <img src="https://d8j0ntlcm91z4.cloudfront.net/user_3CLEtLPeh0N3uP7Q35ulf9rxYre/hf_20260704_231737_7aa0c9ea-2805-468f-9d74-1a595f40957c_min.webp" alt="" width="2048" height="1152" fetchpriority="high" />
+        </div>
         <div class="hero__blob hero__blob--violet" data-parallax="0.3"></div>
         <div class="hero__blob hero__blob--cyan" data-parallax="0.18"></div>
 
@@ -198,6 +203,7 @@
             <span>fms<i>.</i></span>
           </a>
           <nav class="hero__nav" aria-label="Hero navigation">
+            <a href="index.html" data-cursor="hover">Home</a>
             <a href="about.html" data-cursor="hover">About</a>
             <a href="services.html" data-cursor="hover">Services</a>
             <a href="pricing.html" data-cursor="hover">Pricing</a>
@@ -206,8 +212,10 @@
           <a href="#contact" class="btn btn--hero-cta magnetic" data-cursor="hover"><span>Let's Talk</span></a>
         </div>
 
-        <h1 class="hero__word" aria-label="fms — Fair Marketing Solutions">
-          <span class="hw-char">f</span><span class="hw-char">m</span><span class="hw-char">s</span><span class="hw-char hw-reg">®</span>
+        <h1 class="hero__word hero__word--name" aria-label="Fair Marketing Solutions">
+          <span class="hw-line"><span class="hw-char">Fair</span></span>
+          <span class="hw-line"><span class="hw-char">Marketing</span></span>
+          <span class="hw-line"><span class="hw-char">Solutions</span><span class="hw-reg">®</span></span>
         </h1>
 
         <div class="hero__bottom">
@@ -218,10 +226,6 @@
               <a href="#packages" class="btn btn--light magnetic" data-cursor="hover"><span>Explore Packages</span></a>
               <a href="#services" class="btn btn--ghost magnetic" data-cursor="hover"><span>Our Services</span></a>
             </div>
-          </div>
-          <div class="hero__media" id="heroMedia">
-            <img src="https://d8j0ntlcm91z4.cloudfront.net/user_3CLEtLPeh0N3uP7Q35ulf9rxYre/hf_20260704_231722_9437bdeb-f553-4453-8a3b-989b3bd98a09_min.webp" alt="Premium creative studio workspace at Fair Marketing Solutions" width="768" height="1024" />
-            <span class="hero__media-badge"><i></i>for the creatives</span>
           </div>
         </div>
       </div>
@@ -613,7 +617,7 @@
           <div class="contact__card reveal-up">
             <h3>Start the conversation</h3>
             <a href="https://wa.me/255677157279?text=Hi%20FMS!%20Let's%20talk%20about%20growing%20my%20business." class="btn btn--grad btn--block magnetic" data-cursor="hover" target="_blank" rel="noopener"><span>Chat on WhatsApp ↗</span></a>
-            <a href="mailto:karibu@fms.co.tz" class="btn btn--dark btn--block magnetic" data-cursor="hover"><span>karibu@fms.co.tz</span></a>
+            <a href="mailto:karibu@fms.co.tz" class="btn btn--dark btn--block magnetic" data-cursor="hover" aria-label="Email us at karibu@fms.co.tz"><span>Email Us</span></a>
             <div class="contact__socials">
               <a href="https://www.instagram.com/fairmarketingsolution/" target="_blank" rel="noopener" aria-label="Instagram" data-cursor="hover"><svg><use href="#so-instagram"/></svg></a>
               <a href="https://www.facebook.com/profile.php?id=61573357633781" target="_blank" rel="noopener" aria-label="Facebook" data-cursor="hover"><svg><use href="#so-facebook"/></svg></a>
@@ -659,7 +663,6 @@
           <a href="mailto:karibu@fms.co.tz">karibu@fms.co.tz</a>
           <a href="tel:+255677157279">+255 677 157 279</a>
           <a href="https://wa.me/255677157279" target="_blank" rel="noopener">WhatsApp</a>
-          <a href="https://fms.co.tz">fms.co.tz</a>
         </div>
         <div class="footer__col">
           <b>Social</b>
