@@ -20,12 +20,24 @@
 
 Note: recommended ad budgets are paid directly to Meta and are separate from package fees.
 
+## Web Design Package (one-time)
+- FMS Web Design Package — Signature Motion Site: TZS 1,500,000 one-time build fee.
+  A high-end, animation-driven custom website (not a template): fully custom UI/UX in the
+  FMS signature standard, heavy motion system (scroll-triggered animations, page transitions,
+  parallax, micro-interactions), cinematic hero, up to 6 core pages, contact form with
+  email/WhatsApp integration, social media + Google Maps integration, basic on-page SEO,
+  mobile-first optimization, SSL, 1 training round, brand-matched design.
+  Process: discovery & brief → design concept → development & animation → review & revisions
+  (up to 2 rounds) → launch & handover. Estimated delivery 3–5 weeks.
+  Domain and hosting billed separately at cost; maintenance available as an add-on retainer.
+  Details: https://fms.co.tz/pricing.html#webdesign
+
 ## Method
 Six-step customer-acquisition system: Understand → Plan → Create → Advertise → Convert → Report.
 
 ## Team
-- Suleiman — Business Strategist, Founder
-- Marei — Managing Director
+- Suleman Faraj — Business Strategist, Founder
+- Marei Mbarak — Managing Director
 
 ## Site pages
 - Home: https://fms.co.tz/
