@@ -209,6 +209,31 @@
       });
     }
 
+    // team portraits: cinematic clip reveal + slow parallax inside the frame
+    gsap.utils.toArray(".tm-card").forEach(function (card, i) {
+      gsap.fromTo(card,
+        { clipPath: "inset(100% 0% 0% 0%)", y: 46 },
+        {
+          clipPath: "inset(0% 0% 0% 0%)", y: 0,
+          duration: 1.25, ease: "power4.out", delay: i * 0.14,
+          scrollTrigger: { trigger: card, start: "top 86%" }
+        });
+      gsap.fromTo(card.querySelector(".tm-card__body"),
+        { y: 30, opacity: 0 },
+        {
+          y: 0, opacity: 1,
+          duration: 1, ease: "power3.out", delay: 0.4 + i * 0.14, immediateRender: false,
+          scrollTrigger: { trigger: card, start: "top 86%" }
+        });
+      var media = card.querySelector(".tm-card__media");
+      if (media) {
+        gsap.fromTo(media, { yPercent: -3 }, {
+          yPercent: 3, ease: "none",
+          scrollTrigger: { trigger: card, start: "top bottom", end: "bottom top", scrub: 1 }
+        });
+      }
+    });
+
     // journey wave: path draws itself, a glowing dot rides it and lights each step
     document.querySelectorAll("[data-journey]").forEach(function (jr) {
       var svg = jr.querySelector(".journey__svg");
