@@ -2,7 +2,7 @@
 
 > Fair Marketing Solutions is a creative growth agency based in Iringa, Tanzania.
 > It provides branding, social media management, content creation and premium
-> website design for SMEs and growth-stage businesses across Tanzania — one
+> website design for SMEs and growth stage businesses across Tanzania, one
 > coordinated partner with clear deliverables, transparent reporting and
 > measurable results.
 
@@ -10,34 +10,34 @@
 - Branding: logo & identity design, brand guidelines, company profiles, pitch decks, print & signage
 - Social Media Management: content calendars, scheduling, community engagement, Meta Ads, monthly reports
 - Content Creation: reels & TikTok videos, photography, videography, campaign graphics, branded templates
-- Premium Website Design: fast conversion-focused websites, WhatsApp conversion setup, SEO, reporting & insights
+- Premium Website Design: fast conversion focused websites, WhatsApp conversion setup, SEO, reporting & insights
 
 ## Packages (monthly retainers, 2026)
-- Silver — TZS 450,000/month: 10 posters, 3 animated posters, 4 reels, 1 motion graphic, 2 platforms (Instagram + Facebook), 1 lead-generation campaign, Click-to-WhatsApp capture, monthly report
-- Gold (most popular) — TZS 750,000/month: 18 posters, 6 animated posters, 6 reels, 3 motion graphics, 8 stories, 3 platforms (+TikTok), full-funnel campaign + retargeting, WhatsApp funnel + sales scripts, bi-weekly reports
-- Platinum — TZS 1,300,000/month: 25 posters, 10 animated posters, 12 reels, 5 motion graphics, 12 stories, full brand refresh, 4 platforms, 2–3 simultaneous campaigns, WhatsApp automation/chatbot, dedicated strategist, weekly dashboards
-- Tanzanite (enterprise) — custom-priced: full-scale production, campaign systems and a dedicated team, scoped around the client's goals
+- Silver, TZS 450,000/month: 10 posters, 3 animated posters, 4 reels, 1 motion graphic, 2 platforms (Instagram + Facebook), 1 lead generation campaign, Click to WhatsApp capture, monthly report
+- Gold (most popular), TZS 750,000/month: 18 posters, 6 animated posters, 6 reels, 3 motion graphics, 8 stories, 3 platforms (+TikTok), full funnel campaign + retargeting, WhatsApp funnel + sales scripts, biweekly reports
+- Platinum, TZS 1,300,000/month: 25 posters, 10 animated posters, 12 reels, 5 motion graphics, 12 stories, full brand refresh, 4 platforms, 2 to 3 simultaneous campaigns, WhatsApp automation/chatbot, dedicated strategist, weekly dashboards
+- Tanzanite (enterprise), custom priced: full scale production, campaign systems and a dedicated team, scoped around the client's goals
 
 Note: recommended ad budgets are paid directly to Meta and are separate from package fees.
 
-## Web Design Package (one-time)
-- FMS Web Design Package — Signature Motion Site: TZS 1,500,000 one-time build fee.
-  A high-end, animation-driven custom website (not a template): fully custom UI/UX in the
-  FMS signature standard, heavy motion system (scroll-triggered animations, page transitions,
-  parallax, micro-interactions), cinematic hero, up to 6 core pages, contact form with
-  email/WhatsApp integration, social media + Google Maps integration, basic on-page SEO,
-  mobile-first optimization, SSL, 1 training round, brand-matched design.
+## Web Design Package (one time)
+- FMS Web Design Package: Signature Motion Site: TZS 1,500,000 one time build fee.
+  A high end, animation driven custom website (not a template): fully custom UI/UX in the
+  FMS signature standard, heavy motion system (scroll triggered animations, page transitions,
+  parallax, micro interactions), cinematic hero, up to 6 core pages, contact form with
+  email/WhatsApp integration, social media + Google Maps integration, basic on page SEO,
+  mobile first optimization, SSL, 1 training round, brand matched design.
   Process: discovery & brief → design concept → development & animation → review & revisions
-  (up to 2 rounds) → launch & handover. Estimated delivery 3–5 weeks.
-  Domain and hosting billed separately at cost; maintenance available as an add-on retainer.
+  (up to 2 rounds) → launch & handover. Estimated delivery 3 to 5 weeks.
+  Domain and hosting billed separately at cost; maintenance available as an optional retainer.
   Details: https://fms.co.tz/pricing.html#webdesign
 
 ## Method
-Six-step customer-acquisition system: Understand → Plan → Create → Advertise → Convert → Report.
+Six step customer acquisition system: Understand → Plan → Create → Advertise → Convert → Report.
 
 ## Team
-- Suleman Faraj — Business Strategist, Founder
-- Marei Mbarak — Managing Director
+- Suleman Faraj, Business Strategist, Founder
+- Marei Mbarak, Managing Director
 
 ## Site pages
 - Home: https://fms.co.tz/

@@ -1,5 +1,5 @@
 /* ══════════════════════════════════════════════════
-   Fair Marketing Solutions — motion system (editorial redesign)
+   Fair Marketing Solutions motion system (editorial redesign)
    GSAP + ScrollTrigger + Lenis smooth scroll
    ══════════════════════════════════════════════════ */
 
@@ -67,36 +67,12 @@
     return el.querySelectorAll(".w > span");
   }
 
-  /* ─────────── Preloader ─────────── */
-  var preloader = document.getElementById("preloader");
-  var plBar = document.getElementById("plBar");
-  var plCount = document.getElementById("plCount");
-
+  /* ─────────── Site start (no loading screen) ─────────── */
   function startSite() {
     document.body.classList.add("is-loaded");
     if (hasGSAP && !reduceMotion) heroIntro();
   }
-
-  if (preloader && hasGSAP && !reduceMotion) {
-    var tl = gsap.timeline();
-    var prog = { v: 0 };
-    tl.to(".pl-char", { y: 0, duration: 0.9, stagger: 0.08, ease: "power4.out" })
-      .to(prog, {
-        v: 100, duration: 1.6, ease: "power2.inOut",
-        onUpdate: function () {
-          var v = Math.round(prog.v);
-          plCount.textContent = v;
-          plBar.style.width = v + "%";
-        }
-      }, "-=0.4")
-      .to(".preloader__inner", { y: -40, opacity: 0, duration: 0.5, ease: "power2.in" })
-      .to(".preloader__curtain", { y: "-100%", duration: 0.7, ease: "power4.inOut" }, "-=0.2")
-      .to(preloader, { yPercent: -100, duration: 0.7, ease: "power4.inOut", onStart: startSite }, "<")
-      .set(preloader, { display: "none" });
-  } else {
-    if (preloader) preloader.style.display = "none";
-    startSite();
-  }
+  startSite();
 
   /* ─────────── Hero intro ─────────── */
   function heroIntro() {
@@ -233,6 +209,63 @@
       });
     }
 
+    // journey wave: path draws itself, a glowing dot rides it and lights each step
+    document.querySelectorAll("[data-journey]").forEach(function (jr) {
+      var svg = jr.querySelector(".journey__svg");
+      var path = jr.querySelector("[data-journey-path]");
+      var dot = jr.querySelector("[data-journey-dot]");
+      var nodes = jr.querySelectorAll(".journey__node");
+      var cards = jr.querySelectorAll(".j-step");
+      if (!svg || !path || !dot) return;
+
+      var len = path.getTotalLength();
+      path.style.strokeDasharray = len + " " + len;
+      path.style.strokeDashoffset = len;
+
+      // arc-length position of each node (where the wave crosses its row centre)
+      var nodeLens = [];
+      nodes.forEach(function (n, i) {
+        var targetY = ((2 * i + 1) / 12) * 1560;
+        var lo = 0, hi = len;
+        for (var k = 0; k < 24; k++) {
+          var mid = (lo + hi) / 2;
+          if (path.getPointAtLength(mid).y < targetY) lo = mid; else hi = mid;
+        }
+        nodeLens.push((lo + hi) / 2);
+      });
+
+      function ride(p) {
+        path.style.strokeDashoffset = len * (1 - p);
+        var pt = path.getPointAtLength(len * p);
+        var sr = svg.getBoundingClientRect();
+        var jrr = jr.getBoundingClientRect();
+        dot.style.left = (sr.left - jrr.left + (pt.x / 1200) * sr.width) + "px";
+        dot.style.top = (sr.top - jrr.top + (pt.y / 1560) * sr.height) + "px";
+        nodes.forEach(function (n, i) {
+          n.classList.toggle("is-lit", len * p >= nodeLens[i] - 1);
+        });
+        jr.classList.toggle("is-riding", p > 0.001 && p < 0.999);
+      }
+      ride(0);
+
+      var prox = { p: 0 };
+      gsap.to(prox, {
+        p: 1, ease: "none",
+        onUpdate: function () { ride(prox.p); },
+        scrollTrigger: { trigger: jr, start: "top 72%", end: "bottom 62%", scrub: 0.6 }
+      });
+
+      // step cards swing in from their side of the wave
+      cards.forEach(function (card, i) {
+        var fromLeft = card.matches(":nth-child(odd)");
+        gsap.from(card.firstElementChild, {
+          x: fromLeft ? -70 : 70, opacity: 0, rotate: fromLeft ? -3 : 3,
+          duration: 1, ease: "power4.out",
+          scrollTrigger: { trigger: card, start: "top 86%" }
+        });
+      });
+    });
+
     // about page: timeline progress line scrubs with scroll
     var tlProgress = document.getElementById("timelineProgress");
     if (tlProgress) {
@@ -244,6 +277,9 @@
 
     window.addEventListener("load", function () { ScrollTrigger.refresh(); });
   } else {
+    // no-motion fallback: journey renders fully drawn with every step lit
+    document.querySelectorAll(".journey__node").forEach(function (n) { n.classList.add("is-lit"); });
+
     // no-motion fallback: show pill nav after scrolling past hero (home only)
     if (document.querySelector(".hero")) {
       window.addEventListener("scroll", function () {
@@ -326,7 +362,7 @@
   if (leadForm) {
     var leadText = function () {
       var f = new FormData(leadForm);
-      return "New project inquiry — FMS website\n\n" +
+      return "New project inquiry: FMS website\n\n" +
         "Name: " + (f.get("name") || "-") + "\n" +
         "Business: " + (f.get("company") || "-") + "\n" +
         "Email: " + (f.get("email") || "-") + "\n" +
@@ -346,7 +382,7 @@
         if (!leadForm.reportValidity()) return;
         var name = new FormData(leadForm).get("name") || "FMS website";
         window.location.href = "mailto:karibu@fms.co.tz?subject=" +
-          encodeURIComponent("New project inquiry — " + name) +
+          encodeURIComponent("New project inquiry: " + name) +
           "&body=" + encodeURIComponent(leadText());
       });
     }

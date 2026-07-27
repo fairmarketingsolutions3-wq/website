@@ -95,35 +95,6 @@ img { height: auto; }
 a { color: inherit; text-decoration: none; }
 button { font: inherit; background: none; border: 0; color: inherit; cursor: pointer; text-align: left; }
 
-/* ═══════════ Preloader ═══════════ */
-.preloader {
-  position: fixed; inset: 0; z-index: 1000;
-  display: grid; place-items: center;
-  background: var(--panel); color: var(--cloud);
-}
-.preloader__inner { text-align: center; position: relative; z-index: 2; }
-.preloader__logo {
-  font-family: var(--font-display);
-  font-size: clamp(64px, 12vw, 140px);
-  font-weight: 700; letter-spacing: -0.04em; line-height: 1;
-  overflow: hidden; display: inline-flex;
-}
-.pl-char { display: inline-block; transform: translateY(110%); }
-.pl-dot { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
-.preloader__bar {
-  width: min(280px, 60vw); height: 2px; margin: 32px auto 14px;
-  background: var(--line-light); border-radius: 2px; overflow: hidden;
-}
-.preloader__bar-fill { display: block; width: 0%; height: 100%; background: var(--grad); }
-.preloader__count {
-  font-family: var(--font-display); font-size: 14px; letter-spacing: 0.3em;
-  color: var(--cloud-muted);
-}
-.preloader__curtain {
-  position: absolute; inset: 0; background: var(--grad);
-  transform: translateY(100%); z-index: 1;
-}
-
 /* ═══════════ Cursor ═══════════ */
 .cursor-dot, .cursor-ring {
   position: fixed; top: 0; left: 0; pointer-events: none; z-index: 999;
@@ -526,28 +497,83 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
 .why-card h3 { font-family: var(--font-display); font-size: clamp(19px, 1.9vw, 24px); margin-bottom: 10px; }
 .why-card p { color: var(--ink-muted); font-size: 14.5px; }
 
-/* ═══════════ Process steps ═══════════ */
-.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(14px, 1.8vw, 22px); }
-.step {
-  position: relative;
-  border-radius: 26px; padding: clamp(26px, 2.8vw, 40px);
-  background: var(--cloud); border: 1px solid var(--line-dark);
-  transition: background .4s, border-color .4s, transform .4s;
+/* ═══════════ Journey (FMS method wave) ═══════════ */
+.journey { position: relative; --jx: 50%; margin-top: clamp(36px, 5vw, 64px); }
+.journey__svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.journey__trail, .journey__line { fill: none; vector-effect: non-scaling-stroke; }
+.journey__trail { stroke: rgba(248, 250, 252, 0.14); stroke-width: 2; stroke-dasharray: 2 8; stroke-linecap: round; }
+.journey__line {
+  stroke: url(#jGrad); stroke-width: 3.5; stroke-linecap: round;
+  filter: drop-shadow(0 0 10px rgba(0, 184, 217, 0.6)) drop-shadow(0 0 26px rgba(124, 58, 237, 0.35));
 }
-.step:hover { transform: translateY(-6px); border-color: rgba(0, 184, 217, 0.5); }
-.step__num {
-  position: absolute; top: clamp(20px, 2.4vw, 32px); right: clamp(20px, 2.4vw, 32px);
-  font-family: var(--font-display); font-size: clamp(30px, 3vw, 44px); font-weight: 700; line-height: 1;
-  color: transparent; -webkit-text-stroke: 1.2px rgba(124, 58, 237, 0.55);
+.journey__dot {
+  position: absolute; left: 0; top: 0; z-index: 3; pointer-events: none;
+  width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 5px rgba(0, 184, 217, 0.28), 0 0 22px rgba(0, 184, 217, 0.95), 0 0 46px rgba(124, 58, 237, 0.6);
+  opacity: 0;
 }
-.step__icon {
+.journey__dot::after {
+  content: ""; position: absolute; inset: -10px; border-radius: 50%;
+  border: 1px solid rgba(0, 184, 217, 0.55);
+  animation: jPulse 1.8s ease-out infinite;
+}
+@keyframes jPulse {
+  0% { transform: scale(0.6); opacity: 1; }
+  100% { transform: scale(1.9); opacity: 0; }
+}
+.journey.is-riding .journey__dot { opacity: 1; }
+.journey__node {
+  position: absolute; left: var(--jx); z-index: 2;
+  width: 15px; height: 15px; transform: translate(-50%, -50%);
+  border-radius: 50%; background: var(--bg);
+  border: 2px solid rgba(248, 250, 252, 0.35);
+  transition: background .45s, border-color .45s, box-shadow .45s, transform .45s;
+}
+.journey__node.is-lit {
+  background: var(--cyan); border-color: #fff;
+  box-shadow: 0 0 16px rgba(0, 184, 217, 0.95), 0 0 34px rgba(124, 58, 237, 0.5);
+  transform: translate(-50%, -50%) scale(1.25);
+}
+.journey__steps {
+  position: relative; z-index: 1; list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: 1fr 1fr;
+  column-gap: clamp(150px, 17vw, 260px);
+  grid-auto-rows: 1fr;
+}
+.j-step { display: flex; align-items: center; padding: clamp(16px, 2vw, 26px) 0; }
+.j-step:nth-child(odd) { grid-column: 1; justify-content: flex-end; }
+.j-step:nth-child(even) { grid-column: 2; justify-content: flex-start; }
+.j-step:nth-child(1) { grid-row: 1; }
+.j-step:nth-child(2) { grid-row: 2; }
+.j-step:nth-child(3) { grid-row: 3; }
+.j-step:nth-child(4) { grid-row: 4; }
+.j-step:nth-child(5) { grid-row: 5; }
+.j-step:nth-child(6) { grid-row: 6; }
+.j-step__card {
+  position: relative; width: 100%; max-width: 430px;
+  background: var(--card); border: 1px solid var(--line-dark);
+  border-radius: 26px; padding: clamp(24px, 2.6vw, 36px);
+  color: var(--cloud);
+  transition: transform .5s cubic-bezier(.22,1,.36,1), border-color .4s, box-shadow .4s;
+}
+.j-step__card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(0, 184, 217, 0.5);
+  box-shadow: 0 30px 60px -28px rgba(0, 184, 217, 0.4);
+}
+.j-step__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: clamp(16px, 2vw, 24px); }
+.j-step__num {
+  font-family: var(--font-display); font-size: clamp(30px, 3vw, 42px); font-weight: 700; line-height: 1;
+  color: transparent; -webkit-text-stroke: 1.2px rgba(0, 184, 217, 0.65);
+}
+.j-step__icon {
   width: 48px; height: 48px; display: grid; place-items: center;
   border-radius: 15px; background: var(--grad); color: #fff;
-  margin-bottom: clamp(20px, 2.6vw, 34px);
 }
-.step__icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
-.step h3 { font-family: var(--font-display); font-size: clamp(19px, 2vw, 24px); margin-bottom: 8px; }
-.step p { color: var(--ink-muted); font-size: 14px; }
+.j-step__icon svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.j-step__card h3 { font-family: var(--font-display); font-size: clamp(19px, 2vw, 24px); margin-bottom: 8px; }
+.j-step__card p { color: var(--cloud-muted); font-size: 14px; line-height: 1.7; }
 
 /* ═══════════ Platforms strip ═══════════ */
 .platforms { padding: clamp(30px, 4vw, 56px) 0; text-align: center; }
@@ -803,7 +829,14 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
   .hero__panel { padding-top: 86px; }
   .hero__bottom { flex-direction: column; align-items: flex-start; }
   .hero__media { align-self: center; width: min(240px, 62vw); }
-  .why__grid, .steps { grid-template-columns: 1fr 1fr; }
+  .why__grid { grid-template-columns: 1fr 1fr; }
+  /* journey collapses to a left-hand wave with full-width cards */
+  .journey { --jx: 30px; }
+  .journey__svg { width: 60px; }
+  .journey__steps { grid-template-columns: 1fr; column-gap: 0; }
+  .j-step:nth-child(odd), .j-step:nth-child(even) { grid-column: 1; justify-content: flex-start; }
+  .j-step { padding-left: 68px; }
+  .j-step__card { max-width: none; }
   .team__grid { grid-template-columns: 1fr; }
   .about__values { grid-template-columns: 1fr 1fr; }
   .footer__inner { grid-template-columns: 1fr 1fr; }
@@ -812,7 +845,10 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
 }
 @media (max-width: 640px) {
   :root { --radius: 24px; }
-  .why__grid, .steps { grid-template-columns: 1fr; }
+  .why__grid { grid-template-columns: 1fr; }
+  .j-step { padding-left: 56px; }
+  .journey { --jx: 24px; }
+  .journey__svg { width: 48px; }
   .pricing__grid { grid-template-columns: 1fr; }
   .about__values { grid-template-columns: 1fr; }
   .about__bento { grid-template-columns: 1fr; }
@@ -1078,7 +1114,7 @@ body { color: var(--cloud); }
 .page-hero__title { color: var(--cloud); }
 
 /* light cards → dark glass cards */
-.bento, .value-chip, .why-card, .step, .fact, .serve-card, .team-card, .outcome {
+.bento, .value-chip, .why-card, .fact, .serve-card, .team-card, .outcome {
   background: var(--card);
   border-color: var(--line-dark);
   color: var(--cloud);
