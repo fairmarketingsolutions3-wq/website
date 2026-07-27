@@ -212,26 +212,26 @@
     // team portraits: cinematic clip reveal + slow parallax inside the frame
     gsap.utils.toArray(".tm-card").forEach(function (card, i) {
       gsap.fromTo(card,
-        { clipPath: "inset(100% 0% 0% 0%)", y: 46 },
-        {
-          clipPath: "inset(0% 0% 0% 0%)", y: 0,
-          duration: 1.25, ease: "power4.out", delay: i * 0.14,
-          scrollTrigger: { trigger: card, start: "top 86%" }
-        });
-      gsap.fromTo(card.querySelector(".tm-card__body"),
-        { y: 30, opacity: 0 },
+        { y: 44, opacity: 0 },
         {
           y: 0, opacity: 1,
-          duration: 1, ease: "power3.out", delay: 0.4 + i * 0.14, immediateRender: false,
-          scrollTrigger: { trigger: card, start: "top 86%" }
+          duration: 1, ease: "power3.out", delay: i * 0.14, immediateRender: false,
+          scrollTrigger: { trigger: card, start: "top 88%" }
         });
-      var media = card.querySelector(".tm-card__media");
-      if (media) {
-        gsap.fromTo(media, { yPercent: -3 }, {
-          yPercent: 3, ease: "none",
-          scrollTrigger: { trigger: card, start: "top bottom", end: "bottom top", scrub: 1 }
+      gsap.fromTo(card.querySelector(".tm-card__ring"),
+        { scale: 0.72, opacity: 0 },
+        {
+          scale: 1, opacity: 1,
+          duration: 1.1, ease: "back.out(1.7)", delay: 0.25 + i * 0.14, immediateRender: false,
+          scrollTrigger: { trigger: card, start: "top 88%" }
         });
-      }
+      gsap.fromTo(card.querySelector(".tm-card__body"),
+        { y: 24, opacity: 0 },
+        {
+          y: 0, opacity: 1,
+          duration: 0.9, ease: "power3.out", delay: 0.5 + i * 0.14, immediateRender: false,
+          scrollTrigger: { trigger: card, start: "top 88%" }
+        });
     });
 
     // journey wave: path draws itself, a glowing dot rides it and lights each step
