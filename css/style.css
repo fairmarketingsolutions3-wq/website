@@ -750,14 +750,6 @@ body.has-mouse .cursor-dot, body.has-mouse .cursor-ring { opacity: 1; }
   22% { opacity: 1; }
   100% { transform: translateX(130%); opacity: 0; }
 }
-.tm-card__num {
-  position: absolute; top: clamp(16px, 1.8vw, 22px); right: clamp(20px, 2.2vw, 28px); z-index: 3;
-  font-family: var(--font-display); font-size: clamp(24px, 2.4vw, 34px); font-weight: 700; line-height: 1;
-  color: transparent; -webkit-text-stroke: 1.2px rgba(248, 250, 252, 0.35);
-  transition: -webkit-text-stroke-color .5s ease, transform .5s cubic-bezier(.22, 1, .36, 1);
-}
-.tm-card:hover .tm-card__num { -webkit-text-stroke-color: var(--cyan); transform: translateY(-2px); }
-
 .tm-card__body { position: relative; z-index: 3; margin-top: clamp(20px, 2.2vw, 28px); }
 .tm-card__body h3 {
   font-family: var(--font-display); font-size: clamp(20px, 2vw, 26px); font-weight: 700;
