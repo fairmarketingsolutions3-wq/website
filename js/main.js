@@ -220,6 +220,23 @@
     });
   }
 
+  /* ---------------- Hero montage: cycle video and stills ---------------- */
+  var scenes = document.querySelectorAll('#heroMedia [data-scene]');
+  if (scenes.length > 1 && !prefersReduced) {
+    var current = 0;
+    // The opening video scene holds longer than the stills.
+    var holds = [9000, 5500, 5500];
+    function nextScene() {
+      scenes[current].classList.remove('is-active');
+      current = (current + 1) % scenes.length;
+      scenes[current].classList.add('is-active');
+      var vid = scenes[current].querySelector('video');
+      if (vid) { var p = vid.play(); if (p && p.catch) p.catch(function () {}); }
+      setTimeout(nextScene, holds[current % holds.length]);
+    }
+    setTimeout(nextScene, holds[0]);
+  }
+
   /* ---------------- Lazy-start videos when visible ---------------- */
   var vids = document.querySelectorAll('video');
   var vidIO = new IntersectionObserver(function (entries) {
