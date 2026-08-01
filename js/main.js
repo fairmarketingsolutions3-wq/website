@@ -52,8 +52,23 @@
   window.addEventListener('scroll', onProgress, { passive: true });
   onProgress();
 
+  /* ---------------- Word-by-word heading reveal ---------------- */
+  document.querySelectorAll('[data-words]').forEach(function (h) {
+    var words = h.textContent.trim().split(/\s+/);
+    h.textContent = '';
+    words.forEach(function (word, i) {
+      var mask = document.createElement('span');
+      mask.className = 'w';
+      var inner = document.createElement('span');
+      inner.textContent = word;
+      mask.appendChild(inner);
+      h.appendChild(mask);
+      if (i < words.length - 1) h.appendChild(document.createTextNode(' '));
+    });
+  });
+
   /* ---------------- Reveal on scroll ---------------- */
-  var revealables = document.querySelectorAll('[data-reveal], [data-stagger], .trace, .timeline');
+  var revealables = document.querySelectorAll('[data-reveal], [data-stagger], [data-words], .trace, .timeline');
   var io = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
       if (entry.isIntersecting) {
@@ -65,7 +80,44 @@
   revealables.forEach(function (el) { io.observe(el); });
 
   /* ---------------- Animated counters ---------------- */
-  var counters = document.querySelectorAll('[data-count]');
+  function renderCount(el, value) {
+    var pad = parseInt(el.getAttribute('data-pad') || '0', 10);
+    var suffix = el.getAttribute('data-suffix') || '';
+    var val = value.toString();
+    while (val.length < pad) val = '0' + val;
+    el.textContent = val;
+    if (suffix) {
+      var s = document.createElement('span');
+      s.className = 'sfx';
+      s.textContent = suffix;
+      el.appendChild(s);
+    }
+  }
+
+  function animateCount(el) {
+    var target = parseInt(el.getAttribute('data-count'), 10);
+    if (prefersReduced) { renderCount(el, target); return; }
+    var duration = 1800;
+    var start = null;
+    function frame(ts) {
+      if (!start) start = ts;
+      var p = Math.min((ts - start) / duration, 1);
+      var eased = 1 - Math.pow(1 - p, 4);
+      renderCount(el, Math.round(target * eased));
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  // Hero counters roll as soon as the page loads; the rest on scroll.
+  var allCounters = Array.prototype.slice.call(document.querySelectorAll('[data-count]'));
+  var heroCounters = allCounters.filter(function (el) { return el.closest('.hero'); });
+  var scrollCounters = allCounters.filter(function (el) { return !el.closest('.hero'); });
+  window.addEventListener('load', function () {
+    setTimeout(function () {
+      heroCounters.forEach(function (el) { animateCount(el); });
+    }, 900);
+  });
   var counterIO = new IntersectionObserver(function (entries) {
     entries.forEach(function (entry) {
       if (!entry.isIntersecting) return;
@@ -73,30 +125,7 @@
       animateCount(entry.target);
     });
   }, { threshold: 0.6 });
-  counters.forEach(function (el) { counterIO.observe(el); });
-
-  function animateCount(el) {
-    var target = parseInt(el.getAttribute('data-count'), 10);
-    var pad = parseInt(el.getAttribute('data-pad') || '0', 10);
-    var duration = 1400;
-    var start = null;
-    function frame(ts) {
-      if (!start) start = ts;
-      var p = Math.min((ts - start) / duration, 1);
-      var eased = 1 - Math.pow(1 - p, 3);
-      var val = Math.round(target * eased).toString();
-      while (val.length < pad) val = '0' + val;
-      el.textContent = val;
-      if (p < 1) requestAnimationFrame(frame);
-    }
-    if (prefersReduced) {
-      var val = target.toString();
-      while (val.length < pad) val = '0' + val;
-      el.textContent = val;
-      return;
-    }
-    requestAnimationFrame(frame);
-  }
+  scrollCounters.forEach(function (el) { counterIO.observe(el); });
 
   /* ---------------- Parallax (images + drifting arcs + gallery) ---------------- */
   var parallaxImgs = document.querySelectorAll('[data-parallax]');
