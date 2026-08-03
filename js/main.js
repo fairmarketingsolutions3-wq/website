@@ -220,6 +220,19 @@
     });
   }
 
+  /* ---------------- Image fallbacks ----------------
+     Generated visuals are served from a CDN. If one cannot be reached,
+     swap in the local photograph so the layout never shows a broken image. */
+  document.querySelectorAll('img[data-fallback]').forEach(function (img) {
+    img.addEventListener('error', function handle() {
+      img.removeEventListener('error', handle);
+      img.src = img.getAttribute('data-fallback');
+    });
+    if (img.complete && img.naturalWidth === 0) {
+      img.src = img.getAttribute('data-fallback');
+    }
+  });
+
   /* ---------------- Hero montage: cycle video and stills ---------------- */
   var scenes = document.querySelectorAll('#heroMedia [data-scene]');
   if (scenes.length > 1 && !prefersReduced) {

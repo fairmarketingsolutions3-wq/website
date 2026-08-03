@@ -519,6 +519,7 @@ section { position: relative; }
   overflow: hidden;
   box-shadow: 0 24px 60px rgba(35, 40, 31, 0.18);
 }
+.split .img-frame { aspect-ratio: 4 / 5; max-height: 560px; }
 .img-frame img {
   width: 100%;
   height: 100%;
@@ -1115,7 +1116,7 @@ section { position: relative; }
 .join-step h4 { font-family: var(--font-display); font-weight: 600; color: var(--tipfa-green); margin: 0.5rem 0 0.3rem; }
 .join-step p { font-size: 0.85rem; color: rgba(35, 40, 31, 0.78); }
 
-.swahili-note {
+.member-callout {
   margin-top: 2.6rem;
   background: var(--deep-green);
   border-radius: var(--radius);
@@ -1123,8 +1124,8 @@ section { position: relative; }
   position: relative;
   overflow: hidden;
 }
-.swahili-note h3 { color: var(--harvest-orange); margin-bottom: 0.5rem; position: relative; z-index: 1; }
-.swahili-note p { color: rgba(239, 237, 226, 0.92); font-size: 0.98rem; max-width: 72ch; position: relative; z-index: 1; }
+.member-callout h3 { color: var(--harvest-orange); margin-bottom: 0.5rem; position: relative; z-index: 1; }
+.member-callout p { color: rgba(239, 237, 226, 0.92); font-size: 0.98rem; max-width: 72ch; position: relative; z-index: 1; }
 
 /* ==========================================================================
    Roadmap timeline
