@@ -25,6 +25,18 @@ gen-drip-irrigation.webp	hf_20260803_093813_e0add536-648e-4f13-b865-c67015317362
 gen-greenhouses-golden-hour.webp	hf_20260803_093820_169b601e-74cd-46b1-9c3c-f52fbb398415_min.webp
 gen-brassicas-highland.webp	hf_20260803_093832_3b7a371c-4cba-4bf7-a90d-a0388d26f410_min.webp
 gen-tomato-screenhouse.webp	hf_20260803_093835_eecdfb9e-2961-4d51-8cba-da876c79fa06_min.webp
+gen-crop-capsicum.webp	hf_20260803_112424_24d21593-7bad-4333-b8d0-821f30140057_min.webp
+gen-crop-habanero.webp	hf_20260803_112447_7edb06d5-7f5c-46a6-98cc-dbcffba4e374_min.webp
+gen-crop-cherry-tomato.webp	hf_20260803_112457_5aba4b63-aab3-4cfe-8c7e-458fe7c2d2f1_min.webp
+gen-crop-cucumber.webp	hf_20260803_112634_8d33aa91-dc76-4d91-8fe7-061ad471c76d_min.webp
+gen-crop-avocado.webp	hf_20260803_112651_04f33920-47ca-4444-8620-c9e4ca12a324_min.webp
+gen-crop-broccoli.webp	hf_20260803_112749_d06ad29e-d1a2-4900-b68d-9eafac96566f_min.webp
+gen-crop-cauliflower.webp	hf_20260803_112759_ae3219ec-ba77-41f6-b388-31ca3cb1ab45_min.webp
+gen-crop-herbs.webp	hf_20260803_112812_56f5abc1-2625-4df0-a78b-20075e874612_min.webp
+gen-market-dar-es-salaam.webp	hf_20260803_120126_44a93caa-e672-41d0-8f7c-cd4714b1e075_min.webp
+gen-market-dodoma.webp	hf_20260803_120139_3a2b29b3-3b5a-40c1-8996-00433060680b_min.webp
+gen-market-zanzibar.webp	hf_20260803_120149_741da356-e353-4ac3-93af-bf9ce5d6eb0a_min.webp
+gen-market-arusha.webp	hf_20260803_121142_8e89127c-cb61-447e-aed1-390f19b2e1ea_min.webp
 EOF
 )
 
