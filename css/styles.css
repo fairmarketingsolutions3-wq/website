@@ -146,11 +146,15 @@ section { position: relative; }
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 900;
-  padding: 1rem 0;
-  background: rgba(239, 237, 226, 0.94);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 1px 0 rgba(64, 94, 53, 0.12);
-  transition: padding 0.45s var(--ease-out);
+  padding: 1.2rem 0;
+  background: transparent;
+  transition: padding 0.45s var(--ease-out), background 0.5s var(--ease-out);
+}
+/* Once past the hero, a soft wash carries the nav. No border, no panel edge. */
+.nav.scrolled {
+  background: rgba(239, 237, 226, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
 }
 .nav .container {
   display: flex;
@@ -158,9 +162,17 @@ section { position: relative; }
   justify-content: space-between;
   gap: 2rem;
 }
-.nav-logo img { height: 42px; width: auto; transition: height 0.4s var(--ease-out); }
+.nav-logo img {
+  height: 44px;
+  width: auto;
+  transition: height 0.4s var(--ease-out), filter 0.5s var(--ease-out);
+  /* A soft cream halo lifts the coloured lockup off the hero photograph,
+     so no panel or box is needed behind it. */
+  filter: drop-shadow(0 0 5px rgba(239, 237, 226, 0.9))
+          drop-shadow(0 0 11px rgba(239, 237, 226, 0.55));
+}
 .nav.scrolled { padding: 0.6rem 0; }
-.nav.scrolled .nav-logo img { height: 36px; }
+.nav.scrolled .nav-logo img { height: 36px; filter: none; }
 
 .nav-links {
   display: flex;
@@ -172,11 +184,13 @@ section { position: relative; }
   font-family: var(--font-display);
   font-weight: 600;
   font-size: 0.82rem;
-  color: var(--tipfa-green);
+  color: var(--field-cream);
+  text-shadow: 0 1px 8px rgba(35, 40, 31, 0.6);
   position: relative;
   padding: 0.2rem 0;
-  transition: color 0.3s;
+  transition: color 0.3s, text-shadow 0.3s;
 }
+.nav.scrolled .nav-links a { color: var(--tipfa-green); text-shadow: none; }
 .nav-links a::after {
   content: "";
   position: absolute;
@@ -221,10 +235,12 @@ section { position: relative; }
 .nav-toggle span {
   display: block;
   height: 2px;
-  background: var(--tipfa-green);
+  background: var(--field-cream);
   margin: 6px 0;
+  box-shadow: 0 1px 6px rgba(35, 40, 31, 0.5);
   transition: transform 0.35s var(--ease-out), opacity 0.3s, background 0.3s;
 }
+.nav.scrolled .nav-toggle span { background: var(--tipfa-green); box-shadow: none; }
 
 /* ==========================================================================
    Hero
@@ -590,8 +606,8 @@ section { position: relative; }
 .produce { background: var(--deep-green); }
 .produce-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.4rem;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.2rem;
   margin-top: 3rem;
 }
 .produce-card {
@@ -600,7 +616,28 @@ section { position: relative; }
   overflow: hidden;
   aspect-ratio: 4 / 5;
   background: var(--soil-ink);
+  box-shadow: 0 14px 40px rgba(35, 40, 31, 0.28);
+  transition: transform 0.55s var(--ease-out), box-shadow 0.55s var(--ease-out);
+  will-change: transform;
 }
+.produce-card:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 28px 60px rgba(35, 40, 31, 0.42);
+}
+/* Harvest-orange edge that draws itself on hover */
+.produce-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--harvest-orange);
+  border-radius: var(--radius);
+  opacity: 0;
+  transform: scale(1.04);
+  transition: opacity 0.45s var(--ease-out), transform 0.45s var(--ease-out);
+  pointer-events: none;
+  z-index: 3;
+}
+.produce-card:hover::after { opacity: 1; transform: scale(1); }
 .produce-card video,
 .produce-card img {
   position: absolute;
@@ -627,11 +664,26 @@ section { position: relative; }
 }
 .produce-card .card-label {
   position: absolute;
-  left: 1.4rem; right: 1.4rem; bottom: 1.2rem;
+  left: 1.2rem; right: 1.2rem; bottom: 1.1rem;
   color: var(--field-cream);
+  z-index: 2;
+  transition: transform 0.5s var(--ease-out);
 }
-.produce-card .card-label h3 { color: var(--field-cream); margin-bottom: 0.15rem; }
-.produce-card .card-label p { font-size: 0.82rem; color: rgba(239, 237, 226, 0.85); }
+.produce-card:hover .card-label { transform: translateY(-4px); }
+.produce-card .card-label h3 { color: var(--field-cream); margin-bottom: 0.15rem; font-size: 1.1rem; }
+.produce-card .card-label p {
+  font-size: 0.78rem;
+  color: rgba(239, 237, 226, 0.85);
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: max-height 0.5s var(--ease-out), opacity 0.4s var(--ease-out);
+}
+.produce-card:hover .card-label p { max-height: 5rem; opacity: 1; }
+/* Touch devices have no hover, so the description stays open */
+@media (hover: none) {
+  .produce-card .card-label p { max-height: 5rem; opacity: 1; }
+}
 .produce-card .live-dot {
   position: absolute;
   top: 1.1rem; left: 1.2rem;
@@ -681,20 +733,28 @@ section { position: relative; }
    Founding farms — horizontal drag strip
    ========================================================================== */
 
-.farm-strip {
+/* Continuous right-to-left conveyor of member farms */
+.farm-marquee {
+  overflow: hidden;
+  padding: 2.6rem 0 1.8rem;
+  position: relative;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+.farm-track {
   display: flex;
   gap: 1.3rem;
-  overflow-x: auto;
-  padding: 2.6rem 4vw 1.6rem;
-  scroll-snap-type: x mandatory;
-  cursor: grab;
-  scrollbar-width: none;
+  width: max-content;
+  animation: farm-scroll 38s linear infinite;
+  will-change: transform;
 }
-.farm-strip::-webkit-scrollbar { display: none; }
-.farm-strip.dragging { cursor: grabbing; scroll-snap-type: none; }
+.farm-marquee:hover .farm-track { animation-play-state: paused; }
+@keyframes farm-scroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(calc(-50% - 0.65rem)); }
+}
 .farm-card {
   flex: 0 0 285px;
-  scroll-snap-align: start;
   background: #fff;
   border-radius: var(--radius);
   padding: 2rem 1.7rem 1.8rem;
@@ -1131,7 +1191,105 @@ section { position: relative; }
    Roadmap timeline
    ========================================================================== */
 
-.roadmap { position: relative; }
+/* ==========================================================================
+   Road ahead — horizontal growth track on a dark field
+   ========================================================================== */
+
+.roadmap {
+  position: relative;
+  background: var(--deep-green);
+  overflow: hidden;
+}
+.roadmap .lede { color: rgba(239, 237, 226, 0.9); }
+.road-track {
+  margin-top: 3.4rem;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.2rem;
+}
+/* The rail the milestones sit on */
+.road-rail {
+  position: absolute;
+  top: 26px;
+  left: 27px;
+  right: calc(25% - 27px);
+  height: 2px;
+  background: rgba(239, 237, 226, 0.18);
+}
+.road-rail span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: linear-gradient(90deg, var(--leaf-green), var(--harvest-orange));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 2.2s var(--ease-out);
+}
+.road-track.in-view .road-rail span { transform: scaleX(1); }
+
+.road-stop { position: relative; padding-top: 0; }
+.road-node {
+  width: 54px; height: 54px;
+  border-radius: 50%;
+  background: var(--deep-green);
+  border: 2px solid rgba(239, 237, 226, 0.35);
+  display: grid;
+  place-items: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--field-cream);
+  position: relative;
+  z-index: 2;
+  margin-bottom: 1.4rem;
+  transition: background 0.5s var(--ease-out), border-color 0.5s var(--ease-out), transform 0.5s var(--ease-out);
+}
+.road-track.in-view .road-stop:nth-child(2) .road-node { transition-delay: 0.25s; }
+.road-track.in-view .road-stop:nth-child(3) .road-node { transition-delay: 0.75s; }
+.road-track.in-view .road-stop:nth-child(4) .road-node { transition-delay: 1.25s; }
+.road-track.in-view .road-stop:nth-child(5) .road-node { transition-delay: 1.75s; }
+.road-track.in-view .road-node {
+  background: var(--harvest-orange);
+  border-color: var(--harvest-orange);
+  color: var(--deep-green);
+}
+/* Pulse ring that radiates out of each node as it activates */
+.road-node::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 2px solid var(--harvest-orange);
+  opacity: 0;
+}
+.road-track.in-view .road-node::before { animation: node-pulse 2.4s ease-out infinite; }
+.road-track.in-view .road-stop:nth-child(3) .road-node::before { animation-delay: 0.5s; }
+.road-track.in-view .road-stop:nth-child(4) .road-node::before { animation-delay: 1s; }
+.road-track.in-view .road-stop:nth-child(5) .road-node::before { animation-delay: 1.5s; }
+@keyframes node-pulse {
+  0% { transform: scale(1); opacity: 0.8; }
+  70% { transform: scale(1.6); opacity: 0; }
+  100% { opacity: 0; }
+}
+.road-stop .road-year {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--harvest-orange);
+  font-size: 0.76rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 0.4rem;
+}
+.road-stop h3 { color: var(--field-cream); font-size: 1.12rem; margin-bottom: 0.5rem; }
+.road-stop p { font-size: 0.88rem; color: rgba(239, 237, 226, 0.78); }
+.road-stop .road-body {
+  border-top: 1px solid rgba(239, 237, 226, 0.14);
+  padding-top: 1.1rem;
+  transition: border-color 0.5s;
+}
+.road-stop:hover .road-body { border-color: var(--harvest-orange); }
 .timeline {
   position: relative;
   margin-top: 3rem;
@@ -1174,15 +1332,16 @@ section { position: relative; }
 .t-item p { max-width: 66ch; font-size: 0.95rem; color: rgba(35, 40, 31, 0.82); }
 
 .pull-quote {
-  margin-top: 3.2rem;
+  margin-top: 3.6rem;
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(1.3rem, 2.8vw, 1.9rem);
-  color: var(--tipfa-green);
+  font-size: clamp(1.4rem, 3.2vw, 2.2rem);
+  color: var(--field-cream);
   border-left: 3px solid var(--harvest-orange);
-  padding-left: 1.6rem;
+  padding-left: 1.8rem;
   max-width: 30ch;
 }
+.pull-quote em { font-style: normal; color: var(--harvest-orange); }
 
 /* ==========================================================================
    Contact
@@ -1232,17 +1391,65 @@ section { position: relative; }
 
 .footer {
   background: var(--soil-ink);
-  padding: 2.6rem 0;
+  padding: 3.4rem 0 2.2rem;
 }
-.footer .container {
+.footer-top {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 2.4rem;
+  padding-bottom: 2.4rem;
+  border-bottom: 1px solid rgba(239, 237, 226, 0.14);
+}
+.footer-brand img { height: 46px; width: auto; margin-bottom: 1rem; }
+.footer-brand p { font-size: 0.85rem; color: rgba(239, 237, 226, 0.6); max-width: 34ch; }
+.footer h4 {
+  font-family: var(--font-display);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--harvest-orange);
+  margin-bottom: 1rem;
+}
+.footer-contact a,
+.footer-contact span {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1.6rem;
-  flex-wrap: wrap;
+  gap: 0.7rem;
+  font-size: 0.95rem;
+  color: var(--field-cream);
+  padding: 0.45rem 0;
+  transition: color 0.3s, transform 0.35s var(--ease-out);
 }
-.footer img { height: 44px; width: auto; }
-.footer p { font-size: 0.78rem; color: rgba(239, 237, 226, 0.6); }
+.footer-contact a:hover { color: var(--harvest-orange); transform: translateX(6px); }
+.footer-contact .ic {
+  width: 30px; height: 30px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: rgba(239, 237, 226, 0.1);
+  display: grid;
+  place-items: center;
+  font-size: 0.9rem;
+  transition: background 0.35s;
+}
+.footer-contact a:hover .ic { background: var(--harvest-orange); }
+.footer-cta { display: flex; flex-direction: column; align-items: flex-start; gap: 0.9rem; }
+.footer-cta p { font-size: 0.88rem; color: rgba(239, 237, 226, 0.7); }
+.footer-links { display: flex; flex-wrap: wrap; gap: 0.9rem 1.4rem; margin-top: 0.4rem; }
+.footer-links a {
+  font-size: 0.82rem;
+  color: rgba(239, 237, 226, 0.65);
+  transition: color 0.3s;
+}
+.footer-links a:hover { color: var(--harvest-orange); }
+.footer-base {
+  display: flex;
+  justify-content: space-between;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  padding-top: 1.6rem;
+}
+.footer-base p { font-size: 0.76rem; color: rgba(239, 237, 226, 0.5); }
 
 /* ==========================================================================
    Responsive
@@ -1250,12 +1457,16 @@ section { position: relative; }
 
 @media (max-width: 1100px) {
   .unlock-grid, .member-types { grid-template-columns: repeat(2, 1fr); }
-  .produce-grid { grid-template-columns: repeat(2, 1fr); }
+  .produce-grid { grid-template-columns: repeat(3, 1fr); }
+  .road-track { grid-template-columns: repeat(2, 1fr); gap: 2.4rem 1.2rem; }
+  .road-rail { display: none; }
+  .footer-top { grid-template-columns: 1fr 1fr; }
 }
 
 @media (max-width: 900px) {
   .split, .contact-grid, .partner-cols, .member-cols, .promise-grid { grid-template-columns: 1fr; }
-  .produce-grid { grid-template-columns: 1fr; }
+  .produce-grid { grid-template-columns: repeat(2, 1fr); }
+  .footer-top { grid-template-columns: 1fr; gap: 2rem; }
   .produce-meta { grid-template-columns: 1fr; }
   .vision-grid { grid-template-columns: 1fr; }
   .phase-grid { grid-template-columns: 1fr; }
@@ -1294,6 +1505,10 @@ section { position: relative; }
 
 @media (max-width: 560px) {
   .unlock-grid, .member-types { grid-template-columns: 1fr; }
+  .produce-grid { grid-template-columns: repeat(2, 1fr); gap: 0.8rem; }
+  .produce-card .card-label h3 { font-size: 0.92rem; }
+  .produce-card .card-label p { font-size: 0.72rem; }
+  .road-track { grid-template-columns: 1fr; }
   .trace-steps, .join-steps { grid-template-columns: 1fr; }
   .hero-stats { grid-template-columns: repeat(2, 1fr); }
   .farm-card { flex-basis: 82vw; }
@@ -1310,5 +1525,7 @@ section { position: relative; }
     transition-duration: 0.01ms !important;
   }
   [data-reveal], [data-stagger] > * { opacity: 1; transform: none; }
+  .farm-track, .marquee-track { animation: none; }
+  [data-words] .w > span { transform: none; }
   .mask-line > span, .hero-fade { transform: none; opacity: 1; }
 }

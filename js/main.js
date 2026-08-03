@@ -76,7 +76,9 @@
         io.unobserve(entry.target);
       }
     });
-  }, { threshold: 0.18, rootMargin: '0px 0px -6% 0px' });
+    // threshold 0: a tall grid can never fill a fraction of a small screen,
+    // so trigger as soon as its leading edge crosses into view.
+  }, { threshold: 0, rootMargin: '0px 0px -12% 0px' });
   revealables.forEach(function (el) { io.observe(el); });
 
   /* ---------------- Animated counters ---------------- */
@@ -200,24 +202,19 @@
     });
   }
 
-  /* ---------------- Farm strip: drag to scroll ---------------- */
-  var strip = document.getElementById('farmStrip');
-  if (strip) {
-    var isDown = false, startX = 0, startScroll = 0;
-    strip.addEventListener('pointerdown', function (e) {
-      isDown = true;
-      startX = e.clientX;
-      startScroll = strip.scrollLeft;
-      strip.classList.add('dragging');
-    });
-    window.addEventListener('pointermove', function (e) {
-      if (!isDown) return;
-      strip.scrollLeft = startScroll - (e.clientX - startX);
-    });
-    window.addEventListener('pointerup', function () {
-      isDown = false;
-      strip.classList.remove('dragging');
-    });
+  /* ---------------- Farm conveyor: nudge speed with scroll ----------------
+     The track loops right to left on its own. Scrolling briefly accelerates
+     it so the section feels connected to the page. */
+  var farmTrack = document.getElementById('farmTrack');
+  if (farmTrack && !prefersReduced) {
+    var boostTimer = null;
+    window.addEventListener('scroll', function () {
+      farmTrack.style.animationDuration = '16s';
+      clearTimeout(boostTimer);
+      boostTimer = setTimeout(function () {
+        farmTrack.style.animationDuration = '';
+      }, 320);
+    }, { passive: true });
   }
 
   /* ---------------- Image fallbacks ----------------
@@ -249,6 +246,21 @@
     }
     setTimeout(nextScene, holds[0]);
   }
+
+  /* ---------------- Section headings: subtle scroll-linked drift ---------------- */
+  var driftables = document.querySelectorAll('.section-pad .eyebrow, .pull-quote');
+  function onDrift() {
+    if (prefersReduced) return;
+    var vh = window.innerHeight;
+    driftables.forEach(function (el) {
+      var r = el.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > vh) return;
+      var ratio = (r.top + r.height / 2 - vh / 2) / vh;
+      el.style.transform = 'translateX(' + (ratio * -18) + 'px)';
+    });
+  }
+  window.addEventListener('scroll', onDrift, { passive: true });
+  onDrift();
 
   /* ---------------- Lazy-start videos when visible ---------------- */
   var vids = document.querySelectorAll('video');
