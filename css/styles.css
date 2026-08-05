@@ -805,14 +805,14 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
 .farm-card p.crops { font-size: 0.9rem; margin-top: 0.8rem; color: rgba(35, 40, 31, 0.8); }
 .farm-card .farm-logo {
   position: absolute;
-  top: 1.7rem;
-  right: 1.7rem;
+  top: 1.5rem;
+  right: 1.6rem;
   z-index: 1;
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  width: 92px;
-  height: 46px;
+  width: 104px;
+  height: 60px;
 }
 .farm-card .farm-logo img {
   max-width: 100%;
@@ -1065,13 +1065,17 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
 }
 .partner-logo img { max-height: 100%; max-width: 100%; width: auto; height: auto; object-fit: contain; }
 .partner-name:hover .partner-logo { transform: scale(1.05); }
-/* On the deep green panel a light plate keeps a dark-inked logo legible */
-.partner-logo.on-dark-logo {
-  background: rgba(255, 255, 255, 0.94);
+/* Holland Greentech supplied a white mark, which needs a dark tile to read
+   on the white partner card. Rijk Zwaan's white mark sits straight on the
+   deep green panel and needs no plate. */
+.partner-logo.on-dark-plate {
+  background: var(--deep-green);
   border-radius: var(--radius);
-  padding: 0.55rem 0.85rem;
-  height: 62px;
+  padding: 0.6rem 0.9rem;
+  height: 60px;
+  transition: background 0.45s, transform 0.5s var(--ease-out);
 }
+.partner-name:hover .partner-logo.on-dark-plate { background: var(--tipfa-green); }
 .partner-hero p { position: relative; z-index: 1; margin-top: 0.7rem; max-width: 62ch; color: rgba(239, 237, 226, 0.9); }
 .partner-hero .eyebrow { color: var(--harvest-orange); }
 .partner-cols {

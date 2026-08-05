@@ -1,7 +1,8 @@
 # Member farm logos
 
-Drop each founding farm's logo in this folder using the exact filename below.
-The card picks it up automatically; no HTML change is needed.
+All five founding farm logos are in place. To replace one, overwrite the file
+using the exact name below; the card picks it up automatically and no HTML
+change is needed.
 
 | Farm                | Filename                   |
 | ------------------- | -------------------------- |
@@ -18,3 +19,7 @@ Guidance:
   larger. The logo is scaled to fit inside the slot, never cropped.
 - Any farm without a file here simply shows no logo. The slot is removed at
   runtime, so a missing logo never leaves a broken image on the card.
+- Supplied artwork was trimmed to its bounding box and its flat background
+  keyed to transparency (white for Fair Farms, She Farms and Nahdi Youth
+  Farm; black for Pinerjo Smart Farm). Iringa Agro Fresh arrived with
+  transparency already.
