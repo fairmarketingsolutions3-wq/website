@@ -99,12 +99,14 @@
   function animateCount(el) {
     var target = parseInt(el.getAttribute('data-count'), 10);
     if (prefersReduced) { renderCount(el, target); return; }
-    var duration = 1800;
+    // Slower than a typical odometer, and eased gently, so the digits are
+    // legible as they climb rather than snapping to the total.
+    var duration = parseInt(el.getAttribute('data-duration'), 10) || 3400;
     var start = null;
     function frame(ts) {
       if (!start) start = ts;
       var p = Math.min((ts - start) / duration, 1);
-      var eased = 1 - Math.pow(1 - p, 4);
+      var eased = 1 - Math.pow(1 - p, 3);
       renderCount(el, Math.round(target * eased));
       if (p < 1) requestAnimationFrame(frame);
     }
@@ -224,7 +226,7 @@
   // so a card without a logo looks deliberate rather than broken.
   document.querySelectorAll('img[data-optional]').forEach(function (img) {
     function drop() {
-      var slot = img.closest('.farm-logo');
+      var slot = img.closest('.farm-logo, .partner-logo');
       if (slot) { slot.remove(); } else { img.remove(); }
     }
     img.addEventListener('error', drop);

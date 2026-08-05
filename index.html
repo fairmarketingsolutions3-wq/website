@@ -457,28 +457,81 @@
       </div>
 
       <div class="trace" data-reveal>
-        <div class="trace-line"><span></span></div>
+        <p class="trace-kicker">One record, followed end to end</p>
+        <div class="trace-rail">
+          <div class="trace-line"><span></span></div>
+          <div class="trace-pulse" aria-hidden="true"><i></i></div>
+        </div>
         <div class="trace-steps">
-          <div class="trace-step">
-            <div class="step-num">01</div>
+
+          <div class="trace-step" style="--d:0s">
+            <div class="step-head">
+              <div class="step-num">01</div>
+              <span class="step-ico" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path class="dr" d="M20 33c0-7 3-12 9-15-1 8-4 13-9 15Z"/>
+                  <path class="dr" d="M20 33c0-6-2.6-10.4-8-13 .9 7 3.6 11.3 8 13Z"/>
+                  <path class="dr" d="M20 33v-5"/>
+                </svg>
+              </span>
+            </div>
             <h4>Seed</h4>
             <p>Rijk Zwaan lot recorded at source.</p>
+            <span class="step-tag">Lot number</span>
           </div>
-          <div class="trace-step">
-            <div class="step-num">02</div>
+
+          <div class="trace-step" style="--d:.16s">
+            <div class="step-head">
+              <div class="step-num">02</div>
+              <span class="step-ico" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path class="dr" d="M7 26h26l-2.5 8h-21L7 26Z"/>
+                  <path class="dr" d="M20 26V14"/>
+                  <path class="dr" d="M20 18c0-4 2.6-6.6 7-7-.4 4.6-3 7-7 7Z"/>
+                  <path class="dr" d="M20 22c-3.6 0-6-2.2-6.4-6.4 4 .4 6.4 2.8 6.4 6.4Z"/>
+                </svg>
+              </span>
+            </div>
             <h4>Seedling</h4>
             <p>Nursery batch tied to the seed lot.</p>
+            <span class="step-tag">Batch ID</span>
           </div>
-          <div class="trace-step">
-            <div class="step-num">03</div>
+
+          <div class="trace-step" style="--d:.32s">
+            <div class="step-head">
+              <div class="step-num">03</div>
+              <span class="step-ico" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path class="dr" d="M6 20 20 9l14 11v13H6V20Z"/>
+                  <path class="dr" d="M20 9v24"/>
+                  <path class="dr" d="M6 20h28"/>
+                  <path class="dr" d="M13 14.5V33M27 14.5V33"/>
+                </svg>
+              </span>
+            </div>
             <h4>Greenhouse</h4>
             <p>Farm, house and planting date logged.</p>
+            <span class="step-tag">House &amp; date</span>
           </div>
-          <div class="trace-step">
-            <div class="step-num">04</div>
+
+          <div class="trace-step" style="--d:.48s">
+            <div class="step-head">
+              <div class="step-num">04</div>
+              <span class="step-ico" aria-hidden="true">
+                <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path class="dr" d="M4 11h18v15H4V11Z"/>
+                  <path class="dr" d="M22 16h7l5 5v5h-12v-10Z"/>
+                  <circle class="dr" cx="12" cy="29" r="3.2"/>
+                  <circle class="dr" cx="28" cy="29" r="3.2"/>
+                  <path class="dr" d="M15.2 29h9.6"/>
+                </svg>
+              </span>
+            </div>
             <h4>Loading bay</h4>
             <p>Harvest, grade and dispatch recorded.</p>
+            <span class="step-tag">Grade &amp; dispatch</span>
           </div>
+
         </div>
       </div>
 
@@ -488,13 +541,23 @@
           <div class="arc arc-green-soft float-slow" data-drift="0.08" style="width:420px;height:420px;right:-160px;bottom:-240px;"></div>
         </div>
         <p class="eyebrow">Anchor technical partner</p>
-        <h3>Rijk Zwaan</h3>
+        <div class="partner-name">
+          <span class="partner-logo on-dark-logo">
+            <img src="assets/logo/partners/rijk-zwaan.png" alt="Rijk Zwaan logo" loading="lazy" data-optional>
+          </span>
+          <h3>Rijk Zwaan</h3>
+        </div>
         <p>TIPFA farms grow premium Rijk Zwaan varieties selected for yield, uniformity, shelf life and buyer preference, with ongoing agronomic support extended across every member farm. Variety selection runs through the Association's Three-Box process before adoption.</p>
       </div>
       <div class="partner-cols" data-stagger>
         <div class="partner-col">
           <h4>Technology &amp; inputs</h4>
-          <h3>Holland Greentech</h3>
+          <div class="partner-name">
+            <span class="partner-logo">
+              <img src="assets/logo/partners/holland-greentech.png" alt="Holland Greentech logo" loading="lazy" data-optional>
+            </span>
+            <h3>Holland Greentech</h3>
+          </div>
           <p>Engaged with TIPFA on protected cultivation technology, greenhouse systems and crop inputs. Joined the July 2026 delegation to member farms in Iringa.</p>
         </div>
         <div class="partner-col">
@@ -526,15 +589,17 @@
     </div>
     <div class="container">
       <p class="eyebrow" data-reveal>The concept</p>
-      <h2 data-reveal data-words>Growing together. Harvesting excellence.</h2>
+      <h2 class="quoted" data-reveal data-words>Growing together Harvesting excellence</h2>
       <p class="lede" data-reveal>Tanzania's premium fresh produce market is growing fast, yet the farmers and investors positioned to serve it remain fragmented and without a route to premium buyers. TIPFA exists on a simple principle: what individual farmers cannot achieve alone, they can achieve together.</p>
 
       <div class="vision-grid" data-stagger>
         <div class="vision-card">
+          <span class="ico ico-lg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M1.6 12S5 5.4 12 5.4 22.4 12 22.4 12 19 18.6 12 18.6 1.6 12 1.6 12Z"/><circle class="dr" cx="12" cy="12" r="3.3"/></svg></span>
           <h4>Vision</h4>
           <p>A Tanzania in which professional indoor farmers and serious agricultural investors operate within a world class association framework, producing premium crops with confidence, consistency and guaranteed access to the markets they deserve.</p>
         </div>
         <div class="vision-card">
+          <span class="ico ico-lg" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle class="dr" cx="12" cy="12" r="9"/><circle class="dr" cx="12" cy="12" r="5"/><circle class="dr" cx="12" cy="12" r="1.4"/><path class="dr" d="M12 3V1M12 23v-2M3 12H1M23 12h-2"/></svg></span>
           <h4>Mission</h4>
           <p>To build Tanzania's leading association for indoor and professional farmers, providing members with agronomic excellence, input access, a standards framework and collective market power.</p>
         </div>
@@ -544,31 +609,37 @@
       <div class="unlock-grid" data-stagger>
         <div class="unlock" data-tilt>
           <span class="u-num">01</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M3.5 9 5 4h14l1.5 5"/><path class="dr" d="M4 9h16v11H4V9Z"/><path class="dr" d="M9.5 20v-6h5v6"/><path class="dr" d="M3.5 9a2.4 2.4 0 0 0 4.6 0 2.4 2.4 0 0 0 4.6 0 2.4 2.4 0 0 0 4.6 0"/></svg></span>
           <h4>Guaranteed premium market access</h4>
           <p>Formal supply agreements with supermarkets, hotels, restaurants and exporters, fulfilled through a centralised crop calendar. The single most important risk mitigation for any grower or investor.</p>
         </div>
         <div class="unlock" data-tilt>
           <span class="u-num">02</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M11 20c0-6 3-9.5 9-10.5C19 16 16 20 11 20Z"/><path class="dr" d="M11 20c0-4.6-2-7.7-6-9 .7 5.6 2.8 8.7 6 9Z"/><path class="dr" d="M11 20v-3"/><path class="dr" d="M4 22h16"/></svg></span>
           <h4>Professional agronomic support</h4>
           <p>A dedicated support unit guiding crop planning, pest and disease management, irrigation and post harvest handling, anchored by the Rijk Zwaan technical partnership.</p>
         </div>
         <div class="unlock" data-tilt>
           <span class="u-num">03</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M3.6 12.6 12 4.2h7.8V12l-8.4 8.4a1.6 1.6 0 0 1-2.3 0l-5.5-5.5a1.6 1.6 0 0 1 0-2.3Z"/><circle class="dr" cx="16" cy="8" r="1.5"/></svg></span>
           <h4>Preferential input pricing</h4>
           <p>Certified seeds, seedlings, crop nutrition, irrigation systems and greenhouse materials at member rates, with priority supply access ahead of general retail.</p>
         </div>
         <div class="unlock" data-tilt>
           <span class="u-num">04</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M12 2.6 20.5 7v10L12 21.4 3.5 17V7L12 2.6Z"/><path class="dr" d="M3.5 7 12 11.5 20.5 7"/><path class="dr" d="M12 11.5v9.9"/></svg></span>
           <h4>One collective brand</h4>
           <p>All produce reaches the market under the TIPFA identity, with standardised grading, packaging and labelling that signals quality and professional provenance.</p>
         </div>
         <div class="unlock" data-tilt>
           <span class="u-num">05</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M12 2.6 20 6v6.2c0 4.6-3.3 7.9-8 9.2-4.7-1.3-8-4.6-8-9.2V6l8-3.4Z"/><path class="dr" d="M8.6 12.2 11 14.6l4.6-4.8"/></svg></span>
           <h4>Shared risk, shared strength</h4>
           <p>The crop calendar distributes production risk across the membership, so no single farm carries a buyer's full demand and no single season can break a supply relationship.</p>
         </div>
         <div class="unlock" data-tilt>
           <span class="u-num">06</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle class="dr" cx="12" cy="12" r="9"/><path class="dr" d="M3 12h18"/><path class="dr" d="M12 3a15 15 0 0 1 0 18 15 15 0 0 1 0-18Z"/></svg></span>
           <h4>A pathway to export</h4>
           <p>Collective GlobalG.A.P. adoption, traceability and aggregated volume build the foundation for EAC export markets, and Middle East markets as the Association matures.</p>
         </div>
@@ -577,14 +648,17 @@
       <h3 class="concept-sub" data-reveal>Three ways to belong</h3>
       <div class="member-types" data-stagger>
         <div class="mtype">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M4 20h16"/><path class="dr" d="M7.5 20V9.5h5L15 14h4.5v6"/><circle class="dr" cx="8.5" cy="20" r="2.2"/><circle class="dr" cx="17.5" cy="20" r="2.2"/><path class="dr" d="M10 9.5V6h4v3.5"/></svg></span>
           <h4>Operational member</h4>
           <p>A professional farmer or investor actively operating a qualifying indoor farm or a professional outdoor high value crop farm. The core of TIPFA, with full voting rights, crop calendar participation and market access.</p>
         </div>
         <div class="mtype">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M3 7.5h18V20H3V7.5Z"/><path class="dr" d="M8.5 7.5V5a1.5 1.5 0 0 1 1.5-1.5h4A1.5 1.5 0 0 1 15.5 5v2.5"/><path class="dr" d="M3 12.5h18"/></svg></span>
           <h4>Administrative member</h4>
           <p>A qualified professional in law, finance, management, marketing, IT or a related field who strengthens the Association's operations, with a structured pathway to full operational membership for those who go on to farm.</p>
         </div>
         <div class="mtype">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M2.5 13.5 6 10l3.5 2.5 2-1.5 4 3"/><path class="dr" d="M15.5 14 19 10.5l2.5 3"/><path class="dr" d="M2.5 13.5V19h19v-5.5"/><circle class="dr" cx="8" cy="5.5" r="2.2"/><circle class="dr" cx="16.5" cy="5.5" r="2.2"/></svg></span>
           <h4>Support member</h4>
           <p>An organisation that backs the Association with technical expertise, inputs or services. Rijk Zwaan anchors the founding phase, with SeedCo Vegetables joining at formal establishment.</p>
         </div>
@@ -594,12 +668,14 @@
       <div class="phase-grid">
         <div class="phase-card p1" data-reveal="left">
           <span class="phase-tag">Phase 1</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M5.5 3.5h9L19 8v12.5H5.5V3.5Z"/><path class="dr" d="M14 3.5V8h5"/><path class="dr" d="M8.5 12.5h7M8.5 16h4.5"/></svg></span>
           <h4>Operating collaboration</h4>
           <p>The founding members first work as a collaborating group under a written Terms of Collaboration: joint input procurement, coordinated agronomic support, aligned planting, shared logistics and a collective market pilot in Dar es Salaam. The model is proven through real transactions.</p>
         </div>
         <div class="phase-arrow" aria-hidden="true" data-reveal>→</div>
         <div class="phase-card p2" data-reveal="right">
           <span class="phase-tag">Phase 2</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M3.5 20.5h17"/><path class="dr" d="M5.5 20.5V9l6.5-4.5L18.5 9v11.5"/><path class="dr" d="M10 20.5v-5h4v5"/><path class="dr" d="M12 11.5h.01"/></svg></span>
           <h4>Formal establishment</h4>
           <p>Once the collaboration has proven itself, the Association is registered under the Societies Act, full governance is constituted, SeedCo Vegetables joins as a second technical partner, and the constitution, standards, crop calendar and offtake agreements are adopted.</p>
         </div>
@@ -691,28 +767,32 @@
         <div class="promise" data-tilt>
           <span class="p-num">01</span>
           <div>
-            <h3>Consistent quality</h3>
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle class="dr" cx="12" cy="9.5" r="6"/><path class="dr" d="m9.2 9.6 2 2 3.6-3.8"/><path class="dr" d="m8.4 14.6-1.6 6L12 18.4l5.2 2.2-1.6-6"/></svg></span>
+          <h3>Consistent quality</h3>
             <p>Held to a shared standard across every member farm, verified by our common quality framework.</p>
           </div>
         </div>
         <div class="promise" data-tilt>
           <span class="p-num">02</span>
           <div>
-            <h3>Guaranteed volume</h3>
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M4 6.5h16V21H4V6.5Z"/><path class="dr" d="M4 11h16"/><path class="dr" d="M8.5 3.5v5M15.5 3.5v5"/><path class="dr" d="M8.5 15h2.5M13.5 15h2"/></svg></span>
+          <h3>Guaranteed volume</h3>
             <p>Planned through our coordinated crop calendar, so we can commit to volumes and hold to them.</p>
           </div>
         </div>
         <div class="promise" data-tilt>
           <span class="p-num">03</span>
           <div>
-            <h3>One point of contact</h3>
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M3.5 5.5h17v11h-9L7 20.5v-4H3.5v-11Z"/><path class="dr" d="M8 10.5h8M8 13.5h5"/></svg></span>
+          <h3>One point of contact</h3>
             <p>One consolidated relationship, one coordinated delivery, one partnership you can build on.</p>
           </div>
         </div>
         <div class="promise" data-tilt>
           <span class="p-num">04</span>
           <div>
-            <h3>Traceability from farm</h3>
+            <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle class="dr" cx="5.5" cy="6" r="2.4"/><circle class="dr" cx="18.5" cy="18" r="2.4"/><path class="dr" d="M5.5 8.4V13a4 4 0 0 0 4 4h6.6"/><path class="dr" d="M13.6 14.4 16.6 17l-3 2.6"/></svg></span>
+          <h3>Traceability from farm</h3>
             <p>From premium Rijk Zwaan seed, to seedling, to greenhouse, to your loading bay. Every step recorded.</p>
           </div>
         </div>
@@ -728,6 +808,7 @@
       <p class="lede" data-reveal>TIPFA is for growers who farm as a business rather than as a season. From January 2027, the Association opens vetted membership recruitment to professional farmers across Tanzania.</p>
       <div class="member-cols">
         <div class="member-col looking" data-reveal="left">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle class="dr" cx="11" cy="11" r="6.4"/><path class="dr" d="m15.8 15.8 4.4 4.4"/></svg></span>
           <h3>Who we are looking for</h3>
           <ul>
             <li>Indoor growers, greenhouse and screen house</li>
@@ -738,6 +819,7 @@
           </ul>
         </div>
         <div class="member-col gains" data-reveal="right">
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M4 20V12M10 20V7M16 20v-9M22 20V4"/></svg></span>
           <h3>What members gain</h3>
           <ul>
             <li>Access to premium buyers through one collective route to market</li>
@@ -752,21 +834,25 @@
       <div class="join-steps" data-stagger>
         <div class="join-step">
           <span class="num">01</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M6.4 3.5h11v17h-11v-17Z"/><path class="dr" d="M10 6.5h4"/><circle class="dr" cx="12" cy="17" r="1.1"/></svg></span>
           <h4>Register interest</h4>
           <p>Contact the secretariat by phone, WhatsApp or email.</p>
         </div>
         <div class="join-step">
           <span class="num">02</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle class="dr" cx="11" cy="11" r="6.4"/><path class="dr" d="m15.8 15.8 4.4 4.4"/><path class="dr" d="M8.6 11.2 10.4 13l3.2-3.4"/></svg></span>
           <h4>Farm assessment</h4>
           <p>A visit to review production, records and readiness.</p>
         </div>
         <div class="join-step">
           <span class="num">03</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M6 4h12v16H6V4Z"/><path class="dr" d="M9 9h6M9 13h6M9 17h3"/></svg></span>
           <h4>Vetting</h4>
           <p>Review against the Association's membership criteria.</p>
         </div>
         <div class="join-step">
           <span class="num">04</span>
+          <span class="ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path class="dr" d="M4 18.5c2.4-3.4 5-5.1 7.8-5.1 2 0 3.7.9 5.2 2.6"/><path class="dr" d="m14.4 17.6 5.6-5.6a1.8 1.8 0 0 0-2.6-2.6l-5.6 5.6"/><path class="dr" d="M4 21h16"/></svg></span>
           <h4>Admission</h4>
           <p>Sign the member agreement and enter the crop calendar.</p>
         </div>
@@ -870,35 +956,86 @@
   </main>
 
   <!-- Footer -->
-  <footer class="footer">
+  <footer class="footer" id="siteFooter">
+    <div class="footer-glow" aria-hidden="true">
+      <span class="fg fg-1"></span>
+      <span class="fg fg-2"></span>
+    </div>
+
     <div class="container">
+
+      <!-- Closing call to action -->
+      <div class="footer-cta-band" data-reveal="zoom">
+        <div>
+          <p class="eyebrow">Start a conversation</p>
+          <h3>Tell us the crop, the specification and the volume.</h3>
+          <p class="fcb-sub">We will arrange a farm visit and put a supply plan in front of you.</p>
+        </div>
+        <a href="mailto:karibu@tipfa.co.tz" class="btn btn-primary" data-magnetic>Email the secretariat</a>
+      </div>
+
       <div class="footer-top">
-        <div class="footer-brand">
+
+        <div class="footer-brand" data-reveal>
           <img src="assets/logo/tipfa-logo-mark-wordmark-reversed.png" alt="TIPFA">
           <p>Tanzania Indoor &amp; Professional Farmers Association. One quality standard, one crop calendar, one point of contact.</p>
+          <ul class="footer-badges">
+            <li>Working towards GlobalG.A.P.</li>
+            <li>Working towards HACCP</li>
+            <li>Founded 2026</li>
+          </ul>
         </div>
-        <div class="footer-contact">
+
+        <div class="footer-contact" data-reveal>
           <h4>Talk to the secretariat</h4>
-          <a href="tel:+255655555256"><span class="ic">&#9742;</span>+255 655 555 256</a>
-          <a href="https://wa.me/255655555256"><span class="ic">&#9993;</span>WhatsApp us</a>
-          <a href="mailto:karibu@tipfa.co.tz"><span class="ic">&#64;</span>karibu@tipfa.co.tz</a>
-          <span><span class="ic">&#9873;</span>Iringa, Southern Highlands, Tanzania</span>
+          <a href="tel:+255655555256">
+            <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16.4v2.9a1.9 1.9 0 0 1-2.1 1.9 18.8 18.8 0 0 1-8.2-2.9 18.5 18.5 0 0 1-5.7-5.7A18.8 18.8 0 0 1 2.1 4.3 1.9 1.9 0 0 1 4 2.2h2.9a1.9 1.9 0 0 1 1.9 1.6c.1 1 .3 1.9.7 2.7a1.9 1.9 0 0 1-.4 2L7.8 9.8a15 15 0 0 0 5.7 5.7l1.3-1.3a1.9 1.9 0 0 1 2-.4c.9.3 1.8.6 2.7.7a1.9 1.9 0 0 1 1.6 1.9Z"/></svg></span>
+            <span class="tx"><strong>+255 655 555 256</strong><em>Call the office</em></span>
+          </a>
+          <a href="https://wa.me/255655555256" target="_blank" rel="noopener">
+            <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.2 20.8 4.6 16a8.4 8.4 0 1 1 3.3 3.3l-4.7 1.5Z"/><path d="M9 9.2c0 3 2.4 5.4 5.3 5.4"/></svg></span>
+            <span class="tx"><strong>WhatsApp us</strong><em>Fastest reply</em></span>
+          </a>
+          <a href="mailto:karibu@tipfa.co.tz">
+            <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18v12H3V6Z"/><path d="m3 7 9 6 9-6"/></svg></span>
+            <span class="tx"><strong>karibu@tipfa.co.tz</strong><em>Enquiries and offtake</em></span>
+          </a>
+          <span class="static-row">
+            <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21.5s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z"/><circle cx="12" cy="10.2" r="2.6"/></svg></span>
+            <span class="tx"><strong>Iringa, Southern Highlands</strong><em>Tanzania</em></span>
+          </span>
         </div>
-        <div class="footer-cta">
-          <h4>Ready to start</h4>
-          <p>Tell us the crop, specification and volume you need, and we will arrange a farm visit.</p>
-          <a href="mailto:karibu@tipfa.co.tz" class="btn btn-primary" data-magnetic>Email the secretariat</a>
-          <div class="footer-links">
-            <a href="#produce">Produce</a>
-            <a href="#standards">Standards</a>
-            <a href="#membership">Membership</a>
-            <a href="#concept">The concept</a>
+
+        <div class="footer-nav" data-reveal>
+          <div>
+            <h4>The association</h4>
+            <div class="footer-links">
+              <a href="#why">Why TIPFA</a>
+              <a href="#concept">The concept</a>
+              <a href="#farms">Founding farms</a>
+              <a href="#standards">Standards</a>
+            </div>
+          </div>
+          <div>
+            <h4>Working with us</h4>
+            <div class="footer-links">
+              <a href="#produce">Produce</a>
+              <a href="#markets">Markets</a>
+              <a href="#membership">Membership</a>
+              <a href="#contact">Contact</a>
+            </div>
           </div>
         </div>
+
       </div>
+
       <div class="footer-base">
         <p>&copy; 2026 Tanzania Indoor &amp; Professional Farmers Association. Iringa, Tanzania.</p>
         <p>Prepared with Fair Marketing Solutions.</p>
+        <a href="#top" class="to-top" aria-label="Back to top">
+          <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg></span>
+          Back to top
+        </a>
       </div>
     </div>
   </footer>
