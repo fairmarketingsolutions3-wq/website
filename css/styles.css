@@ -790,6 +790,28 @@ section { position: relative; }
   font-family: var(--font-display);
 }
 .farm-card p.crops { font-size: 0.9rem; margin-top: 0.8rem; color: rgba(35, 40, 31, 0.8); }
+.farm-card .farm-logo {
+  position: absolute;
+  top: 1.7rem;
+  right: 1.7rem;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 92px;
+  height: 46px;
+}
+.farm-card .farm-logo img {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  transition: transform 0.45s var(--ease-out);
+}
+.farm-card:hover .farm-logo img { transform: scale(1.06); }
+/* Keep the name clear of the logo block */
+.farm-card h3 { padding-right: 0.2rem; }
 
 /* ==========================================================================
    Standards / traceability

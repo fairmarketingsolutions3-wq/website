@@ -220,6 +220,17 @@
   /* ---------------- Image fallbacks ----------------
      Generated visuals are served from a CDN. If one cannot be reached,
      swap in the local photograph so the layout never shows a broken image. */
+  // Member logos are optional: drop the slot entirely when no file is present,
+  // so a card without a logo looks deliberate rather than broken.
+  document.querySelectorAll('img[data-optional]').forEach(function (img) {
+    function drop() {
+      var slot = img.closest('.farm-logo');
+      if (slot) { slot.remove(); } else { img.remove(); }
+    }
+    img.addEventListener('error', drop);
+    if (img.complete && img.naturalWidth === 0) { drop(); }
+  });
+
   document.querySelectorAll('img[data-fallback]').forEach(function (img) {
     img.addEventListener('error', function handle() {
       img.removeEventListener('error', handle);
