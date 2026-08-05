@@ -67,6 +67,29 @@
     });
   });
 
+  /* ---------------- Marquee: duplicate the track for the seamless loop ----
+     The served HTML lists each founding farm exactly once, so crawlers and
+     assistive tech see no duplicates; the visual loop needs a second copy,
+     which is cloned here and hidden from the accessibility tree. */
+  (function () {
+    var track = document.getElementById('farmTrack');
+    if (!track) return;
+    var originals = Array.prototype.slice.call(track.children);
+    originals.forEach(function (card) {
+      var clone = card.cloneNode(true);
+      clone.setAttribute('aria-hidden', 'true');
+      // Headings in a decorative copy would duplicate the outline
+      clone.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(function (h) {
+        var span = document.createElement('span');
+        span.className = 'farm-name';
+        span.textContent = h.textContent;
+        h.parentNode.replaceChild(span, h);
+      });
+      clone.querySelectorAll('a, button').forEach(function (el) { el.setAttribute('tabindex', '-1'); });
+      track.appendChild(clone);
+    });
+  })();
+
   /* ---------------- Reveal on scroll ---------------- */
   var revealables = document.querySelectorAll('[data-reveal], [data-stagger], [data-words], .trace, .timeline');
   var io = new IntersectionObserver(function (entries) {
