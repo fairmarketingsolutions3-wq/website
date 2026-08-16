@@ -1,1 +1,1430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TIPFA Association Platform — Interactive Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root{
+  --ink:#23301E; --paper:#EEF1E2; --leaf:#35633A; --leaf-dark:#1C331F;
+  --gold:#D69A2D; --soil:#A85C3F; --teal:#2F7A82; --red:#B23A2E;
+  --card:#FFFFFF; --line:#D8D9C8; --muted:#6B7263; --radius:12px;
+  --role-accent:#35633A; --role-accent-dark:#1C331F;
+}
+body[data-role="member"]{ --role-accent:#C1622E; --role-accent-dark:#8F4620; }
+body[data-role="admin"]{ --role-accent:#2B5D8C; --role-accent-dark:#1F3F60; }
+*{box-sizing:border-box;}
+body{margin:0;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);background:var(--paper);}
+.app{max-width:1180px;margin:0 auto;}
+.topbar{
+  background:var(--leaf); color:#F2F6EA;
+  padding:16px 22px; display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:12px;
+}
+.brandblock .brand{font-family:'Fraunces',serif;font-weight:600;font-size:21px;}
+.brandblock .tagline{font-size:11.5px;opacity:.85;font-style:italic;margin-top:1px;}
+.roleswitch{display:flex;background:rgba(255,255,255,0.14);border-radius:999px;padding:3px;}
+.roleswitch button{
+  border:none;background:none;color:#F2F6EA;font-family:'IBM Plex Sans';
+  font-size:12.5px;font-weight:500;padding:8px 16px;border-radius:999px;cursor:pointer;
+}
+.roleswitch button.active{background:#F2F6EA;color:var(--leaf-dark);font-weight:600;}
+.session{display:flex;align-items:center;gap:10px;color:#F2F6EA;font-size:12.5px;}
+.session .who{font-weight:600;}
+.session button{
+  border:1.5px solid rgba(242,246,234,0.6);background:none;color:#F2F6EA;
+  font-family:'IBM Plex Sans';font-size:12px;font-weight:500;padding:6px 12px;border-radius:8px;cursor:pointer;
+}
+.loginwrap{display:flex;justify-content:center;padding:48px 20px;min-height:520px;}
+.loginbox{width:100%;max-width:380px;}
+.logintabs{display:flex;background:#E4E8D5;border-radius:999px;padding:3px;margin-bottom:20px;}
+.logintabs button{
+  flex:1;border:none;background:none;font-family:'IBM Plex Sans';font-size:13px;font-weight:500;
+  color:var(--muted);padding:9px 0;border-radius:999px;cursor:pointer;
+}
+.logintabs button.active{background:var(--leaf);color:#fff;font-weight:600;}
+.login-note{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.5;text-align:center;}
+.lock-icon{text-align:center;font-family:'Fraunces',serif;font-weight:600;font-size:15px;color:var(--leaf-dark);margin-bottom:6px;}
+.subbar{
+  display:flex;align-items:center;gap:10px;padding:10px 22px;background:#E4E8D5;
+  border-bottom:1px solid var(--line);flex-wrap:wrap;
+}
+.subbar label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
+.subbar select{padding:6px 10px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-family:'IBM Plex Sans';background:#fff;}
+.layout{display:grid;grid-template-columns:200px 1fr;gap:0;min-height:520px;}
+.sidebar{
+  border-right:1px solid var(--line); padding:16px 10px; display:flex; flex-direction:column; gap:2px;
+}
+.tabbtn{
+  text-align:left; border:none;background:none;padding:10px 12px;border-radius:9px;
+  font-family:'IBM Plex Sans';font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;
+}
+.tabbtn.active{background:var(--card);color:var(--role-accent-dark);font-weight:600;box-shadow:inset 3px 0 0 var(--role-accent);}
+.content{padding:20px 24px 40px;}
+h1.page-title{font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 4px;}
+p.page-sub{font-size:12.5px;color:var(--muted);margin:0 0 18px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
+label.f{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;}
+input, select, textarea{
+  width:100%;font-family:'IBM Plex Sans';font-size:13.5px;padding:8px 10px;border-radius:8px;
+  border:1px solid var(--line);background:#FBFCF8;color:var(--ink);margin-bottom:10px;
+}
+input:focus, select:focus, textarea:focus{outline:2px solid var(--leaf);outline-offset:1px;}
+.btn{
+  padding:10px 16px;border:none;border-radius:9px;background:var(--role-accent);color:#fff;
+  font-family:'IBM Plex Sans';font-weight:600;font-size:13.5px;cursor:pointer;
+}
+.btn:active{background:var(--role-accent-dark);}
+.btn.ghost{background:transparent;border:1.5px solid var(--role-accent);color:var(--role-accent);}
+.btn.small{padding:7px 12px;font-size:12.5px;}
+.btn.gold{background:var(--gold);}
+.metric{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;}
+.metric .lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
+.metric .val{font-family:'IBM Plex Mono';font-size:21px;font-weight:500;margin-top:3px;}
+.section-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin:18px 0 8px;color:var(--ink);}
+table.grid-table{width:100%;border-collapse:collapse;font-size:13px;}
+table.grid-table th{
+  background:var(--leaf);color:#fff;text-align:left;padding:8px 10px;font-size:11.5px;
+  text-transform:uppercase;letter-spacing:.3px;font-weight:600;
+}
+table.grid-table td{padding:7px 10px;border-bottom:1px solid var(--line);}
+table.grid-table tr:nth-child(even) td{background:#F7F8F0;}
+table.grid-table input{margin:0;padding:6px 7px;font-size:12.5px;font-family:'IBM Plex Mono';}
+.status-pill{font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:99px;display:inline-block;}
+.status-open{background:#FBE7D7;color:var(--soil);}
+.status-progress{background:#FDF1D2;color:#9A6C0B;}
+.status-resolved{background:#DCEBDD;color:var(--leaf-dark);}
+.status-active{background:#DCEBDD;color:var(--leaf-dark);}
+.status-pending{background:#FDF1D2;color:#9A6C0B;}
+.status-rejected{background:#FBE0DD;color:var(--red);}
+.chips{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+.chip{padding:6px 13px;border-radius:99px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;color:var(--muted);}
+.chip.active{background:var(--role-accent);border-color:var(--role-accent);color:#fff;font-weight:600;}
+.msg-banner{background:#DCEBDD;color:var(--leaf-dark);padding:9px 14px;border-radius:8px;font-size:12.5px;margin-bottom:12px;font-weight:500;}
+.helper{font-size:11.5px;color:var(--muted);margin-top:-4px;}
+.log-item{font-size:12px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono';}
+@media print{
+  .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"]{ display:none !important; }
+  .app{ max-width:100%; }
+  .content{ padding:0; }
+  .card{ break-inside:avoid; border:1px solid #999; }
+  body{ background:#fff; }
+}
+@media (max-width:760px){
+  .layout{grid-template-columns:1fr;}
+  .sidebar{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px;}
+  .tabbtn{white-space:nowrap;}
+  .tabbtn.active{box-shadow:inset 0 -3px 0 var(--leaf);}
+  .grid2, .grid3, .grid4{grid-template-columns:1fr 1fr;}
+}
+</style>
+</head>
+<body>
+<div class="app">
 
+  <div class="topbar">
+    <div class="brandblock">
+      <div class="brand">TIPFA</div>
+      <div class="tagline">Growing Together. Harvesting Excellence.</div>
+    </div>
+    <div id="topbarRight"></div>
+  </div>
+
+  <div id="loginScreen"></div>
+
+  <div id="appScreen" style="display:none;">
+    <div class="subbar" id="subbar"></div>
+    <div class="layout">
+      <div class="sidebar" id="sidebar"></div>
+      <div class="content" id="content"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const CROPS = ['Tomatoes','Cucumbers','Melons','Capsicum Red','Capsicum Yellow','Cherry Tomatoes'];
+let INPUTS = ['Seeds','Fertiliser','Greenhouse Supplies','Water'];
+const PERIODS = ['weekly','monthly','annual'];
+const PRICE_BASE = {Tomatoes:1200, Cucumbers:900, Melons:1500, 'Capsicum Red':2200, 'Capsicum Yellow':2100, 'Cherry Tomatoes':3000};
+const INVEST_CATEGORIES = ['Seeds','Labour','Infrastructure','Other'];
+const CROP_STAGES = ['Sowing','Transplanting','Flowering','Harvesting'];
+const MARKET_STANDARD_OPTIONS = ['GlobalG.A.P.','Organic','Fair Trade','Other'];
+
+const MEMBERS = {
+  she: {name:'She Farms', contact:'Brenda Sandstrom', phone:'+255 754 000 111', email:'she.farms@tipfa.co.tz', password:'1234', location:'Iringa', category:'Functional', totalArea:2.5, indoorSqm:800, indoorUnits:3, outdoorArea:1.2, irrigation:'Drip', water:'Borehole', registered:'2026-07-08', status:'Active',
+    crops:[{crop:'Tomatoes',variety:'Anna F1',area:0.3,planted:'2026-05-01',expected:'2026-08-01'},{crop:'Melons',variety:'Sweet Gold',area:0.15,planted:'2026-06-05',expected:'2026-08-25'}]},
+  fair: {name:'Fair Farms', contact:'Suleiman Farej', phone:'+255 754 000 222', email:'fair.farms@tipfa.co.tz', password:'1234', location:'Iringa', category:'Functional', totalArea:3.2, indoorSqm:1100, indoorUnits:4, outdoorArea:1.8, irrigation:'Drip', water:'Piped', registered:'2026-07-08', status:'Active',
+    crops:[{crop:'Capsicum Red',variety:'Fair Miche',area:0.2,planted:'2026-05-20',expected:'2026-08-10'},{crop:'Capsicum Yellow',variety:'Fair Miche',area:0.2,planted:'2026-05-20',expected:'2026-08-10'}]},
+  iringa: {name:'Iringa Agro Fresh', contact:'Borja Viton', phone:'+255 754 000 333', email:'iringa.fresh@tipfa.co.tz', password:'1234', location:'Iringa', category:'Functional', totalArea:4.0, indoorSqm:1400, indoorUnits:5, outdoorArea:2.0, irrigation:'Drip', water:'Borehole', registered:'2026-07-08', status:'Active',
+    crops:[{crop:'Cherry Tomatoes',variety:'Sakura',area:0.1,planted:'2026-06-01',expected:'2026-08-20'},{crop:'Cucumbers',variety:'Marketmore',area:0.25,planted:'2026-05-15',expected:'2026-07-30'}]},
+  nahdi: {name:'Nahdi Youth Farm', contact:'Agnes M. Mrilenjele', phone:'+255 754 000 444', email:'nahdi.youth@tipfa.co.tz', password:'1234', location:'Iringa', category:'Non-functional', totalArea:1.0, indoorSqm:300, indoorUnits:1, outdoorArea:0.5, irrigation:'Manual', water:'Rain-fed', registered:'2026-08-01', status:'Pending',
+    crops:[]},
+  pinerjo: {name:'Pinerjo Smart Farm', contact:'Leonard Mkongwa', phone:'+255 754 000 555', email:'pinerjo.smart@tipfa.co.tz', password:'1234', location:'Dodoma', category:'Honorable', totalArea:1.5, indoorSqm:500, indoorUnits:2, outdoorArea:0.7, irrigation:'Drip', water:'Borehole', registered:'2026-08-02', status:'Pending',
+    crops:[]},
+};
+
+const DEFAULT_ADMINS = [
+  {name:'Samson Abel Mwaikenda', username:'samsonabel627@gmail.com', password:'sam2026'},
+  {name:'Amina Hassan', username:'amina.hassan@tipfa.co.tz', password:'Secretariat#1'},
+  {name:'Joseph Mwakalinga', username:'joseph.mwakalinga@tipfa.co.tz', password:'Secretariat#2'},
+];
+const MAX_ADMINS = 5;
+// Shared code an operator must quote to create their own administrator account
+// from the sign-in screen. Set to '' to allow administrator sign-up without a code.
+const ADMIN_SIGNUP_CODE = 'TIPFA2026';
+const ADMIN_STORE_KEY = 'tipfa.admins.v1';
+
+// Administrator accounts are kept in the browser so an account created here
+// still works after a page reload. Falls back to memory only if storage is blocked.
+let ADMINS = loadAdmins();
+function loadAdmins(){
+  try{
+    const raw = localStorage.getItem(ADMIN_STORE_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed) && parsed.length) return parsed;
+    }
+  }catch(e){ /* storage unavailable — fall through to defaults */ }
+  return DEFAULT_ADMINS.map(a=>Object.assign({}, a));
+}
+function saveAdmins(){
+  try{ localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify(ADMINS)); }catch(e){ /* not persisted */ }
+}
+function norm(s){ return (s||'').toString().trim().toLowerCase().replace(/\s+/g,''); }
+
+function blankPeriod(list, val){ const o={}; list.forEach(k=>o[k]=val); return o; }
+const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CURRENT_MONTH = 8; // August 2026, matching today's date in-universe
+const CURRENT_WEEK = 1;
+const WEEK_FACTORS = [0.90, 0.97, 1.03, 0.92]; // deterministic actual-vs-plan ratios used to seed demo weeks
+
+function blankMonthWeeks(){
+  const months = {};
+  for(let m=1;m<=12;m++){ months[m] = {1:blankPeriod(CROPS,0), 2:blankPeriod(CROPS,0), 3:blankPeriod(CROPS,0), 4:blankPeriod(CROPS,0)}; }
+  return months;
+}
+const harvest = {}, inputsData = {};
+Object.keys(MEMBERS).forEach(id=>{
+  harvest[id] = { plan: blankMonthWeeks(), actual: blankMonthWeeks() };
+  inputsData[id] = { weekly:blankPeriod(INPUTS,0), monthly:blankPeriod(INPUTS,0), annual:blankPeriod(INPUTS,0) };
+});
+
+function seedMonth(id, crop, month, planBase, weeksActual){
+  weeksActual = weeksActual===undefined ? 4 : weeksActual;
+  for(let w=1; w<=4; w++){
+    harvest[id].plan[month][w][crop] = Math.round(planBase);
+    harvest[id].actual[month][w][crop] = w<=weeksActual ? Math.round(planBase * WEEK_FACTORS[w-1]) : 0;
+  }
+}
+// June and July: complete past months (plan + actual for all 4 weeks).
+// August: current month — plan set for the whole month, actual only filled through week 1.
+seedMonth('she','Tomatoes',6,180); seedMonth('she','Tomatoes',7,190); seedMonth('she','Tomatoes',8,200,CURRENT_WEEK);
+seedMonth('she','Melons',6,55); seedMonth('she','Melons',7,60); seedMonth('she','Melons',8,70,CURRENT_WEEK);
+seedMonth('fair','Capsicum Red',6,95); seedMonth('fair','Capsicum Red',7,100); seedMonth('fair','Capsicum Red',8,110,CURRENT_WEEK);
+seedMonth('fair','Capsicum Yellow',6,80); seedMonth('fair','Capsicum Yellow',7,85); seedMonth('fair','Capsicum Yellow',8,90,CURRENT_WEEK);
+seedMonth('iringa','Cherry Tomatoes',6,38); seedMonth('iringa','Cherry Tomatoes',7,42); seedMonth('iringa','Cherry Tomatoes',8,45,CURRENT_WEEK);
+seedMonth('iringa','Cucumbers',6,90); seedMonth('iringa','Cucumbers',7,95); seedMonth('iringa','Cucumbers',8,100,CURRENT_WEEK);
+
+inputsData.she.weekly={Seeds:4,Fertiliser:8,'Greenhouse Supplies':0,Water:180};
+inputsData.fair.weekly={Seeds:6,Fertiliser:12,'Greenhouse Supplies':2,Water:220};
+inputsData.iringa.weekly={Seeds:5,Fertiliser:9,'Greenhouse Supplies':1,Water:260};
+
+// New modules: market standards, market prices, investment tracking, future planning, crop stages
+function blankInvestments(){ return { weekly:blankPeriod(INVEST_CATEGORIES,0), monthly:blankPeriod(INVEST_CATEGORIES,0), annual:blankPeriod(INVEST_CATEGORIES,0) }; }
+Object.keys(MEMBERS).forEach(id=>{
+  MEMBERS[id].marketStandards = [];
+  MEMBERS[id].marketPrices = [];
+  MEMBERS[id].investments = blankInvestments();
+  MEMBERS[id].futurePlan = { year1:'', year2:'', year3:'' };
+});
+Object.values(MEMBERS).forEach(m=> m.crops.forEach(cr=>{
+  if(!cr.stage){ cr.stage = 'Harvesting'; cr.stageInputs = 'Routine harvesting labour, crates, transport'; }
+}));
+MEMBERS.she.marketStandards = [{crop:'Tomatoes', standard:'GlobalG.A.P.', notes:'Certification in progress, targeting Q4 2026'}];
+MEMBERS.fair.marketStandards = [{crop:'Capsicum Red', standard:'Organic', notes:'Third season under organic management'}];
+MEMBERS.she.marketPrices = [
+  {crop:'Tomatoes', buyer:'Iringa Town Market', price:1180, date:'2026-07-28'},
+  {crop:'Tomatoes', buyer:'Dodoma Wholesalers Ltd', price:1250, date:'2026-08-02'},
+];
+MEMBERS.fair.marketPrices = [
+  {crop:'Capsicum Red', buyer:'Fair Miche Export', price:2300, date:'2026-08-01'},
+];
+MEMBERS.she.investments.monthly = {Seeds:180000, Labour:420000, Infrastructure:0, Other:35000};
+MEMBERS.she.futurePlan = { year1:'Expand tomato greenhouse by one unit', year2:'Add drip irrigation to outdoor plot', year3:'Pursue GlobalG.A.P. certification for melons' };
+
+const complaints = [
+  {id:1, member:'iringa', type:'Request', text:'Greenhouse entrance porch budget approval', status:'progress', assignee:'Secretariat'},
+  {id:2, member:'fair', type:'Request', text:'Rijk Zwaan pollination scheduling', status:'resolved', assignee:'Suleiman F.'},
+  {id:3, member:'she', type:'Complaint', text:'Support choosing next crop variety', status:'open', assignee:'Unassigned'},
+];
+let nextComplaintId = 4;
+
+const auditLog = [];
+function logAction(text){ auditLog.unshift({time:new Date().toLocaleString('en-GB',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}), text}); }
+logAction('System initialised — TIPFA Association Platform prototype loaded.');
+
+const state = { role:null, tab:'profile', member:'she', period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
+  adminSignup:false, adminSignupMsg:'', adminSignupUser:'' };
+
+function fmt(n){ return Number(n).toLocaleString(); }
+
+const EYE_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+const EYE_OFF_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a21.6 21.6 0 0 1 5.06-5.94M9.9 4.24A10.4 10.4 0 0 1 12 5c7 0 11 7 11 7a21.6 21.6 0 0 1-2.16 3.19M1 1l22 22"/><path d="M14.12 14.12A3 3 0 1 1 9.88 9.88"/></svg>';
+
+function pwdField(id, placeholder){
+  return `<div style="position:relative;">
+    <input id="${id}" type="password" placeholder="${placeholder||''}" style="padding-right:38px;">
+    <button type="button" onclick="togglePwd('${id}', this)" aria-label="Show password"
+      style="position:absolute;right:5px;top:6px;background:none;border:none;cursor:pointer;padding:5px;color:var(--muted);display:flex;">${EYE_ICON}</button>
+  </div>`;
+}
+function togglePwd(id, btn){
+  const el = document.getElementById(id);
+  const showing = el.type === 'text';
+  el.type = showing ? 'password' : 'text';
+  btn.innerHTML = showing ? EYE_ICON : EYE_OFF_ICON;
+}
+
+function todayStr(){ return new Date().toISOString().slice(0,10); }
+function slugify(s){
+  const base = s.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'member';
+  let id = base, i = 1;
+  while(MEMBERS[id]){ id = base+'_'+i; i++; }
+  return id;
+}
+function createBlankRecords(id){
+  harvest[id] = { plan: blankMonthWeeks(), actual: blankMonthWeeks() };
+  inputsData[id] = { weekly:blankPeriod(INPUTS,0), monthly:blankPeriod(INPUTS,0), annual:blankPeriod(INPUTS,0) };
+  MEMBERS[id].marketStandards = [];
+  MEMBERS[id].marketPrices = [];
+  MEMBERS[id].investments = blankInvestments();
+  MEMBERS[id].futurePlan = { year1:'', year2:'', year3:'' };
+}
+
+function profileFormFields(prefix, v, opts){
+  v = v || {}; opts = opts || {};
+  const catField = opts.showCategory ? `<div><label class="f">Member category</label><select id="${prefix}-category">
+     <option value="Functional" ${v.category==='Functional'?'selected':''}>Functional</option>
+     <option value="Non-functional" ${v.category==='Non-functional'?'selected':''}>Non-functional</option>
+     <option value="Honorable" ${v.category==='Honorable'?'selected':''}>Honorable</option>
+   </select></div>` : '';
+  return `<div class="grid2">
+    <div><label class="f">Farm name</label><input id="${prefix}-name" value="${v.name||''}"></div>
+    <div><label class="f">Owner / principal contact person</label><input id="${prefix}-contact" value="${v.contact||''}"></div>
+    <div><label class="f">Mobile / WhatsApp</label><input id="${prefix}-phone" value="${v.phone||''}"></div>
+    <div><label class="f">Email address</label><input id="${prefix}-email" value="${v.email||''}"></div>
+    <div><label class="f">Farm location</label><input id="${prefix}-location" value="${v.location||''}"></div>
+    ${catField}
+    <div><label class="f">Total farm area (ha)</label><input id="${prefix}-totalArea" type="number" step="0.1" value="${v.totalArea||''}"></div>
+    <div><label class="f">Indoor production (m²)</label><input id="${prefix}-indoorSqm" type="number" value="${v.indoorSqm||''}"></div>
+    <div><label class="f">Number of indoor units</label><input id="${prefix}-indoorUnits" type="number" value="${v.indoorUnits||''}"></div>
+    <div><label class="f">Outdoor cultivated area (ha)</label><input id="${prefix}-outdoorArea" type="number" step="0.1" value="${v.outdoorArea||''}"></div>
+    <div><label class="f">Irrigation system</label><input id="${prefix}-irrigation" value="${v.irrigation||''}"></div>
+    <div><label class="f">Water source</label><input id="${prefix}-water" value="${v.water||''}"></div>
+  </div>`;
+}
+function readProfileFields(prefix){
+  const catEl = document.getElementById(`${prefix}-category`);
+  return {
+    name: document.getElementById(`${prefix}-name`).value.trim(),
+    contact: document.getElementById(`${prefix}-contact`).value.trim(),
+    phone: document.getElementById(`${prefix}-phone`).value.trim(),
+    email: document.getElementById(`${prefix}-email`).value.trim(),
+    location: document.getElementById(`${prefix}-location`).value.trim(),
+    category: catEl ? catEl.value : undefined,
+    totalArea: Number(document.getElementById(`${prefix}-totalArea`).value)||0,
+    indoorSqm: Number(document.getElementById(`${prefix}-indoorSqm`).value)||0,
+    indoorUnits: Number(document.getElementById(`${prefix}-indoorUnits`).value)||0,
+    outdoorArea: Number(document.getElementById(`${prefix}-outdoorArea`).value)||0,
+    irrigation: document.getElementById(`${prefix}-irrigation`).value.trim(),
+    water: document.getElementById(`${prefix}-water`).value.trim(),
+  };
+}
+
+function downloadCSV(filename, rows){
+  const csv = rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function showLoginTab(tab){ state.loginTab = tab; renderLogin(); }
+
+function doMemberLogin(){
+  const identifier = norm(document.getElementById('login-id').value);
+  const password = document.getElementById('login-password').value.trim();
+  if(!identifier || !password){ document.getElementById('login-error').textContent = 'Enter your phone number/email and password.'; return; }
+  const match = Object.entries(MEMBERS).find(([id,m]) =>
+    m.status==='Active' && m.password===password && (norm(m.phone)===identifier || norm(m.email)===identifier));
+  if(!match){ document.getElementById('login-error').textContent = 'No active account matches that phone/email and password.'; return; }
+  const [id] = match;
+  state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile';
+  document.body.setAttribute('data-role','member');
+  logAction(`${MEMBERS[id].name} logged in.`);
+  render();
+}
+function doAdminLogin(){
+  const identifier = norm(document.getElementById('login-user').value);
+  const password = document.getElementById('login-pass').value.trim();
+  if(!identifier || !password){ document.getElementById('login-error-admin').textContent = 'Enter your operator ID and password.'; return; }
+  const match = ADMINS.find(a => {
+    const u = norm(a.username), local = u.split('@')[0];
+    return (identifier===u || identifier===local) && a.password===password;
+  });
+  if(!match){ document.getElementById('login-error-admin').textContent = 'Invalid operator ID or password.'; return; }
+  state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = match.name;
+  state.adminSignupMsg = ''; state.adminSignupUser = '';
+  document.body.setAttribute('data-role','admin');
+  logAction(`Operator ${match.name} logged in to the administrator console.`);
+  render();
+}
+function logout(){
+  logAction(`${state.role==='member' ? MEMBERS[state.member].name : (state.adminName||'Operator')} logged out.`);
+  state.loggedIn = false; state.role = null;
+  document.body.removeAttribute('data-role');
+  render();
+}
+
+function toggleRegister(v){ state.showRegister = v; state.regSuccess = false; renderLogin(); }
+
+function toggleAdminSignup(v){ state.adminSignup = v; state.adminSignupMsg = ''; renderLogin(); }
+
+function submitAdminSignup(){
+  const err = document.getElementById('asignup-error');
+  const name = document.getElementById('asignup-name').value.trim();
+  const user = document.getElementById('asignup-user').value.trim();
+  const pass = document.getElementById('asignup-pass').value;
+  const pass2 = document.getElementById('asignup-pass2').value;
+  const codeEl = document.getElementById('asignup-code');
+  if(!name || !user || !pass){
+    err.textContent = 'Enter your full name, the operator ID you want, and a password.'; return;
+  }
+  if(ADMIN_SIGNUP_CODE && (codeEl.value.trim() !== ADMIN_SIGNUP_CODE)){
+    err.textContent = 'That Secretariat sign-up code is not correct.'; return;
+  }
+  if(pass.length < 6){
+    err.textContent = 'Choose a password of at least 6 characters.'; return;
+  }
+  if(pass !== pass2){
+    err.textContent = 'Passwords do not match.'; return;
+  }
+  const u = norm(user), local = u.split('@')[0];
+  if(ADMINS.some(a=>{ const au = norm(a.username); return au===u || au.split('@')[0]===local; })){
+    err.textContent = 'That operator ID is already in use.'; return;
+  }
+  if(ADMINS.length >= MAX_ADMINS){
+    err.textContent = `All ${MAX_ADMINS} administrator seats are taken — an existing operator must remove one first.`; return;
+  }
+  ADMINS.push({name, username:user, password:pass});
+  saveAdmins();
+  logAction(`${name} created their own administrator account (self sign-up) as operator ${user}.`);
+  state.adminSignup = false;
+  state.adminSignupUser = user;
+  state.adminSignupMsg = 'Administrator account created — sign in below with your new operator ID and password.';
+  renderLogin();
+}
+
+function submitSelfRegistration(){
+  const vals = readProfileFields('reg');
+  const pass = document.getElementById('reg-password').value;
+  const pass2 = document.getElementById('reg-password2').value;
+  if(!vals.name || !vals.contact || !vals.phone){
+    document.getElementById('reg-error').textContent = 'Farm name, contact person, and phone number are required.';
+    return;
+  }
+  if(!pass || pass.length < 4){
+    document.getElementById('reg-error').textContent = 'Choose a password of at least 4 characters.';
+    return;
+  }
+  if(pass !== pass2){
+    document.getElementById('reg-error').textContent = 'Passwords do not match.';
+    return;
+  }
+  const id = slugify(vals.name);
+  MEMBERS[id] = Object.assign({}, vals, { password: pass, category:'Pending review', registered: todayStr(), status:'Pending', crops:[] });
+  createBlankRecords(id);
+  logAction(`${vals.name} submitted a new registration (self sign-up), pending Secretariat approval.`);
+  state.showRegister = false; state.regSuccess = true;
+  renderLogin();
+}
+
+function renderLogin(){
+  const box = document.getElementById('loginScreen');
+  box.innerHTML = `
+    <div class="loginwrap"><div class="loginbox">
+      <div class="lock-icon">&#128274; Secure sign-in</div>
+      <div class="logintabs">
+        <button class="${state.loginTab==='member'?'active':''}" onclick="showLoginTab('member')">Farm member</button>
+        <button class="${state.loginTab==='admin'?'active':''}" onclick="showLoginTab('admin')">Administrator</button>
+      </div>
+      ${state.loginTab==='member' ? (
+        state.showRegister ? `
+        <div class="card">
+          ${profileFormFields('reg', {}, {showCategory:false})}
+          <label class="f">Set a password</label>${pwdField('reg-password','At least 4 characters')}
+          <label class="f">Confirm password</label>${pwdField('reg-password2','Re-enter password')}
+          <button class="btn" style="width:100%;" onclick="submitSelfRegistration()">Submit registration</button>
+          <p class="helper" id="reg-error" style="color:var(--red);margin-top:8px;"></p>
+        </div>
+        <p class="login-note"><a href="#" onclick="toggleRegister(false);return false;">&larr; Back to login</a></p>
+        <p class="login-note">Your registration is reviewed by the TIPFA Secretariat before your account is activated.</p>
+        ` : `
+        ${state.regSuccess ? '<div class="msg-banner">Registration submitted — a TIPFA Secretariat operator will review and approve your account.</div>' : ''}
+        <div class="card">
+          <label class="f">Phone number or email</label>
+          <input id="login-id" placeholder="+255 7XX XXX XXX or you@example.com">
+          <label class="f">Password</label>
+          ${pwdField('login-password','Your password')}
+          <button class="btn" style="width:100%;margin-top:10px;" onclick="doMemberLogin()">Log in</button>
+          <p class="helper" id="login-error" style="color:var(--red);margin-top:8px;"></p>
+        </div>
+        <p class="login-note">Each member logs in with their own phone/email and password. An account only ever shows its own farm's data.</p>
+        <p class="login-note"><a href="#" onclick="toggleRegister(true);return false;">New farm? Register here &rarr;</a></p>
+        <p class="login-note">Demo accounts (password <strong>1234</strong>): She Farms, Fair Farms, Iringa Agro Fresh — sign in with the phone or email shown in Member management.</p>
+        `
+      ) : (
+        state.adminSignup ? `
+        <div class="card">
+          <div class="grid2">
+            <div><label class="f">Full name</label><input id="asignup-name" placeholder="e.g. Samson Abel Mwaikenda"></div>
+            <div><label class="f">Choose your operator ID / email</label><input id="asignup-user" placeholder="you@example.com"></div>
+          </div>
+          <label class="f">Choose a password</label>${pwdField('asignup-pass','At least 6 characters')}
+          <label class="f">Confirm password</label>${pwdField('asignup-pass2','Re-enter password')}
+          ${ADMIN_SIGNUP_CODE ? `<label class="f">Secretariat sign-up code</label>
+          <input id="asignup-code" placeholder="Code issued by TIPFA">` : ''}
+          <button class="btn gold" style="width:100%;margin-top:6px;" onclick="submitAdminSignup()">Create administrator account</button>
+          <p class="helper" id="asignup-error" style="color:var(--red);margin-top:8px;"></p>
+        </div>
+        <p class="login-note"><a href="#" onclick="toggleAdminSignup(false);return false;">&larr; Back to administrator login</a></p>
+        <p class="login-note">${ADMINS.length}/${MAX_ADMINS} administrator seats in use. Your account works immediately and is saved in this browser.${ADMIN_SIGNUP_CODE ? ' Demo sign-up code: <strong>'+ADMIN_SIGNUP_CODE+'</strong>' : ''}</p>
+        ` : `
+        ${state.adminSignupMsg ? `<div class="msg-banner">${state.adminSignupMsg}</div>` : ''}
+        <div class="card">
+          <label class="f">Operator ID / email</label>
+          <input id="login-user" value="${state.adminSignupUser||''}" placeholder="e.g. amina.hassan@tipfa.co.tz">
+          <label class="f">Password</label>
+          ${pwdField('login-pass','Operator password')}
+          <button class="btn gold" style="width:100%;margin-top:10px;" onclick="doAdminLogin()">Log in</button>
+          <p class="helper" id="login-error-admin" style="color:var(--red);margin-top:8px;"></p>
+        </div>
+        <p class="login-note"><a href="#" onclick="toggleAdminSignup(true);return false;">New administrator? Create your own account &rarr;</a></p>
+        <p class="login-note">Administrator access is limited to a maximum of five authorised TIPFA Secretariat operators. Every operator action is logged for accountability.</p>
+      `)}
+    </div></div>`;
+}
+
+function renderTopbarRight(){
+  const el = document.getElementById('topbarRight');
+  if(!state.loggedIn){ el.innerHTML=''; return; }
+  const who = state.role==='member' ? MEMBERS[state.member].name : (state.adminName || 'Secretariat operator');
+  el.innerHTML = `<div class="session"><span class="who">${who}</span><span>· ${state.role==='member'?'Farm member':'Administrator'} access</span><button onclick="logout()">Log out</button></div>`;
+}
+
+function switchTab(tab){ state.tab = tab; render(); }
+function selectMember(id){ state.member = id; render(); }
+function selectPeriod(p){ state.period = p; render(); }
+
+const MEMBER_TABS = [
+  ['profile','Profile'], ['calendar','Crop calendar'], ['standards','Market standards'],
+  ['plan','Harvest plan'], ['actual','Actual harvest'], ['market','Market prices'],
+  ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication']
+];
+const ADMIN_TABS = [
+  ['members','Member management'], ['bulk','Bulk data entry'], ['dashboard','Central dashboard'],
+  ['growth','Growth planning'], ['reportsA','Reports'], ['commsA','Communication'], ['gov','Governance']
+];
+
+function renderSidebar(){
+  const tabs = state.role==='member' ? MEMBER_TABS : ADMIN_TABS;
+  document.getElementById('sidebar').innerHTML = tabs.map(([k,label])=>
+    `<button class="tabbtn ${state.tab===k?'active':''}" onclick="switchTab('${k}')">${label}</button>`
+  ).join('');
+}
+
+function renderSubbar(){
+  const bar = document.getElementById('subbar');
+  if(state.role==='member'){
+    bar.innerHTML = `<label>Logged in as</label><span style="font-size:13.5px;font-weight:600;color:var(--role-accent-dark);">${MEMBERS[state.member].name}</span>
+      <span class="helper" style="margin-left:8px;">Only your own farm's data is visible in this session.</span>`;
+  } else {
+    bar.innerHTML = `<label>Signed in as</label><span style="font-size:13.5px;font-weight:600;color:var(--role-accent-dark);">TIPFA Secretariat operator</span>
+      <span class="helper" style="margin-left:8px;">Cooperative-wide access — every entry here is logged.</span>`;
+  }
+}
+
+function periodChips(){
+  return `<div class="chips">${PERIODS.map(p=>`<span class="chip ${state.period===p?'active':''}" onclick="selectPeriod('${p}');switchTab('${state.tab}')">${p.charAt(0).toUpperCase()+p.slice(1)}</span>`).join('')}</div>`;
+}
+
+function render(){
+  renderTopbarRight();
+  if(!state.loggedIn){
+    document.getElementById('loginScreen').style.display = 'block';
+    document.getElementById('appScreen').style.display = 'none';
+    renderLogin();
+    return;
+  }
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display = 'block';
+  renderSidebar(); renderSubbar();
+  const c = document.getElementById('content');
+  if(state.role==='member'){
+    if(state.tab==='profile') return renderProfile(c);
+    if(state.tab==='calendar') return renderCropCalendar(c);
+    if(state.tab==='standards') return renderMarketStandards(c);
+    if(state.tab==='plan') return renderHarvestForm(c,'plan');
+    if(state.tab==='actual') return renderHarvestForm(c,'actual');
+    if(state.tab==='market') return renderMarketPrices(c);
+    if(state.tab==='inputs') return renderInputs(c);
+    if(state.tab==='future') return renderFuturePlanning(c);
+    if(state.tab==='reports') return renderReportsMember(c);
+    if(state.tab==='comms') return renderComms(c,false);
+  } else {
+    if(state.tab==='members') return renderMembers(c);
+    if(state.tab==='bulk') return renderBulk(c);
+    if(state.tab==='dashboard') return renderDashboard(c);
+    if(state.tab==='growth') return renderGrowth(c);
+    if(state.tab==='reportsA') return renderReportsAdmin(c);
+    if(state.tab==='commsA') return renderComms(c,true);
+    if(state.tab==='gov') return renderGovernance(c);
+  }
+}
+
+function renderProfile(c){
+  const m = MEMBERS[state.member];
+  c.innerHTML = `
+    <h1 class="page-title">Farm profile</h1>
+    <p class="page-sub">${m.name} · ${m.category} · registered ${m.registered}</p>
+    <div class="card">
+      ${profileFormFields('prof', m, {showCategory:false})}
+      <button class="btn" onclick="saveProfile()">Save profile</button>
+      <p class="helper" id="profile-msg" style="margin-top:8px;"></p>
+      <p class="helper">Member category is assigned by the Secretariat and can't be edited here.</p>
+    </div>
+    <div class="section-label">Crop profile</div>
+    <div class="card">
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th></th></tr></thead>
+      <tbody>${m.crops.length ? m.crops.map((cr,i)=>`<tr><td>${cr.crop}</td><td>${cr.variety}</td><td>${cr.area}</td><td>${cr.planted}</td><td>${cr.expected}</td><td><button class="btn small ghost" onclick="removeCrop(${i})">Remove</button></td></tr>`).join('') : '<tr><td colspan="6" style="color:var(--muted);">No crops recorded yet.</td></tr>'}</tbody></table>
+      <div class="section-label" style="margin-top:16px;">Add a crop</div>
+      <div class="grid2">
+        <div><label class="f">Crop</label><select id="newcrop-crop">${CROPS.map(cr=>`<option>${cr}</option>`).join('')}</select></div>
+        <div><label class="f">Variety</label><input id="newcrop-variety" placeholder="e.g. Anna F1"></div>
+        <div><label class="f">Area covered (ha)</label><input id="newcrop-area" type="number" step="0.01"></div>
+        <div><label class="f">Planting date</label><input id="newcrop-planted" type="date"></div>
+        <div><label class="f">Expected harvest date</label><input id="newcrop-expected" type="date"></div>
+      </div>
+      <button class="btn small" onclick="addCrop()">+ Add crop</button>
+      <p class="helper" id="crop-msg" style="margin-top:8px;"></p>
+    </div>`;
+}
+
+function saveProfile(){
+  const vals = readProfileFields('prof');
+  if(!vals.name || !vals.contact || !vals.phone){
+    document.getElementById('profile-msg').textContent = 'Farm name, contact person, and phone are required.';
+    document.getElementById('profile-msg').style.color = 'var(--red)';
+    return;
+  }
+  const preservedCategory = MEMBERS[state.member].category;
+  Object.assign(MEMBERS[state.member], vals);
+  MEMBERS[state.member].category = preservedCategory;
+  logAction(`${vals.name} updated their farm profile.`);
+  const el = document.getElementById('profile-msg');
+  el.style.color = 'var(--leaf-dark)'; el.textContent = 'Profile updated.';
+  setTimeout(()=>{ const e=document.getElementById('profile-msg'); if(e) e.textContent=''; },3000);
+  render();
+}
+
+function addCrop(){
+  const crop = document.getElementById('newcrop-crop').value;
+  const variety = document.getElementById('newcrop-variety').value.trim();
+  const area = Number(document.getElementById('newcrop-area').value)||0;
+  const planted = document.getElementById('newcrop-planted').value;
+  const expected = document.getElementById('newcrop-expected').value;
+  if(!variety || !planted || !expected){
+    document.getElementById('crop-msg').textContent = 'Enter variety, planting date, and expected harvest date.';
+    document.getElementById('crop-msg').style.color = 'var(--red)';
+    return;
+  }
+  MEMBERS[state.member].crops.push({crop,variety,area,planted,expected});
+  logAction(`${MEMBERS[state.member].name} added a crop profile entry: ${crop} (${variety}).`);
+  render();
+}
+function removeCrop(i){
+  const m = MEMBERS[state.member];
+  const removed = m.crops.splice(i,1)[0];
+  logAction(`${m.name} removed a crop profile entry: ${removed.crop}.`);
+  render();
+}
+
+// ---- Crop calendar: stages, per-stage inputs, supporting documents ----
+function renderCropCalendar(c){
+  const m = MEMBERS[state.member];
+  const cards = m.crops.map((cr,i)=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <strong>${cr.crop} — ${cr.variety}</strong>
+        <span class="status-pill status-active">${cr.stage||'Not set'}</span>
+      </div>
+      <div class="grid2" style="margin-top:10px;">
+        <div><label class="f">Current stage</label><select onchange="setCropField(${i},'stage',this.value)">
+          ${CROP_STAGES.map(s=>`<option ${cr.stage===s?'selected':''}>${s}</option>`).join('')}
+        </select></div>
+        <div><label class="f">Input requirements for this stage</label><input value="${cr.stageInputs||''}" onchange="setCropField(${i},'stageInputs',this.value)" placeholder="e.g. NPK top-dressing, staking, crates"></div>
+      </div>
+      <label class="f" style="margin-top:6px;">Supporting document (photo, farm plan, certificate)</label>
+      <input type="file" onchange="uploadCropDoc(${i}, this)">
+      ${cr.docUrl ? `<p class="helper">Uploaded: <a href="${cr.docUrl}" target="_blank" rel="noopener">${cr.docName}</a></p>` : '<p class="helper">No document uploaded yet.</p>'}
+    </div>`).join('');
+  c.innerHTML = `
+    <h1 class="page-title">Crop calendar</h1>
+    <p class="page-sub">${m.name} · track each crop's stage, stage-specific inputs, and supporting documents</p>
+    ${m.crops.length ? cards : '<div class="card"><p class="helper">No crops yet — add one from the Profile tab first.</p></div>'}`;
+}
+function setCropField(i, field, value){
+  const m = MEMBERS[state.member];
+  m.crops[i][field] = value;
+  logAction(`${m.name} updated ${field==='stage'?'crop stage':'stage input notes'} for ${m.crops[i].crop}.`);
+}
+function uploadCropDoc(i, input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  const url = URL.createObjectURL(file);
+  const m = MEMBERS[state.member];
+  m.crops[i].docName = file.name;
+  m.crops[i].docUrl = url;
+  logAction(`${m.name} uploaded a supporting document for ${m.crops[i].crop}: ${file.name}.`);
+  render();
+}
+
+// ---- Market standards: HACCP baseline + additional certifications per crop ----
+function renderMarketStandards(c){
+  const m = MEMBERS[state.member];
+  const cards = m.crops.map(cr=>{
+    const extras = m.marketStandards.filter(s=>s.crop===cr.crop);
+    return `<div class="card">
+      <strong>${cr.crop}</strong>
+      <p class="helper" style="margin-top:6px;">Baseline standard: <strong>HACCP</strong> — required for every crop. Covers the SOPs and prerequisite programs for the production area, including personal hygiene (toilets, foot baths) and other life-barrier controls.</p>
+      ${extras.length ? `<table class="grid-table" style="margin-top:8px;"><thead><tr><th>Additional standard</th><th>Notes</th></tr></thead><tbody>${extras.map(s=>`<tr><td>${s.standard}</td><td>${s.notes||'—'}</td></tr>`).join('')}</tbody></table>` : '<p class="helper">No additional market standards added for this crop yet.</p>'}
+    </div>`;
+  }).join('');
+  c.innerHTML = `
+    <h1 class="page-title">Market standards</h1>
+    <p class="page-sub">${m.name} · HACCP is the baseline for every crop; add international or local standards on top</p>
+    ${m.crops.length ? cards : '<div class="card"><p class="helper">No crops yet — add one from the Profile tab first.</p></div>'}
+    ${m.crops.length ? `
+    <div class="section-label">Add a market standard</div>
+    <div class="card">
+      <div class="grid2">
+        <div><label class="f">Crop</label><select id="std-crop">${m.crops.map(cr=>`<option>${cr.crop}</option>`).join('')}</select></div>
+        <div><label class="f">Standard</label><select id="std-name">${MARKET_STANDARD_OPTIONS.map(s=>`<option>${s}</option>`).join('')}</select></div>
+      </div>
+      <label class="f">Notes</label><input id="std-notes" placeholder="Certification status, target date, etc.">
+      <button class="btn small" onclick="addMarketStandard()">+ Add standard</button>
+    </div>` : ''}`;
+}
+function addMarketStandard(){
+  const crop = document.getElementById('std-crop').value;
+  const standard = document.getElementById('std-name').value;
+  const notes = document.getElementById('std-notes').value.trim();
+  MEMBERS[state.member].marketStandards.push({crop, standard, notes});
+  logAction(`${MEMBERS[state.member].name} added ${standard} as a market standard for ${crop}.`);
+  render();
+}
+
+// ---- Market prices: buyer prices + weekly/monthly/annual trend ----
+let priceChartRef = null;
+function priceTrendData(crop, period){
+  const base = PRICE_BASE[crop] || 1000;
+  if(period==='weekly') return {labels:['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6'], data:[0.95,1.0,1.02,0.98,1.04,1.06].map(mu=>Math.round(base*mu))};
+  if(period==='monthly') return {labels:['Mar','Apr','May','Jun','Jul','Aug'], data:[0.9,0.95,1.0,1.03,1.05,1.08].map(mu=>Math.round(base*mu))};
+  return {labels:['2024','2025','2026'], data:[0.88,0.97,1.05].map(mu=>Math.round(base*mu))};
+}
+function selectPriceCrop(crop){ state.priceCrop = crop; render(); }
+function renderMarketPrices(c){
+  const m = MEMBERS[state.member];
+  if(!state.priceCrop) state.priceCrop = (m.crops[0] && m.crops[0].crop) || CROPS[0];
+  const crop = state.priceCrop;
+  const entries = m.marketPrices.filter(p=>p.crop===crop);
+  c.innerHTML = `
+    <h1 class="page-title">Market prices</h1>
+    <p class="page-sub">${m.name} · track buyer prices and price trends to decide where to sell</p>
+    <div class="chips">${CROPS.map(cr=>`<span class="chip ${state.priceCrop===cr?'active':''}" onclick="selectPriceCrop('${cr}')">${cr}</span>`).join('')}</div>
+    ${periodChips()}
+    <div class="card"><div style="position:relative;height:170px;"><canvas id="priceChart"></canvas></div></div>
+    <div class="section-label">Buyer prices — ${crop}</div>
+    <div class="card">
+      <table class="grid-table"><thead><tr><th>Buyer</th><th>Price (TZS/kg)</th><th>Date</th></tr></thead>
+      <tbody>${entries.length ? entries.map(e=>`<tr><td>${e.buyer}</td><td>${fmt(e.price)}</td><td>${e.date}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);">No buyer prices logged yet.</td></tr>'}</tbody></table>
+      <div class="section-label" style="margin-top:14px;">Add a buyer price</div>
+      <div class="grid2">
+        <div><label class="f">Buyer</label><input id="price-buyer" placeholder="e.g. Dodoma Central Market"></div>
+        <div><label class="f">Price (TZS/kg)</label><input id="price-value" type="number"></div>
+      </div>
+      <button class="btn small" onclick="addMarketPrice()">+ Add price</button>
+    </div>`;
+  drawPriceChart();
+}
+function addMarketPrice(){
+  const buyer = document.getElementById('price-buyer').value.trim();
+  const price = Number(document.getElementById('price-value').value)||0;
+  if(!buyer || !price) return;
+  MEMBERS[state.member].marketPrices.push({crop:state.priceCrop, buyer, price, date:todayStr()});
+  logAction(`${MEMBERS[state.member].name} logged a buyer price for ${state.priceCrop}: ${buyer} at ${fmt(price)} TZS/kg.`);
+  render();
+}
+function drawPriceChart(){
+  const ctx = document.getElementById('priceChart'); if(!ctx) return;
+  if(priceChartRef) priceChartRef.destroy();
+  const {labels,data} = priceTrendData(state.priceCrop, state.period);
+  priceChartRef = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:state.priceCrop+' price (TZS/kg)', data, borderColor:'#2F7A82', backgroundColor:'rgba(47,122,130,0.15)', fill:true, tension:0.3, pointRadius:3 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+      scales:{ y:{ grid:{ color:'#E4E7D6' }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
+}
+
+// ---- Future planning: investment tracking + 2-3 year outlook ----
+function renderFuturePlanning(c){
+  const m = MEMBERS[state.member];
+  const inv = m.investments[state.period];
+  c.innerHTML = `
+    <h1 class="page-title">Future planning</h1>
+    <p class="page-sub">${m.name} · track investment and plan two to three years ahead</p>
+    <div class="section-label">Investment tracking</div>
+    ${periodChips()}
+    <div class="card">
+      <table class="grid-table"><thead><tr><th>Category</th><th style="width:170px;">${state.period.charAt(0).toUpperCase()+state.period.slice(1)} amount (TZS)</th></tr></thead>
+      <tbody>${INVEST_CATEGORIES.map(cat=>`<tr><td>${cat}</td><td><input type="number" value="${inv[cat]}" onchange="MEMBERS['${state.member}'].investments['${state.period}']['${cat}']=Number(this.value)||0;"></td></tr>`).join('')}</tbody></table>
+      <button class="btn small" style="margin-top:10px;" onclick="saveInvestments()">Save investments</button>
+      <p class="helper" id="inv-msg" style="margin-top:8px;"></p>
+    </div>
+    <div class="section-label">Expected activity — next two to three years</div>
+    <div class="card">
+      ${[1,2,3].map(y=>`<label class="f">Year ${y}</label><input value="${m.futurePlan['year'+y]||''}" onchange="MEMBERS['${state.member}'].futurePlan['year${y}']=this.value;" placeholder="Expected harvest, expansion, or investment plans">`).join('')}
+      <p class="helper">Helps the Secretariat plan cooperative-wide support and interventions ahead of time.</p>
+    </div>`;
+}
+function saveInvestments(){
+  logAction(`${MEMBERS[state.member].name} saved ${state.period} investment figures.`);
+  const el = document.getElementById('inv-msg');
+  if(el){ el.textContent = 'Saved.'; setTimeout(()=>{ if(el) el.textContent=''; },3000); }
+}
+
+function renderHarvestForm(c, kind){
+  const m = MEMBERS[state.member];
+  const label = kind==='plan' ? 'Harvest plan' : 'Actual harvest';
+  const id = state.member, month = state.selMonth, week = state.selWeek;
+  const weekData = harvest[id][kind][month][week];
+  const monthTotal = memberMonthTotal(id, kind, month);
+  c.innerHTML = `
+    <h1 class="page-title">${label}</h1>
+    <p class="page-sub">${m.name} · click a month, then a week, and fill in kilograms per crop</p>
+    ${monthWeekChips()}
+    <div class="card">
+      <table class="grid-table"><thead><tr><th>Crop</th><th style="width:160px;">${MONTHS[month-1]}, Week ${week} (kg)</th></tr></thead>
+      <tbody>${CROPS.map(crop=>`<tr><td>${crop}</td><td><input type="number" value="${weekData[crop]}" onchange="harvest['${id}']['${kind}'][${month}][${week}]['${crop}']=Number(this.value)||0;"></td></tr>`).join('')}</tbody></table>
+      <div style="margin-top:12px;"><button class="btn" onclick="saveHarvest('${kind}')">Save week ${week}</button></div>
+      <p class="helper" id="save-msg" style="margin-top:8px;"></p>
+      <p class="helper" style="margin-top:10px;">${MONTHS[month-1]} total so far (all 4 weeks): <strong>${fmt(monthTotal)} kg</strong></p>
+    </div>
+    ${kind==='actual' ? renderPlanVsActual(m) : ''}`;
+}
+
+function renderPlanVsActual(m){
+  const id = state.member, month = state.selMonth, week = state.selWeek;
+  let weekPlanTotal=0, weekActualTotal=0;
+  CROPS.forEach(cr=>{ weekPlanTotal += (harvest[id].plan[month][week][cr]||0); weekActualTotal += (harvest[id].actual[month][week][cr]||0); });
+  const monthPlanTotal = memberMonthTotal(id,'plan',month), monthActualTotal = memberMonthTotal(id,'actual',month);
+  const yearPlanTotal = memberYearTotal(id,'plan'), yearActualTotal = memberYearTotal(id,'actual');
+  const rows = CROPS.map(cr=>{
+    const p = memberMonthCropTotal(id,'plan',month,cr), a = memberMonthCropTotal(id,'actual',month,cr);
+    if(p===0 && a===0) return '';
+    return `<tr><td>${cr}</td><td>${fmt(p)}</td><td>${fmt(a)}</td><td>${pct(a,p)}%</td></tr>`;
+  }).join('');
+  return `<div class="section-label">Plan vs. actual — performance</div>
+    <div class="card">
+      ${comparisonBar('Week '+week+' of '+MONTHS[month-1], weekPlanTotal, weekActualTotal)}
+      ${comparisonBar(MONTHS[month-1]+' (month to date)', monthPlanTotal, monthActualTotal)}
+      ${comparisonBar('Year to date (2026)', yearPlanTotal, yearActualTotal)}
+      <table class="grid-table"><thead><tr><th>Crop</th><th>${MONTHS[month-1]} plan</th><th>${MONTHS[month-1]} actual</th><th>% of plan</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="4" style="color:var(--muted);">No data for this month yet.</td></tr>'}</tbody></table>
+    </div>`;
+}
+
+function saveHarvest(kind){
+  const m = MEMBERS[state.member];
+  logAction(`${m.name} saved ${kind==='plan'?'harvest plan':'actual harvest'} for ${MONTHS[state.selMonth-1]}, week ${state.selWeek}.`);
+  const el = document.getElementById('save-msg');
+  if(el){ el.textContent = 'Saved — synced to the cooperative dashboard.'; setTimeout(()=>{ if(el) el.textContent=''; },3000); }
+}
+
+function renderInputs(c){
+  const m = MEMBERS[state.member];
+  const data = inputsData[state.member][state.period];
+  c.innerHTML = `
+    <h1 class="page-title">Input requirements</h1>
+    <p class="page-sub">${m.name} · record what you need to plan ahead</p>
+    ${periodChips()}
+    <div class="card">
+      <table class="grid-table"><thead><tr><th>Input</th><th style="width:140px;">${state.period.charAt(0).toUpperCase()+state.period.slice(1)} quantity</th></tr></thead>
+      <tbody>${INPUTS.map(i=>`<tr><td>${i}</td><td><input type="number" value="${data[i]}" onchange="inputsData['${state.member}']['${state.period}']['${i}']=Number(this.value)||0;"></td></tr>`).join('')}</tbody></table>
+      <div style="margin-top:12px;"><button class="btn" onclick="logAction('${m.name} saved ${state.period} input requirements.');document.getElementById('save-msg2').textContent='Saved.';setTimeout(()=>{document.getElementById('save-msg2').textContent='';},3000);">Save inputs</button></div>
+      <p class="helper" id="save-msg2" style="margin-top:8px;"></p>
+    </div>
+    <div class="section-label">Add a new input type</div>
+    <div class="card">
+      <div style="display:flex;gap:8px;align-items:flex-start;">
+        <input id="newinput-name" placeholder="e.g. Shade netting" style="margin-bottom:0;">
+        <button class="btn small" style="white-space:nowrap;" onclick="addInputType()">+ Add input</button>
+      </div>
+      <p class="helper" id="newinput-error" style="color:var(--red);margin-top:8px;"></p>
+      <p class="helper">New input types appear here, in Growth planning, and in the operator's bulk entry console for every member.</p>
+    </div>`;
+}
+function addInputType(){
+  const el = document.getElementById('newinput-name');
+  const name = el.value.trim();
+  if(!name) return;
+  if(INPUTS.some(i=>i.toLowerCase()===name.toLowerCase())){
+    document.getElementById('newinput-error').textContent = 'That input type already exists.';
+    return;
+  }
+  INPUTS.push(name);
+  Object.keys(inputsData).forEach(id=> PERIODS.forEach(p=> inputsData[id][p][name] = 0));
+  logAction(`${MEMBERS[state.member].name} added a new input type: ${name}.`);
+  render();
+}
+
+function renderReportsMember(c){
+  const m = MEMBERS[state.member];
+  c.innerHTML = `
+    <h1 class="page-title">Reports</h1>
+    <p class="page-sub">${m.name} · generate and export your own records</p>
+    ${monthWeekChips()}
+    <div class="grid2">
+      <div class="card"><strong>Harvest plan report</strong><p class="helper">Weekly, monthly, and annual plan vs. actual, all crops.</p>
+        <button class="btn small" onclick="exportHarvestPlanReport('${state.member}')">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Input requirement report</strong><p class="helper">All input types, current period.</p>
+        <button class="btn small" onclick="exportInputReport('${state.member}')">Export CSV (Excel)</button></div>
+    </div>
+    <div class="card"><strong>Print or save this page as PDF</strong><p class="helper">Opens your browser's print dialog — choose "Save as PDF" as the destination.</p>
+      <button class="btn small gold" onclick="window.print()">Print / Save as PDF</button></div>
+    <div class="section-label">Farm progress — weeks in ${MONTHS[state.selMonth-1]}</div>
+    <div class="card"><div style="position:relative;height:170px;"><canvas id="memberTrend"></canvas></div></div>`;
+  drawMemberTrendChart();
+}
+
+function exportHarvestPlanReport(id){
+  const m = MEMBERS[id];
+  const month = state.selMonth, week = state.selWeek;
+  const rows = [['Crop','Week '+week+' plan (kg)','Week '+week+' actual (kg)','Monthly plan (kg)','Monthly actual (kg)','Annual plan (kg)','Annual actual (kg)']];
+  CROPS.forEach(cr=>{
+    const wp = harvest[id].plan[month][week][cr]||0, wa = harvest[id].actual[month][week][cr]||0;
+    const mp = memberMonthCropTotal(id,'plan',month,cr), ma = memberMonthCropTotal(id,'actual',month,cr);
+    let yp=0, ya=0; for(let mo=1;mo<=12;mo++){ yp+=memberMonthCropTotal(id,'plan',mo,cr); ya+=memberMonthCropTotal(id,'actual',mo,cr); }
+    rows.push([cr, wp, wa, mp, ma, yp, ya]);
+  });
+  downloadCSV(`${m.name.replace(/\s+/g,'_')}_harvest_plan_${MONTHS[month-1]}_wk${week}.csv`, rows);
+  logAction(`${m.name} exported harvest plan report (${MONTHS[month-1]}, week ${week}).`);
+}
+function exportInputReport(id){
+  const m = MEMBERS[id];
+  const rows = [['Input','Quantity']];
+  INPUTS.forEach(i=> rows.push([i, inputsData[id][state.period][i]]));
+  downloadCSV(`${m.name.replace(/\s+/g,'_')}_inputs_${state.period}.csv`, rows);
+  logAction(`${m.name} exported input requirement report (${state.period}).`);
+}
+
+function renderComms(c, isAdmin){
+  const list = isAdmin ? complaints : complaints.filter(x=>x.member===state.member);
+  c.innerHTML = `
+    <h1 class="page-title">${isAdmin?'Manage submissions':'Requests & complaints'}</h1>
+    <p class="page-sub">${isAdmin?'All member submissions, routed to the Secretariat':'One link, routed straight to the Secretariat'}</p>
+    ${isAdmin ? '' : `<div class="card">
+      <label class="f">Type</label><select id="msg-type"><option>Request</option><option>Complaint</option><option>Demand</option><option>Suggestion</option></select>
+      <label class="f">Message</label><input id="msg-text" placeholder="Describe the issue or request">
+      <button class="btn small" onclick="addComplaint()">Submit</button>
+    </div>`}
+    <div class="section-label">${isAdmin?'All submissions':'Recent submissions'}</div>
+    <div class="card">
+      <table class="grid-table"><thead><tr><th>Farm</th><th>Message</th>${isAdmin?'<th>Assignee</th>':''}<th>Status</th></tr></thead>
+      <tbody>${list.length ? list.map(x=>`<tr><td>${MEMBERS[x.member].name}</td><td>${x.type}: ${x.text}</td>
+        ${isAdmin?`<td>${x.assignee}</td>`:''}
+        <td>${isAdmin ? `<select onchange="updateStatus(${x.id},this.value)">
+            <option value="open" ${x.status==='open'?'selected':''}>Open</option>
+            <option value="progress" ${x.status==='progress'?'selected':''}>In progress</option>
+            <option value="resolved" ${x.status==='resolved'?'selected':''}>Resolved</option>
+          </select>` : `<span class="status-pill status-${x.status}">${x.status==='progress'?'In progress':x.status.charAt(0).toUpperCase()+x.status.slice(1)}</span>`}</td>
+      </tr>`).join('') : '<tr><td colspan="4" style="color:var(--muted);">No submissions yet.</td></tr>'}</tbody></table>
+    </div>`;
+}
+function addComplaint(){
+  const type = document.getElementById('msg-type').value;
+  const text = document.getElementById('msg-text').value.trim();
+  if(!text) return;
+  complaints.unshift({id:nextComplaintId++, member:state.member, type, text, status:'open', assignee:'Unassigned'});
+  logAction(`${MEMBERS[state.member].name} submitted a new ${type.toLowerCase()}.`);
+  render();
+}
+function updateStatus(id, status){
+  const item = complaints.find(x=>x.id===id); item.status = status;
+  logAction(`Submission #${id} (${MEMBERS[item.member].name}) status set to ${status}.`);
+  render();
+}
+
+function toggleAdminRegister(v){ state.showAdminRegister = v; render(); }
+
+function submitAdminRegistration(){
+  const vals = readProfileFields('areg');
+  const pass = document.getElementById('areg-password').value;
+  if(!vals.name || !vals.contact || !vals.phone){
+    document.getElementById('areg-error').textContent = 'Farm name, contact person, and phone number are required.';
+    return;
+  }
+  if(!pass || pass.length < 4){
+    document.getElementById('areg-error').textContent = 'Set a password of at least 4 characters for this member.';
+    return;
+  }
+  const id = slugify(vals.name);
+  MEMBERS[id] = Object.assign({}, vals, { password: pass, category: vals.category || 'Functional', registered: todayStr(), status:'Active', crops:[] });
+  createBlankRecords(id);
+  logAction(`Operator registered a new member directly: ${vals.name} (activated immediately).`);
+  state.showAdminRegister = false;
+  render();
+}
+
+function renderMembers(c){
+  const panel = state.memberPanel;
+  c.innerHTML = `
+    <h1 class="page-title">Member management</h1>
+    <p class="page-sub">Approve registrations, register new members, and view, edit, or remove any profile</p>
+    <div class="card" style="overflow-x:auto;">
+      <table class="grid-table"><thead><tr><th>Farm</th><th>Category</th><th>Location</th><th>Status</th><th style="min-width:230px;"></th></tr></thead>
+      <tbody>${Object.entries(MEMBERS).map(([id,m])=>`<tr><td>${m.name}</td><td>${m.category}</td><td>${m.location}</td>
+        <td><span class="status-pill status-${m.status.toLowerCase()}">${m.status}</span></td>
+        <td>
+          <button class="btn small ghost" onclick="openMemberView('${id}')">View</button>
+          <button class="btn small ghost" onclick="openMemberEdit('${id}')">Edit</button>
+          ${m.status==='Pending' ? `<button class="btn small" onclick="approveMember('${id}')">Approve</button>
+          <button class="btn small ghost" onclick="rejectMember('${id}')">Reject</button>` : ''}
+          <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeMember('${id}')">Remove</button>
+        </td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+    ${panel && panel.mode==='view' ? renderMemberViewPanel(panel.id) : ''}
+    ${panel && panel.mode==='edit' ? renderMemberEditPanel(panel.id) : ''}
+    <div style="margin:14px 0;"><button class="btn gold" onclick="toggleAdminRegister(${!state.showAdminRegister})">${state.showAdminRegister ? 'Cancel' : '+ Register new member'}</button></div>
+    ${state.showAdminRegister ? `
+      <div class="section-label">Register a new member</div>
+      <div class="card">
+        ${profileFormFields('areg', {}, {showCategory:true})}
+        <label class="f">Set a password</label>${pwdField('areg-password','At least 4 characters')}
+        <button class="btn" onclick="submitAdminRegistration()">Register member</button>
+        <p class="helper" id="areg-error" style="color:var(--red);margin-top:8px;"></p>
+      </div>` : ''}
+    <p class="helper">Approving a pending member (or registering one directly here) makes their farm selectable at member login and in the bulk entry console.</p>`;
+}
+
+function renderMemberViewPanel(id){
+  const m = MEMBERS[id];
+  return `<div class="section-label">Viewing: ${m.name}</div>
+    <div class="card">
+      <div class="grid2">
+        <div><label class="f">Farm name</label><input value="${m.name}" readonly></div>
+        <div><label class="f">Owner / contact person</label><input value="${m.contact}" readonly></div>
+        <div><label class="f">Mobile / WhatsApp</label><input value="${m.phone}" readonly></div>
+        <div><label class="f">Email</label><input value="${m.email||''}" readonly></div>
+        <div><label class="f">Location</label><input value="${m.location||''}" readonly></div>
+        <div><label class="f">Category</label><input value="${m.category}" readonly></div>
+        <div><label class="f">Total farm area (ha)</label><input value="${m.totalArea||0}" readonly></div>
+        <div><label class="f">Indoor production (m²)</label><input value="${m.indoorSqm||0}" readonly></div>
+        <div><label class="f">Number of indoor units</label><input value="${m.indoorUnits||0}" readonly></div>
+        <div><label class="f">Outdoor cultivated area (ha)</label><input value="${m.outdoorArea||0}" readonly></div>
+        <div><label class="f">Irrigation system</label><input value="${m.irrigation||''}" readonly></div>
+        <div><label class="f">Water source</label><input value="${m.water||''}" readonly></div>
+      </div>
+      <div class="section-label">Crop profile</div>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th>Stage</th><th>Document</th></tr></thead>
+      <tbody>${m.crops.length ? m.crops.map(cr=>`<tr><td>${cr.crop}</td><td>${cr.variety}</td><td>${cr.area}</td><td>${cr.planted}</td><td>${cr.expected}</td><td>${cr.stage||'—'}</td><td>${cr.docUrl?`<a href="${cr.docUrl}" target="_blank" rel="noopener">${cr.docName}</a>`:'—'}</td></tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);">No crops recorded yet.</td></tr>'}</tbody></table>
+      <div class="section-label">Market standards</div>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Standard</th><th>Notes</th></tr></thead>
+      <tbody>${m.marketStandards.length ? m.marketStandards.map(s=>`<tr><td>${s.crop}</td><td>${s.standard}</td><td>${s.notes||'—'}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);">HACCP baseline only — no additional standards logged.</td></tr>'}</tbody></table>
+      <button class="btn small ghost" style="margin-top:12px;" onclick="closeMemberPanel()">Close</button>
+    </div>`;
+}
+
+function renderMemberEditPanel(id){
+  const m = MEMBERS[id];
+  return `<div class="section-label">Editing: ${m.name}</div>
+    <div class="card">
+      ${profileFormFields('medit', m, {showCategory:true})}
+      <button class="btn" onclick="saveMemberEdit('${id}')">Save changes</button>
+      <button class="btn small ghost" style="margin-left:8px;" onclick="closeMemberPanel()">Cancel</button>
+      <p class="helper" id="medit-error" style="color:var(--red);margin-top:8px;"></p>
+    </div>`;
+}
+
+function openMemberView(id){ state.memberPanel = {mode:'view', id}; render(); }
+function openMemberEdit(id){ state.memberPanel = {mode:'edit', id}; render(); }
+function closeMemberPanel(){ state.memberPanel = null; render(); }
+
+function saveMemberEdit(id){
+  const vals = readProfileFields('medit');
+  if(!vals.name || !vals.contact || !vals.phone){
+    document.getElementById('medit-error').textContent = 'Farm name, contact person, and phone are required.';
+    return;
+  }
+  Object.assign(MEMBERS[id], vals);
+  logAction(`Operator ${state.adminName||''} updated ${vals.name}'s profile.`);
+  state.memberPanel = null;
+  render();
+}
+
+function removeMember(id){
+  const m = MEMBERS[id];
+  const ok = (typeof confirm === 'function') ? confirm(`Remove ${m.name} from TIPFA? This deletes their profile, crop, harvest, and input records.`) : true;
+  if(!ok) return;
+  delete MEMBERS[id]; delete harvest[id]; delete inputsData[id];
+  for(let i=complaints.length-1;i>=0;i--){ if(complaints[i].member===id) complaints.splice(i,1); }
+  logAction(`Operator ${state.adminName||''} removed member: ${m.name}.`);
+  if(state.memberPanel && state.memberPanel.id===id) state.memberPanel = null;
+  render();
+}
+
+function approveMember(id){ MEMBERS[id].status='Active'; logAction(`Operator approved ${MEMBERS[id].name}'s registration.`); render(); }
+function rejectMember(id){ MEMBERS[id].status='Rejected'; logAction(`Operator rejected ${MEMBERS[id].name}'s registration.`); render(); }
+
+function activeMembers(){ return Object.keys(MEMBERS).filter(id=>MEMBERS[id].status==='Active'); }
+
+function renderBulk(c){
+  const ids = activeMembers();
+  const set = state.bulkSet || 'harvestActual';
+  const isHarvest = set!=='inputs';
+  c.innerHTML = `
+    <h1 class="page-title">Bulk data entry</h1>
+    <p class="page-sub">Enter or update data for every member farm in one place — built for catching up members without direct access</p>
+    <div class="chips">
+      <span class="chip ${set==='harvestActual'?'active':''}" onclick="state.bulkSet='harvestActual';switchTab('bulk')">Actual harvest</span>
+      <span class="chip ${set==='harvestPlan'?'active':''}" onclick="state.bulkSet='harvestPlan';switchTab('bulk')">Harvest plan</span>
+      <span class="chip ${set==='inputs'?'active':''}" onclick="state.bulkSet='inputs';switchTab('bulk')">Input requirements</span>
+    </div>
+    ${isHarvest ? monthWeekChips() : periodChips()}
+    <div class="card" style="overflow-x:auto;">
+      ${renderBulkTable(ids)}
+      <div style="margin-top:14px;"><button class="btn gold" onclick="saveBulk()">Save all entries</button></div>
+      <p class="helper" id="bulk-msg" style="margin-top:8px;"></p>
+    </div>`;
+}
+function renderBulkTable(ids){
+  const set = state.bulkSet || 'harvestActual';
+  const cols = set==='inputs' ? INPUTS : CROPS;
+  const month = state.selMonth, week = state.selWeek;
+  const header = `<tr><th>Farm</th>${cols.map(x=>`<th>${x}</th>`).join('')}</tr>`;
+  const rows = ids.map(id=>{
+    const cells = cols.map(col=>{
+      let val;
+      if(set==='harvestActual') val = harvest[id].actual[month][week][col];
+      else if(set==='harvestPlan') val = harvest[id].plan[month][week][col];
+      else val = inputsData[id][state.period][col];
+      return `<td><input type="number" value="${val}" data-member="${id}" data-col="${col}" class="bulk-input"></td>`;
+    }).join('');
+    return `<tr><td>${MEMBERS[id].name}</td>${cells}</tr>`;
+  }).join('');
+  return `<table class="grid-table"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
+}
+function saveBulk(){
+  const set = state.bulkSet || 'harvestActual';
+  const month = state.selMonth, week = state.selWeek;
+  document.querySelectorAll('.bulk-input').forEach(inp=>{
+    const id = inp.dataset.member, col = inp.dataset.col, val = Number(inp.value)||0;
+    if(set==='harvestActual') harvest[id].actual[month][week][col]=val;
+    else if(set==='harvestPlan') harvest[id].plan[month][week][col]=val;
+    else inputsData[id][state.period][col]=val;
+  });
+  const when = set==='inputs' ? state.period : `${MONTHS[month-1]}, week ${week}`;
+  logAction(`Operator saved bulk ${set==='harvestActual'?'actual harvest':set==='harvestPlan'?'harvest plan':'input requirement'} entries (${when}) for ${activeMembers().length} farms.`);
+  document.getElementById('bulk-msg').textContent = 'Saved — cooperative dashboard updated.';
+  setTimeout(()=>{ const el=document.getElementById('bulk-msg'); if(el) el.textContent=''; },3000);
+}
+
+function memberMonthCropTotal(id, kind, month, crop){
+  let t=0; for(let w=1; w<=4; w++){ t += (harvest[id][kind][month][w][crop]||0); } return t;
+}
+function memberMonthTotal(id, kind, month){
+  let t=0; CROPS.forEach(cr=> t += memberMonthCropTotal(id, kind, month, cr)); return t;
+}
+function memberYearTotal(id, kind){
+  let t=0; for(let m=1; m<=12; m++){ t += memberMonthTotal(id, kind, m); } return t;
+}
+function coopWeekTotal(kind, month, week){
+  let t=0; activeMembers().forEach(id=> CROPS.forEach(cr=> t += (harvest[id][kind][month][week][cr]||0))); return t;
+}
+function coopMonthTotal(kind, month){
+  let t=0; activeMembers().forEach(id=> t += memberMonthTotal(id, kind, month)); return t;
+}
+function coopYearTotal(kind){
+  let t=0; activeMembers().forEach(id=> t += memberYearTotal(id, kind)); return t;
+}
+function coopCapacityByCrop(kind, month){
+  return CROPS.map(cr=>{ let t=0; activeMembers().forEach(id=> t += memberMonthCropTotal(id, kind, month, cr)); return t; });
+}
+function coopWeekByCrop(kind, month, week){
+  return CROPS.map(cr=>{ let t=0; activeMembers().forEach(id=> t += (harvest[id][kind][month][week][cr]||0)); return t; });
+}
+function pct(actual, plan){ return plan>0 ? Math.round(actual/plan*100) : (actual>0 ? 100 : 0); }
+
+function comparisonBar(label, plan, actual){
+  const p = pct(actual, plan);
+  const barColor = p>=95 ? 'var(--leaf)' : (p>=70 ? 'var(--gold)' : 'var(--red)');
+  return `<div style="margin-bottom:14px;">
+    <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;">
+      <span>${label}</span><span>${fmt(actual)} / ${fmt(plan)} kg · ${p}% of plan</span>
+    </div>
+    <div style="height:10px;background:#E4E7D6;border-radius:99px;overflow:hidden;">
+      <div style="height:100%;width:${Math.min(p,100)}%;background:${barColor};"></div>
+    </div>
+  </div>`;
+}
+
+function selectMonth(m){ state.selMonth = m; render(); }
+function selectWeek(w){ state.selWeek = w; render(); }
+function monthWeekChips(){
+  return `<div class="chips">${MONTHS.map((mName,i)=>`<span class="chip ${state.selMonth===i+1?'active':''}" onclick="selectMonth(${i+1})">${mName.slice(0,3)}</span>`).join('')}</div>
+    <div class="chips">${[1,2,3,4].map(w=>`<span class="chip ${state.selWeek===w?'active':''}" onclick="selectWeek(${w})">Week ${w}</span>`).join('')}</div>`;
+}
+
+let capacityChartRef=null, trendChartRef=null, memberChartRef=null;
+
+function renderDashboard(c){
+  const month = state.selMonth, week = state.selWeek;
+  const weekPlan = coopWeekTotal('plan', month, week), weekActual = coopWeekTotal('actual', month, week);
+  const monthPlan = coopMonthTotal('plan', month), monthActual = coopMonthTotal('actual', month);
+  const yearPlan = coopYearTotal('plan'), yearActual = coopYearTotal('actual');
+  c.innerHTML = `
+    <h1 class="page-title">Central dashboard</h1>
+    <p class="page-sub">Live totals across all active member farms · ${activeMembers().length} / ${Object.keys(MEMBERS).length} reporting</p>
+    ${monthWeekChips()}
+    <div class="section-label">Weekly — Week ${week} of ${MONTHS[month-1]}</div>
+    <div class="card">
+      <div class="grid3">
+        <div class="metric"><div class="lbl">Weekly plan</div><div class="val">${fmt(weekPlan)} kg</div></div>
+        <div class="metric"><div class="lbl">Weekly actual</div><div class="val" style="color:var(--gold);">${fmt(weekActual)} kg</div></div>
+        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--teal);">${pct(weekActual,weekPlan)}%</div></div>
+      </div>
+      ${comparisonBar('Week '+week+' performance', weekPlan, weekActual)}
+    </div>
+    <div class="section-label">Monthly — ${MONTHS[month-1]}</div>
+    <div class="card">
+      <div class="grid3">
+        <div class="metric"><div class="lbl">Monthly plan</div><div class="val">${fmt(monthPlan)} kg</div></div>
+        <div class="metric"><div class="lbl">Monthly actual</div><div class="val" style="color:var(--gold);">${fmt(monthActual)} kg</div></div>
+        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--teal);">${pct(monthActual,monthPlan)}%</div></div>
+      </div>
+      ${comparisonBar(MONTHS[month-1]+' performance', monthPlan, monthActual)}
+    </div>
+    <div class="section-label">Annual — 2026</div>
+    <div class="card">
+      <div class="grid3">
+        <div class="metric"><div class="lbl">Annual plan</div><div class="val">${fmt(yearPlan)} kg</div></div>
+        <div class="metric"><div class="lbl">Annual actual</div><div class="val" style="color:var(--gold);">${fmt(yearActual)} kg</div></div>
+        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--teal);">${pct(yearActual,yearPlan)}%</div></div>
+      </div>
+      ${comparisonBar('Year-to-date performance', yearPlan, yearActual)}
+    </div>
+    <div class="section-label">Capacity by crop (${MONTHS[month-1]}, actual)</div>
+    <div class="card"><div style="position:relative;height:200px;"><canvas id="capacityChart"></canvas></div></div>
+    <div class="section-label">Weeks in ${MONTHS[month-1]}: plan vs. actual</div>
+    <div class="card"><div style="position:relative;height:170px;"><canvas id="trendChart"></canvas></div></div>
+    <p class="helper">Figures update automatically whenever a member saves an entry or an operator saves a bulk update.</p>`;
+  drawCapacityChart(); drawTrendChart();
+}
+
+function drawCapacityChart(){
+  const ctx = document.getElementById('capacityChart'); if(!ctx) return;
+  if(capacityChartRef) capacityChartRef.destroy();
+  capacityChartRef = new Chart(ctx, { type:'doughnut', data:{ labels:CROPS, datasets:[{ data:coopCapacityByCrop('actual', state.selMonth), backgroundColor:['#A85C3F','#35633A','#D69A2D','#2F7A82','#7A8C3A','#8C4E7A'], borderColor:'#FFFFFF', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ family:'IBM Plex Sans', size:10.5 }, color:'#23301E' } } } } });
+}
+function drawTrendChart(){
+  const ctx = document.getElementById('trendChart'); if(!ctx) return;
+  if(trendChartRef) trendChartRef.destroy();
+  const month = state.selMonth;
+  const planWeeks = [1,2,3,4].map(w=>coopWeekTotal('plan',month,w));
+  const actualWeeks = [1,2,3,4].map(w=>coopWeekTotal('actual',month,w));
+  trendChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
+    datasets:[
+      { label:'Plan', data:planWeeks, backgroundColor:'#D8D9C8', borderRadius:4, maxBarThickness:26 },
+      { label:'Actual', data:actualWeeks, backgroundColor:'#35633A', borderRadius:4, maxBarThickness:26 }
+    ] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
+      scales:{ y:{ grid:{ color:'#E4E7D6' }, ticks:{ font:{ size:10 }, color:'#6B7263' } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, color:'#6B7263' } } } } });
+}
+function drawMemberTrendChart(){
+  const ctx = document.getElementById('memberTrend'); if(!ctx) return;
+  if(memberChartRef) memberChartRef.destroy();
+  const m = state.member, month = state.selMonth;
+  const planWeeks = [1,2,3,4].map(w=>{ let t=0; CROPS.forEach(cr=> t+=harvest[m].plan[month][w][cr]||0); return t; });
+  const actualWeeks = [1,2,3,4].map(w=>{ let t=0; CROPS.forEach(cr=> t+=harvest[m].actual[month][w][cr]||0); return t; });
+  memberChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
+    datasets:[
+      { label:'Plan', data:planWeeks, backgroundColor:'#D8D9C8', borderRadius:4, maxBarThickness:26 },
+      { label:'Actual', data:actualWeeks, backgroundColor:'#2F7A82', borderRadius:4, maxBarThickness:26 }
+    ] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
+      scales:{ y:{ grid:{ color:'#E4E7D6' }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:9.5 } } } } } });
+}
+
+function renderGrowth(c){
+  const totals = INPUTS.map(i=>{ let t=0; activeMembers().forEach(id=> t += (inputsData[id][state.period][i]||0)); return t; });
+  const rows = INPUTS.map((i,idx)=>`<tr><td>${i}</td><td>${fmt(totals[idx])}</td></tr>`).join('');
+  const ytd = coopYearTotal('actual') || 31900;
+  c.innerHTML = `
+    <h1 class="page-title">Growth planning</h1>
+    <p class="page-sub">Cooperative-wide input needs and expansion outlook</p>
+    ${periodChips()}
+    <div class="section-label">Input needs (${state.period}, all active farms)</div>
+    <div class="card"><table class="grid-table"><thead><tr><th>Input</th><th>Total requested</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="section-label">Expansion outlook</div>
+    <div class="card"><p style="font-size:13.5px;line-height:1.6;margin:0;">At current pace, association-wide capacity is projected to reach approximately <strong>${fmt(Math.round(ytd*1.44))} kg/year</strong> by 2027 — a 44% increase — if input needs above are met on schedule and pending members are onboarded.</p></div>`;
+}
+
+function renderReportsAdmin(c){
+  c.innerHTML = `
+    <h1 class="page-title">Reports</h1>
+    <p class="page-sub">Cooperative-wide exports for buyers, financiers, and government partners</p>
+    ${monthWeekChips()}
+    <div class="grid2">
+      <div class="card"><strong>Cooperative harvest plan report</strong><p class="helper">All farms, weekly/monthly/annual plan vs. actual.</p><button class="btn small" onclick="exportCoopHarvest()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Actual harvest report</strong><p class="helper">Farm-level and cooperative-level totals.</p><button class="btn small" onclick="exportActualHarvest()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Input requirement report</strong><p class="helper">Totals and per-farm breakdown.</p><button class="btn small" onclick="exportCoopInputs()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Member activity report</strong><p class="helper">Functional vs. non-functional members.</p><button class="btn small" onclick="exportMemberActivity()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Issue resolution report</strong><p class="helper">All complaints/requests and status.</p><button class="btn small" onclick="exportIssues()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Market standards compliance</strong><p class="helper">HACCP baseline + additional certifications, by farm and crop.</p><button class="btn small" onclick="exportMarketStandards()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Market price research summary</strong><p class="helper">All logged buyer prices, by farm and crop.</p><button class="btn small" onclick="exportMarketPrices()">Export CSV (Excel)</button></div>
+    </div>
+    <div class="card"><strong>Print or save this page as PDF</strong><p class="helper">For stakeholder meetings — opens your browser's print dialog; choose "Save as PDF".</p>
+      <button class="btn small gold" onclick="window.print()">Print / Save as PDF</button></div>`;
+}
+function exportMarketStandards(){
+  const rows=[['Farm','Crop','Baseline standard','Additional standard','Notes']];
+  activeMembers().forEach(id=>{
+    const m = MEMBERS[id];
+    m.crops.forEach(cr=>{
+      const extras = m.marketStandards.filter(s=>s.crop===cr.crop);
+      if(extras.length){ extras.forEach(s=> rows.push([m.name, cr.crop, 'HACCP', s.standard, s.notes||''])); }
+      else { rows.push([m.name, cr.crop, 'HACCP', '—', '']); }
+    });
+  });
+  downloadCSV('TIPFA_market_standards_compliance.csv', rows); logAction('Operator exported market standards compliance report.');
+}
+function exportMarketPrices(){
+  const rows=[['Farm','Crop','Buyer','Price (TZS/kg)','Date']];
+  activeMembers().forEach(id=> MEMBERS[id].marketPrices.forEach(p=> rows.push([MEMBERS[id].name, p.crop, p.buyer, p.price, p.date])));
+  downloadCSV('TIPFA_market_price_research.csv', rows); logAction('Operator exported market price research summary.');
+}
+function exportCoopHarvest(){
+  const month = state.selMonth, week = state.selWeek;
+  const rows=[['Farm','Crop','Week '+week+' plan','Week '+week+' actual','Monthly plan','Monthly actual','Annual plan','Annual actual']];
+  activeMembers().forEach(id=> CROPS.forEach(cr=>{
+    const wp = harvest[id].plan[month][week][cr]||0, wa = harvest[id].actual[month][week][cr]||0;
+    const mp = memberMonthCropTotal(id,'plan',month,cr), ma = memberMonthCropTotal(id,'actual',month,cr);
+    let yp=0, ya=0; for(let mo=1;mo<=12;mo++){ yp+=memberMonthCropTotal(id,'plan',mo,cr); ya+=memberMonthCropTotal(id,'actual',mo,cr); }
+    rows.push([MEMBERS[id].name, cr, wp, wa, mp, ma, yp, ya]);
+  }));
+  downloadCSV(`TIPFA_cooperative_harvest_plan_${MONTHS[month-1]}_wk${week}.csv`, rows); logAction('Operator exported cooperative harvest plan report.');
+}
+function exportActualHarvest(){
+  const month = state.selMonth;
+  const rows=[['Farm','Crop','Monthly actual (kg)','Annual actual (kg)']];
+  activeMembers().forEach(id=> CROPS.forEach(cr=>{
+    let ya=0; for(let mo=1;mo<=12;mo++){ ya+=memberMonthCropTotal(id,'actual',mo,cr); }
+    rows.push([MEMBERS[id].name, cr, memberMonthCropTotal(id,'actual',month,cr), ya]);
+  }));
+  downloadCSV(`TIPFA_actual_harvest_${MONTHS[month-1]}.csv`, rows); logAction('Operator exported actual harvest report.');
+}
+function exportCoopInputs(){
+  const rows=[['Farm','Input','Quantity']];
+  activeMembers().forEach(id=> INPUTS.forEach(i=> rows.push([MEMBERS[id].name, i, inputsData[id][state.period][i]])));
+  downloadCSV(`TIPFA_input_requirements_${state.period}.csv`, rows); logAction('Operator exported input requirement report.');
+}
+function exportMemberActivity(){
+  const rows=[['Farm','Category','Status']];
+  Object.values(MEMBERS).forEach(m=> rows.push([m.name, m.category, m.status]));
+  downloadCSV(`TIPFA_member_activity.csv`, rows); logAction('Operator exported member activity report.');
+}
+function exportIssues(){
+  const rows=[['Farm','Type','Message','Status','Assignee']];
+  complaints.forEach(x=> rows.push([MEMBERS[x.member].name, x.type, x.text, x.status, x.assignee]));
+  downloadCSV(`TIPFA_issue_resolution.csv`, rows); logAction('Operator exported issue resolution report.');
+}
+
+function renderGovernance(c){
+  c.innerHTML = `
+    <h1 class="page-title">Governance</h1>
+    <p class="page-sub">Oversight, compliance, and transparency</p>
+    <div class="card">
+      <p style="font-size:13.5px;line-height:1.6;margin:0 0 10px;">Every member has an individual, secure login; data is editable only by its owner or an authorised operator. Association-wide figures are visible only in aggregate, and every operator-entered record is logged with a name and timestamp below for auditability and compliance with the TIPFA constitution.</p>
+    </div>
+    <div class="section-label">Administrator accounts (${ADMINS.length}/${MAX_ADMINS})</div>
+    <div class="card">
+      <table class="grid-table"><thead><tr><th>Name</th><th>Operator ID / email</th><th></th></tr></thead>
+      <tbody>${ADMINS.map((a,i)=>`<tr><td>${a.name}</td><td>${a.username}</td><td><button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeAdmin(${i})">Remove</button></td></tr>`).join('')}</tbody></table>
+      ${ADMINS.length < MAX_ADMINS ? `
+        <div class="section-label" style="margin-top:16px;">Add administrator</div>
+        <div class="grid2">
+          <div><label class="f">Full name</label><input id="newadmin-name"></div>
+          <div><label class="f">Operator ID / email</label><input id="newadmin-user"></div>
+        </div>
+        <label class="f">Password</label>${pwdField('newadmin-pass','Set a password')}
+        <button class="btn small" style="margin-top:6px;" onclick="addAdmin()">Add administrator</button>
+        <p class="helper" id="newadmin-error" style="color:var(--red);margin-top:8px;"></p>
+      ` : `<p class="helper" style="color:var(--soil);margin-top:10px;">Maximum of ${MAX_ADMINS} administrator accounts reached. Remove one above to free a seat.</p>`}
+      <p class="helper" style="margin-top:12px;">Operators can also create their own account from the Administrator tab of the sign-in screen${ADMIN_SIGNUP_CODE ? ` by quoting the Secretariat sign-up code (<strong>${ADMIN_SIGNUP_CODE}</strong>)` : ''}. Self sign-ups appear in this list and are recorded in the audit log below.</p>
+    </div>
+    <div class="section-label">Audit log</div>
+    <div class="card">${auditLog.slice(0,12).map(l=>`<div class="log-item">${l.time} — ${l.text}</div>`).join('')}</div>`;
+}
+function addAdmin(){
+  if(ADMINS.length >= MAX_ADMINS) return;
+  const name = document.getElementById('newadmin-name').value.trim();
+  const user = document.getElementById('newadmin-user').value.trim();
+  const pass = document.getElementById('newadmin-pass').value;
+  if(!name || !user || !pass){
+    document.getElementById('newadmin-error').textContent = 'Enter a name, operator ID, and password.';
+    return;
+  }
+  if(ADMINS.some(a=>norm(a.username)===norm(user))){
+    document.getElementById('newadmin-error').textContent = 'That operator ID is already in use.';
+    return;
+  }
+  ADMINS.push({name, username:user, password:pass});
+  saveAdmins();
+  logAction(`Operator ${state.adminName||''} added a new administrator account: ${name}.`);
+  render();
+}
+function removeAdmin(i){
+  const removed = ADMINS[i];
+  if(ADMINS.length <= 1){
+    logAction(`Operator ${state.adminName||''} attempted to remove the last administrator account — blocked.`);
+    render();
+    return;
+  }
+  ADMINS.splice(i,1);
+  saveAdmins();
+  logAction(`Operator ${state.adminName||''} removed administrator account: ${removed.name}.`);
+  render();
+}
+
+render();
+</script>
+</body>
+</html>
