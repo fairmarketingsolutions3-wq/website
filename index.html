@@ -3,136 +3,495 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TIPFA Association Platform — Interactive Prototype</title>
+<title>TIPFA Association Platform</title>
+<meta name="theme-color" content="#405E35">
+<meta name="description" content="TIPFA Association Platform — member farm records, harvest planning and secretariat oversight for the Tanzania Indoor &amp; Professional Farmers Association.">
+<link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
+/* ============================================================
+   TIPFA Association Platform
+   Visual identity per TIPFA Brand Guidelines v1.0 (2026)
+   Palette p13 · Typography p15 · Arc system p17
+   ============================================================ */
 :root{
-  --ink:#23301E; --paper:#EEF1E2; --leaf:#35633A; --leaf-dark:#1C331F;
-  --gold:#D69A2D; --soil:#A85C3F; --teal:#2F7A82; --red:#B23A2E;
-  --card:#FFFFFF; --line:#D8D9C8; --muted:#6B7263; --radius:12px;
-  --role-accent:#35633A; --role-accent-dark:#1C331F;
+  /* Core palette — exact values, brand guidelines page 13 */
+  --tipfa-green:#405E35;
+  --harvest-orange:#E8A734;
+  --field-cream:#EFEDE2;
+  --leaf-green:#7E9B3F;
+  --deep-green:#2C4423;
+  --soil-ink:#23281F;
+
+  /* Applied roles — page 14 */
+  --ink:var(--soil-ink);
+  --paper:var(--field-cream);
+  --card:#FFFFFF;
+  --line:#DFDCCB;
+  --line-soft:#EAE7DA;
+  --muted:#6E7466;
+  --leaf:var(--tipfa-green);
+  --leaf-dark:var(--deep-green);
+  --gold:var(--harvest-orange);
+  --red:#A8402F;
+  --teal:#2F7A82;
+  --soil:#A85C3F;
+
+  --radius:14px;
+  --radius-sm:10px;
+  --radius-lg:22px;
+
+  --shadow-sm:0 1px 2px rgba(35,40,31,.05), 0 2px 8px rgba(35,40,31,.04);
+  --shadow-md:0 2px 6px rgba(35,40,31,.06), 0 12px 28px rgba(35,40,31,.08);
+  --shadow-lg:0 8px 20px rgba(35,40,31,.10), 0 28px 60px rgba(35,40,31,.14);
+
+  /* Role accents keep the palette — never invent a colour */
+  --role-accent:var(--tipfa-green);
+  --role-accent-dark:var(--deep-green);
+
+  /* Motion system */
+  --ease-out:cubic-bezier(.16,.84,.44,1);
+  --ease-spring:cubic-bezier(.22,1.2,.36,1);
+  --ease-in-out:cubic-bezier(.65,0,.35,1);
+  --dur-1:.18s; --dur-2:.32s; --dur-3:.52s; --dur-4:.8s;
 }
-body[data-role="member"]{ --role-accent:#C1622E; --role-accent-dark:#8F4620; }
-body[data-role="admin"]{ --role-accent:#2B5D8C; --role-accent-dark:#1F3F60; }
+body[data-role="member"]{ --role-accent:#7E9B3F; --role-accent-dark:#405E35; }
+body[data-role="admin"]{ --role-accent:#405E35; --role-accent-dark:#2C4423; }
+
 *{box-sizing:border-box;}
-body{margin:0;font-family:'IBM Plex Sans',sans-serif;color:var(--ink);background:var(--paper);}
-.app{max-width:1180px;margin:0 auto;}
+html{scroll-behavior:smooth;}
+body{
+  margin:0;
+  font-family:'Inter',system-ui,-apple-system,sans-serif;
+  font-weight:400;
+  color:var(--ink);
+  background:var(--field-cream);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,h4,.display,.brand,.btn,.metric .val,.tabbtn,.logintabs button,.eyebrow{
+  font-family:'Poppins','Montserrat',system-ui,sans-serif;
+}
+a{color:var(--tipfa-green);}
+
+/* ---------- Arc system (guidelines p17) -----------------------
+   Arcs are anchored to an edge, always cropped by it, solid on
+   cream, lighter green at 25–35% on green. Never a whole circle,
+   never more than three, always behind content.              */
+.arcfield{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:0;}
+.arc{position:absolute;border-radius:50%;will-change:transform;}
+.arc--cream-1{width:min(58vw,540px);aspect-ratio:1;left:-16%;bottom:-38%;background:#E5E3D5;animation:arcDrift 22s var(--ease-in-out) infinite;}
+.arc--cream-2{width:min(42vw,400px);aspect-ratio:1;left:8%;bottom:-30%;background:#DCDCCB;animation:arcDrift 27s var(--ease-in-out) infinite reverse;}
+.arc--green-1{width:min(70vw,620px);aspect-ratio:1;right:-22%;bottom:-40%;background:rgba(126,155,63,.30);animation:arcDrift 24s var(--ease-in-out) infinite;}
+.arc--green-2{width:min(48vw,430px);aspect-ratio:1;right:2%;bottom:-34%;background:rgba(126,155,63,.22);animation:arcDrift 30s var(--ease-in-out) infinite reverse;}
+.arc--green-3{width:min(34vw,300px);aspect-ratio:1;left:-14%;top:-18%;background:rgba(239,237,226,.10);animation:arcDrift 34s var(--ease-in-out) infinite;}
+@keyframes arcDrift{
+  0%,100%{transform:translate3d(0,0,0) scale(1);}
+  50%{transform:translate3d(2.5%,-3.5%,0) scale(1.055);}
+}
+
+.app{max-width:1240px;margin:0 auto;background:var(--field-cream);position:relative;}
+
+/* ---------- Top bar ---------- */
 .topbar{
-  background:var(--leaf); color:#F2F6EA;
-  padding:16px 22px; display:flex; align-items:center; justify-content:space-between;
-  flex-wrap:wrap; gap:12px;
+  background:var(--tipfa-green); color:var(--field-cream);
+  padding:14px 26px; display:flex; align-items:center; justify-content:space-between;
+  flex-wrap:wrap; gap:14px; position:relative; overflow:hidden;
 }
-.brandblock .brand{font-family:'Fraunces',serif;font-weight:600;font-size:21px;}
-.brandblock .tagline{font-size:11.5px;opacity:.85;font-style:italic;margin-top:1px;}
-.roleswitch{display:flex;background:rgba(255,255,255,0.14);border-radius:999px;padding:3px;}
-.roleswitch button{
-  border:none;background:none;color:#F2F6EA;font-family:'IBM Plex Sans';
-  font-size:12.5px;font-weight:500;padding:8px 16px;border-radius:999px;cursor:pointer;
+.topbar > *{position:relative;z-index:1;}
+.brandblock{display:flex;align-items:center;gap:14px;animation:riseIn var(--dur-3) var(--ease-out) both;}
+.brandlogo{
+  width:34px;height:auto;display:block;   /* symbol minimum on screen is 32px wide */
+  transition:transform var(--dur-2) var(--ease-spring);
 }
-.roleswitch button.active{background:#F2F6EA;color:var(--leaf-dark);font-weight:600;}
-.session{display:flex;align-items:center;gap:10px;color:#F2F6EA;font-size:12.5px;}
-.session .who{font-weight:600;}
+.brandtext{line-height:1.3;}
+.bt-name{
+  font-family:'Poppins',sans-serif;font-weight:600;font-size:15px;letter-spacing:.01em;
+}
+.bt-name span{font-weight:400;opacity:.82;}
+.brandblock:hover .brandlogo{transform:scale(1.03);}
+.brandrule{width:1px;height:38px;background:rgba(239,237,226,.30);}
+.brandblock .tagline{
+  font-size:11px;letter-spacing:.02em;line-height:1.4;opacity:.78;margin-top:1px;
+}
+.brandblock .tagline span{display:inline;}
+.brandblock .tagline .sw{font-weight:500;}
+.brandblock .tagline .sw{display:block;font-weight:500;}
+.session{display:flex;align-items:center;gap:12px;color:var(--field-cream);font-size:12.5px;animation:riseIn var(--dur-3) var(--ease-out) .08s both;}
+.session .who{font-weight:600;font-family:'Poppins',sans-serif;}
+.session .role-tag{opacity:.82;}
 .session button{
-  border:1.5px solid rgba(242,246,234,0.6);background:none;color:#F2F6EA;
-  font-family:'IBM Plex Sans';font-size:12px;font-weight:500;padding:6px 12px;border-radius:8px;cursor:pointer;
+  border:1.5px solid rgba(239,237,226,.55);background:none;color:var(--field-cream);
+  font-family:'Poppins',sans-serif;font-size:12px;font-weight:600;padding:7px 14px;border-radius:999px;cursor:pointer;
+  transition:background var(--dur-1) var(--ease-out), transform var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
 }
-.loginwrap{display:flex;justify-content:center;padding:48px 20px;min-height:520px;}
-.loginbox{width:100%;max-width:380px;}
-.logintabs{display:flex;background:#E4E8D5;border-radius:999px;padding:3px;margin-bottom:20px;}
+.session button:hover{background:rgba(239,237,226,.14);border-color:var(--field-cream);transform:translateY(-1px);}
+.session button:active{transform:translateY(0) scale(.97);}
+
+/* ---------- Sign-in ---------- */
+.loginwrap{
+  display:grid;grid-template-columns:1.05fr .95fr;min-height:640px;position:relative;
+}
+.loginbrand{
+  background:var(--deep-green);color:var(--field-cream);
+  padding:52px 46px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:center;
+  animation:panelIn var(--dur-4) var(--ease-out) both;
+}
+.loginbrand > *{position:relative;z-index:1;}
+.loginbrand .lb-logo{
+  width:min(300px,72%);height:auto;display:block;margin-bottom:34px;
+  animation:logoIn 1s var(--ease-spring) .12s both;
+}
+.eyebrow{
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.22em;
+  color:var(--harvest-orange);margin-bottom:14px;
+}
+.loginbrand h2{
+  font-size:clamp(24px,2.6vw,33px);font-weight:700;line-height:1.16;letter-spacing:-.02em;margin:0 0 10px;
+}
+.loginbrand .strap{font-size:14px;line-height:1.6;opacity:.9;max-width:34ch;margin:0 0 30px;font-weight:300;}
+.loginbrand .strap em{font-style:normal;font-weight:500;display:block;opacity:.72;font-size:13px;margin-top:3px;}
+.values{display:grid;gap:14px;max-width:400px;}
+.value{display:flex;gap:13px;align-items:flex-start;}
+.value svg{flex:none;margin-top:1px;stroke:var(--harvest-orange);}
+.value .vt{font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;}
+.value .vd{font-size:12px;opacity:.78;line-height:1.5;font-weight:300;}
+.lb-foot{margin-top:34px;font-size:11.5px;opacity:.62;line-height:1.6;font-weight:300;}
+
+.loginpane{
+  display:flex;align-items:center;justify-content:center;padding:48px 42px;position:relative;background:var(--field-cream);
+}
+.loginbox{width:100%;max-width:410px;position:relative;z-index:1;animation:riseIn var(--dur-4) var(--ease-out) .16s both;}
+.lock-icon{
+  display:flex;align-items:center;gap:8px;font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;
+  color:var(--deep-green);margin-bottom:16px;
+}
+.lock-icon svg{stroke:var(--tipfa-green);}
+.logintabs{display:flex;background:#E3E1D3;border-radius:999px;padding:4px;margin-bottom:20px;position:relative;}
 .logintabs button{
-  flex:1;border:none;background:none;font-family:'IBM Plex Sans';font-size:13px;font-weight:500;
-  color:var(--muted);padding:9px 0;border-radius:999px;cursor:pointer;
+  flex:1;border:none;background:none;font-size:13px;font-weight:600;
+  color:var(--muted);padding:10px 0;border-radius:999px;cursor:pointer;position:relative;z-index:1;
+  transition:color var(--dur-2) var(--ease-out);
 }
-.logintabs button.active{background:var(--leaf);color:#fff;font-weight:600;}
-.login-note{font-size:11.5px;color:var(--muted);margin-top:14px;line-height:1.5;text-align:center;}
-.lock-icon{text-align:center;font-family:'Fraunces',serif;font-weight:600;font-size:15px;color:var(--leaf-dark);margin-bottom:6px;}
+.logintabs button.active{color:#fff;}
+.logintabs .tabglide{
+  position:absolute;top:4px;bottom:4px;width:calc(50% - 4px);border-radius:999px;background:var(--tipfa-green);
+  transition:transform var(--dur-3) var(--ease-spring);z-index:0;box-shadow:var(--shadow-sm);
+}
+.login-note{font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.6;}
+.login-note a{font-weight:600;text-decoration:none;border-bottom:1px solid rgba(64,94,53,.35);transition:border-color var(--dur-1);}
+.login-note a:hover{border-color:var(--tipfa-green);}
+.demo-note{background:#E7E5D8;border-radius:var(--radius-sm);padding:11px 13px;font-size:11.5px;color:var(--muted);line-height:1.6;margin-top:14px;}
+.demo-note strong{color:var(--deep-green);}
+
+/* ---------- Sub bar ---------- */
 .subbar{
-  display:flex;align-items:center;gap:10px;padding:10px 22px;background:#E4E8D5;
+  display:flex;align-items:center;gap:12px;padding:12px 26px;background:#E7E5D8;
   border-bottom:1px solid var(--line);flex-wrap:wrap;
+  animation:fadeIn var(--dur-3) var(--ease-out) both;
 }
-.subbar label{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;}
-.subbar select{padding:6px 10px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-family:'IBM Plex Sans';background:#fff;}
-.layout{display:grid;grid-template-columns:200px 1fr;gap:0;min-height:520px;}
+.subbar label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.18em;font-weight:600;font-family:'Poppins',sans-serif;}
+.subbar select{padding:7px 11px;border-radius:var(--radius-sm);border:1px solid var(--line);font-size:13px;background:#fff;}
+.subbar .who-name{font-family:'Poppins',sans-serif;font-size:14px;font-weight:600;color:var(--deep-green);}
+
+/* ---------- Layout ---------- */
+.layout{display:grid;grid-template-columns:236px 1fr;gap:0;min-height:560px;position:relative;}
 .sidebar{
-  border-right:1px solid var(--line); padding:16px 10px; display:flex; flex-direction:column; gap:2px;
+  border-right:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:3px;
+  position:relative;background:linear-gradient(180deg,#EBE9DC 0%, var(--field-cream) 100%);
 }
 .tabbtn{
-  text-align:left; border:none;background:none;padding:10px 12px;border-radius:9px;
-  font-family:'IBM Plex Sans';font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;
+  text-align:left;border:none;background:none;padding:11px 14px;border-radius:var(--radius-sm);
+  font-size:13.5px;font-weight:500;color:var(--muted);cursor:pointer;position:relative;
+  transition:color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out), transform var(--dur-1) var(--ease-out);
+  animation:slideInLeft var(--dur-3) var(--ease-out) both;
 }
-.tabbtn.active{background:var(--card);color:var(--role-accent-dark);font-weight:600;box-shadow:inset 3px 0 0 var(--role-accent);}
-.content{padding:20px 24px 40px;}
-h1.page-title{font-family:'Fraunces',serif;font-weight:600;font-size:22px;margin:0 0 4px;}
-p.page-sub{font-size:12.5px;color:var(--muted);margin:0 0 18px;}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;}
-.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;}
-label.f{display:block;font-size:11px;font-weight:500;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.3px;}
+.tabbtn:hover{color:var(--deep-green);background:rgba(255,255,255,.6);transform:translateX(2px);}
+.tabbtn.active{
+  background:var(--card);color:var(--role-accent-dark);font-weight:600;box-shadow:var(--shadow-sm);
+}
+.tabbtn.active::before{
+  content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
+  background:var(--role-accent);animation:growBar var(--dur-3) var(--ease-spring) both;
+}
+.content{padding:26px 30px 52px;position:relative;overflow:hidden;}
+
+/* ---------- Type scale (guidelines p16) ---------- */
+h1.page-title{font-size:25px;font-weight:700;letter-spacing:-.02em;margin:0 0 5px;color:var(--deep-green);}
+p.page-sub{font-size:13px;color:var(--muted);margin:0 0 22px;font-weight:300;line-height:1.6;}
+.section-label{
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.2em;margin:24px 0 10px;
+  color:var(--tipfa-green);font-family:'Poppins',sans-serif;
+}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--card);border:1px solid var(--line-soft);border-radius:var(--radius);
+  padding:18px 20px;margin-bottom:14px;box-shadow:var(--shadow-sm);
+  transition:box-shadow var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out);
+}
+.card:hover{box-shadow:var(--shadow-md);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+
+/* ---------- Forms ---------- */
+label.f{
+  display:block;font-size:10px;font-weight:600;color:var(--muted);margin-bottom:5px;
+  text-transform:uppercase;letter-spacing:.14em;font-family:'Poppins',sans-serif;
+}
 input, select, textarea{
-  width:100%;font-family:'IBM Plex Sans';font-size:13.5px;padding:8px 10px;border-radius:8px;
-  border:1px solid var(--line);background:#FBFCF8;color:var(--ink);margin-bottom:10px;
+  width:100%;font-family:'Inter',sans-serif;font-size:13.5px;padding:10px 12px;border-radius:var(--radius-sm);
+  border:1px solid var(--line);background:#FCFCF8;color:var(--ink);margin-bottom:12px;
+  transition:border-color var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out);
 }
-input:focus, select:focus, textarea:focus{outline:2px solid var(--leaf);outline-offset:1px;}
+input:hover, select:hover, textarea:hover{border-color:#C9C6B4;}
+input:focus, select:focus, textarea:focus{
+  outline:none;border-color:var(--tipfa-green);background:#fff;
+  box-shadow:0 0 0 3px rgba(64,94,53,.13);
+}
+input[type="file"]{padding:8px;background:#F6F5EE;}
+
+/* ---------- Buttons ---------- */
 .btn{
-  padding:10px 16px;border:none;border-radius:9px;background:var(--role-accent);color:#fff;
-  font-family:'IBM Plex Sans';font-weight:600;font-size:13.5px;cursor:pointer;
+  padding:11px 20px;border:none;border-radius:999px;background:var(--role-accent);color:#fff;
+  font-weight:600;font-size:13.5px;cursor:pointer;position:relative;overflow:hidden;
+  box-shadow:0 1px 2px rgba(35,40,31,.10);
+  transition:transform var(--dur-1) var(--ease-out), box-shadow var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out);
 }
-.btn:active{background:var(--role-accent-dark);}
-.btn.ghost{background:transparent;border:1.5px solid var(--role-accent);color:var(--role-accent);}
-.btn.small{padding:7px 12px;font-size:12.5px;}
-.btn.gold{background:var(--gold);}
-.metric{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;}
-.metric .lbl{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;}
-.metric .val{font-family:'IBM Plex Mono';font-size:21px;font-weight:500;margin-top:3px;}
-.section-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin:18px 0 8px;color:var(--ink);}
+.btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(64,94,53,.28);}
+.btn:active{transform:translateY(0) scale(.98);}
+.btn.ghost{background:transparent;border:1.5px solid var(--role-accent);color:var(--role-accent);box-shadow:none;}
+.btn.ghost:hover{background:rgba(64,94,53,.07);box-shadow:0 4px 12px rgba(64,94,53,.14);}
+.btn.small{padding:8px 14px;font-size:12.5px;}
+/* Harvest Orange is the single call to action — rationed, p14 */
+.btn.gold{background:var(--harvest-orange);color:var(--deep-green);}
+.btn.gold:hover{box-shadow:0 6px 16px rgba(232,167,52,.40);}
+.btn .ripple{
+  position:absolute;border-radius:50%;transform:scale(0);background:rgba(255,255,255,.5);
+  animation:ripple .62s var(--ease-out);pointer-events:none;
+}
+.btn.is-busy{pointer-events:none;}
+.btn.is-busy::after{
+  content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
+  animation:shimmer 1s linear infinite;
+}
+@keyframes ripple{to{transform:scale(3.2);opacity:0;}}
+@keyframes shimmer{from{transform:translateX(-100%);}to{transform:translateX(100%);}}
+
+/* ---------- Metrics ---------- */
+.metric{
+  background:var(--card);border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 16px;
+  box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
+  transition:transform var(--dur-3) var(--ease-spring), box-shadow var(--dur-3) var(--ease-out);
+}
+.metric::after{
+  content:'';position:absolute;right:-30px;bottom:-46px;width:100px;height:100px;border-radius:50%;
+  background:rgba(126,155,63,.10);transition:transform var(--dur-4) var(--ease-spring);
+}
+.metric:hover{transform:translateY(-3px);box-shadow:var(--shadow-md);}
+.metric:hover::after{transform:scale(1.5);}
+.metric .lbl{font-size:9.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.16em;font-weight:600;font-family:'Poppins',sans-serif;}
+.metric .val{font-size:24px;font-weight:700;margin-top:4px;color:var(--deep-green);letter-spacing:-.02em;position:relative;}
+
+/* ---------- Tables ---------- */
 table.grid-table{width:100%;border-collapse:collapse;font-size:13px;}
 table.grid-table th{
-  background:var(--leaf);color:#fff;text-align:left;padding:8px 10px;font-size:11.5px;
-  text-transform:uppercase;letter-spacing:.3px;font-weight:600;
+  background:var(--tipfa-green);color:var(--field-cream);text-align:left;padding:10px 12px;font-size:10px;
+  text-transform:uppercase;letter-spacing:.14em;font-weight:600;font-family:'Poppins',sans-serif;
 }
-table.grid-table td{padding:7px 10px;border-bottom:1px solid var(--line);}
-table.grid-table tr:nth-child(even) td{background:#F7F8F0;}
-table.grid-table input{margin:0;padding:6px 7px;font-size:12.5px;font-family:'IBM Plex Mono';}
-.status-pill{font-size:10.5px;font-weight:600;padding:3px 10px;border-radius:99px;display:inline-block;}
-.status-open{background:#FBE7D7;color:var(--soil);}
-.status-progress{background:#FDF1D2;color:#9A6C0B;}
-.status-resolved{background:#DCEBDD;color:var(--leaf-dark);}
-.status-active{background:#DCEBDD;color:var(--leaf-dark);}
-.status-pending{background:#FDF1D2;color:#9A6C0B;}
-.status-rejected{background:#FBE0DD;color:var(--red);}
-.chips{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
-.chip{padding:6px 13px;border-radius:99px;border:1px solid var(--line);background:#fff;font-size:12.5px;cursor:pointer;color:var(--muted);}
-.chip.active{background:var(--role-accent);border-color:var(--role-accent);color:#fff;font-weight:600;}
-.msg-banner{background:#DCEBDD;color:var(--leaf-dark);padding:9px 14px;border-radius:8px;font-size:12.5px;margin-bottom:12px;font-weight:500;}
-.helper{font-size:11.5px;color:var(--muted);margin-top:-4px;}
-.log-item{font-size:12px;color:var(--muted);padding:6px 0;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono';}
+table.grid-table th:first-child{border-radius:var(--radius-sm) 0 0 0;}
+table.grid-table th:last-child{border-radius:0 var(--radius-sm) 0 0;}
+table.grid-table td{padding:9px 12px;border-bottom:1px solid var(--line-soft);}
+table.grid-table tbody tr{transition:background var(--dur-1) var(--ease-out);}
+table.grid-table tr:nth-child(even) td{background:#F8F7F0;}
+table.grid-table tbody tr:hover td{background:#EFEFE2;}
+table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
+
+/* ---------- Status pills ---------- */
+.status-pill{
+  font-size:10px;font-weight:600;padding:4px 11px;border-radius:99px;display:inline-block;
+  font-family:'Poppins',sans-serif;letter-spacing:.02em;
+}
+.status-open{background:#F6E3D3;color:var(--soil);}
+.status-progress{background:#FBEECC;color:#8A6412;}
+.status-resolved{background:#DFE7D2;color:var(--deep-green);}
+.status-active{background:#DFE7D2;color:var(--deep-green);}
+.status-pending{background:#FBEECC;color:#8A6412;animation:softPulse 2.6s var(--ease-in-out) infinite;}
+.status-rejected{background:#F3DCD8;color:var(--red);}
+@keyframes softPulse{0%,100%{box-shadow:0 0 0 0 rgba(232,167,52,.42);}50%{box-shadow:0 0 0 6px rgba(232,167,52,0);}}
+
+/* ---------- Chips ---------- */
+.chips{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.chip{
+  padding:7px 15px;border-radius:99px;border:1px solid var(--line);background:#fff;font-size:12.5px;
+  cursor:pointer;color:var(--muted);font-weight:500;
+  transition:transform var(--dur-1) var(--ease-spring), background var(--dur-2) var(--ease-out), color var(--dur-2), border-color var(--dur-2), box-shadow var(--dur-2);
+}
+.chip:hover{transform:translateY(-2px);border-color:var(--leaf-green);color:var(--deep-green);box-shadow:var(--shadow-sm);}
+.chip.active{background:var(--role-accent);border-color:var(--role-accent);color:#fff;font-weight:600;box-shadow:0 4px 12px rgba(64,94,53,.24);}
+
+/* ---------- Banners & helpers ---------- */
+.msg-banner{
+  background:#DFE7D2;color:var(--deep-green);padding:12px 16px;border-radius:var(--radius-sm);font-size:12.5px;
+  margin-bottom:14px;font-weight:500;display:flex;align-items:center;gap:10px;
+  animation:bannerIn var(--dur-3) var(--ease-spring) both;border-left:3px solid var(--leaf-green);
+}
+.msg-banner svg{flex:none;stroke:var(--tipfa-green);}
+.helper{font-size:11.5px;color:var(--muted);margin-top:2px;line-height:1.6;}
+.err-shake{animation:shake .42s var(--ease-in-out);}
+.log-item{
+  font-size:12px;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--line-soft);
+  display:flex;gap:12px;animation:riseIn var(--dur-3) var(--ease-out) both;
+}
+.log-item .t{font-variant-numeric:tabular-nums;color:var(--leaf-green);font-weight:500;flex:none;}
+
+/* ---------- Farm logos ------------------------------------
+   Member marks are placed from assets/farms/<farm-name>.png.
+   If a file is missing the monogram shows instead, so the
+   layout never breaks.                                     */
+.farm-logo{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;
+  width:38px;height:38px;border-radius:11px;background:#fff;border:1px solid var(--line-soft);
+  overflow:hidden;position:relative;
+  transition:transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out);
+}
+.farm-logo img{width:100%;height:100%;object-fit:contain;padding:3px;display:block;}
+.farm-logo .farm-initials{
+  display:none;font-family:'Poppins',sans-serif;font-weight:700;font-size:12.5px;color:var(--tipfa-green);
+  letter-spacing:.02em;
+}
+.farm-logo.is-missing{background:#EDEBDE;}
+.farm-logo.is-missing .farm-initials{display:block;}
+.farm-logo.lg{width:64px;height:64px;border-radius:16px;}
+.farm-logo.lg .farm-initials{font-size:20px;}
+.farm-logo.xl{width:88px;height:88px;border-radius:20px;}
+.farm-logo.xl .farm-initials{font-size:27px;}
+.farm-logo.sm{width:28px;height:28px;border-radius:8px;}
+.farm-logo.sm .farm-initials{font-size:10px;}
+.farm-logo:hover{transform:scale(1.06) rotate(-1.5deg);box-shadow:var(--shadow-md);}
+.farm-cell{display:flex;align-items:center;gap:10px;}
+.farm-cell .fname{font-weight:500;}
+
+/* Farm identity header on member pages */
+.farm-head{
+  display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line-soft);
+  border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow-sm);
+  position:relative;overflow:hidden;
+}
+.farm-head .fh-arc{position:absolute;right:-40px;bottom:-70px;width:170px;height:170px;border-radius:50%;background:rgba(126,155,63,.10);}
+.farm-head .fh-meta{position:relative;z-index:1;}
+.farm-head h2{margin:0;font-size:19px;font-weight:700;color:var(--deep-green);letter-spacing:-.01em;}
+.farm-head .fh-sub{font-size:12px;color:var(--muted);margin-top:3px;}
+
+/* ---------- Motion primitives ---------- */
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+@keyframes riseIn{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:translateY(0);}}
+@keyframes panelIn{from{opacity:0;transform:translateX(-26px);}to{opacity:1;transform:translateX(0);}}
+@keyframes slideInLeft{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:translateX(0);}}
+@keyframes logoIn{from{opacity:0;transform:scale(.9);}to{opacity:1;transform:scale(1);}}
+@keyframes growBar{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+@keyframes bannerIn{from{opacity:0;transform:translateY(-10px) scale(.98);}to{opacity:1;transform:translateY(0) scale(1);}}
+@keyframes shake{10%,90%{transform:translateX(-2px);}20%,80%{transform:translateX(4px);}30%,50%,70%{transform:translateX(-6px);}40%,60%{transform:translateX(6px);}}
+@keyframes barGrow{from{transform:scaleX(0);}to{transform:scaleX(1);}}
+@keyframes wipeIn{from{transform:scaleY(0);}to{transform:scaleY(1);}}
+@keyframes wipeOut{from{transform:scaleY(1);}to{transform:scaleY(0);}}
+
+.bar-fill{transform-origin:left center;}
+
+/* Staggered reveal, applied per render */
+.reveal{animation:riseIn var(--dur-3) var(--ease-out) both;}
+.reveal-1{animation-delay:.04s;} .reveal-2{animation-delay:.08s;}
+.reveal-3{animation-delay:.12s;} .reveal-4{animation-delay:.16s;}
+.reveal-5{animation-delay:.20s;} .reveal-6{animation-delay:.24s;}
+.reveal-7{animation-delay:.28s;} .reveal-8{animation-delay:.32s;}
+.content.is-swapping{animation:fadeIn var(--dur-2) var(--ease-out) both;}
+
+/* Scroll reveal */
+.onscroll{opacity:0;transform:translateY(20px);transition:opacity var(--dur-4) var(--ease-out), transform var(--dur-4) var(--ease-out);}
+.onscroll.seen{opacity:1;transform:none;}
+
+/* Route transition curtain — a cropped arc, in keeping with p17 */
+.curtain{
+  position:fixed;inset:0;z-index:90;pointer-events:none;background:var(--deep-green);
+  transform-origin:bottom;transform:scaleY(0);
+}
+.curtain.in{animation:wipeIn .42s var(--ease-in-out) forwards;}
+.curtain.out{transform-origin:top;animation:wipeOut .42s var(--ease-in-out) forwards;}
+
+/* ---------- Print ---------- */
 @media print{
-  .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"]{ display:none !important; }
+  .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"], .arcfield, .curtain{ display:none !important; }
   .app{ max-width:100%; }
   .content{ padding:0; }
-  .card{ break-inside:avoid; border:1px solid #999; }
+  .card{ break-inside:avoid; border:1px solid #999; box-shadow:none; }
   body{ background:#fff; }
+  *{animation:none !important;}
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width:900px){
+  .loginwrap{grid-template-columns:1fr;}
+  /* On a phone the sign-in form comes first: the brand panel keeps the logo
+     and the strapline, and drops the supporting detail. */
+  .loginbrand{padding:28px 26px 30px;}
+  .loginbrand .lb-logo{width:180px;margin-bottom:20px;}
+  .loginbrand h2{font-size:22px;}
+  .loginbrand .strap{margin-bottom:0;font-size:13px;}
+  .values, .lb-foot{display:none;}
+  .loginpane{padding:32px 22px 44px;}
 }
 @media (max-width:760px){
   .layout{grid-template-columns:1fr;}
-  .sidebar{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px;}
+  .sidebar{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px;background:#EBE9DC;}
   .tabbtn{white-space:nowrap;}
-  .tabbtn.active{box-shadow:inset 0 -3px 0 var(--leaf);}
+  .tabbtn.active::before{left:12px;right:12px;top:auto;bottom:0;width:auto;height:3px;border-radius:3px 3px 0 0;}
   .grid2, .grid3, .grid4{grid-template-columns:1fr 1fr;}
+  .content{padding:20px 16px 40px;}
+  .topbar{padding:12px 16px;}
+  .brandlogo{width:28px;}
+  .brandblock .tagline{display:none;}
 }
+@media (max-width:520px){
+  .grid2, .grid3, .grid4{grid-template-columns:1fr;}
+}
+
+/* ---------- Reduced motion ---------- */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.01ms !important;animation-iteration-count:1 !important;
+    transition-duration:.01ms !important;scroll-behavior:auto !important;
+  }
+  .onscroll{opacity:1;transform:none;}
+}
+
 </style>
 </head>
 <body>
 <div class="app">
 
   <div class="topbar">
+    <div class="arcfield" aria-hidden="true">
+      <div class="arc arc--green-3"></div>
+    </div>
     <div class="brandblock">
-      <div class="brand">TIPFA</div>
-      <div class="tagline">Growing Together. Harvesting Excellence.</div>
+      <!-- Symbol only, reversed on Tipfa Green. The primary lockup's descriptor
+           falls below its 150px minimum at this height, so the identity steps
+           down a variation rather than shrinking (guidelines p08, p09, p10).
+           "TIPFA" beside it is running text in Poppins — never the wordmark. -->
+      <img class="brandlogo" src="assets/brand/tipfa-symbol-reversed.png"
+           alt="TIPFA — Tanzania Indoor &amp; Professional Farmers Association">
+      <div class="brandrule"></div>
+      <div class="brandtext">
+        <div class="bt-name">TIPFA <span>Association Platform</span></div>
+        <div class="tagline">
+          <span class="sw">Kilimo cha kitaalamu.</span>
+          <span>Mavuno ya uhakika.</span>
+        </div>
+      </div>
     </div>
     <div id="topbarRight"></div>
   </div>
@@ -167,7 +526,7 @@ const MEMBERS = {
     crops:[{crop:'Cherry Tomatoes',variety:'Sakura',area:0.1,planted:'2026-06-01',expected:'2026-08-20'},{crop:'Cucumbers',variety:'Marketmore',area:0.25,planted:'2026-05-15',expected:'2026-07-30'}]},
   nahdi: {name:'Nahdi Youth Farm', contact:'Agnes M. Mrilenjele', phone:'+255 754 000 444', email:'nahdi.youth@tipfa.co.tz', password:'1234', location:'Iringa', category:'Non-functional', totalArea:1.0, indoorSqm:300, indoorUnits:1, outdoorArea:0.5, irrigation:'Manual', water:'Rain-fed', registered:'2026-08-01', status:'Pending',
     crops:[]},
-  pinerjo: {name:'Pinerjo Smart Farm', contact:'Leonard Mkongwa', phone:'+255 754 000 555', email:'pinerjo.smart@tipfa.co.tz', password:'1234', location:'Dodoma', category:'Honorable', totalArea:1.5, indoorSqm:500, indoorUnits:2, outdoorArea:0.7, irrigation:'Drip', water:'Borehole', registered:'2026-08-02', status:'Pending',
+  pinerjo: {name:'Pinerjo Smart Farm', contact:'Leonard Mkongwa', phone:'+255 754 000 555', email:'pinerjo.smart@tipfa.co.tz', password:'1234', location:'Iringa', category:'Honorable', totalArea:1.5, indoorSqm:500, indoorUnits:2, outdoorArea:0.7, irrigation:'Drip', water:'Borehole', registered:'2026-08-02', status:'Pending',
     crops:[]},
 };
 
@@ -199,6 +558,154 @@ function saveAdmins(){
   try{ localStorage.setItem(ADMIN_STORE_KEY, JSON.stringify(ADMINS)); }catch(e){ /* not persisted */ }
 }
 function norm(s){ return (s||'').toString().trim().toLowerCase().replace(/\s+/g,''); }
+
+/* ============================================================
+   Farm logo placement
+   Each member farm's mark is loaded from assets/farms/, named
+   after the farm itself — "She Farms" -> assets/farms/she-farms.png.
+   Drop a farm's file in with that name and it appears everywhere
+   the farm is shown. Until then the monogram stands in, so a
+   missing file never breaks a layout.
+   ============================================================ */
+const FARM_LOGO_DIR = 'assets/farms/';
+const FARM_LOGO_EXT = '.png';
+function farmLogoSlug(name){
+  return (name||'').toLowerCase().trim()
+    .replace(/&/g,'and')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+function farmLogoSrc(m){
+  if(!m) return '';
+  if(m.logo) return m.logo;                       // explicit override wins
+  return FARM_LOGO_DIR + farmLogoSlug(m.name) + FARM_LOGO_EXT;
+}
+function farmInitials(name){
+  const words = (name||'').split(/\s+/).filter(Boolean);
+  if(!words.length) return '—';
+  if(words.length === 1) return words[0].slice(0,2).toUpperCase();
+  return (words[0][0] + words[words.length-1][0]).toUpperCase();
+}
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+// size: '' | 'sm' | 'lg' | 'xl'
+function farmLogo(m, size){
+  if(!m) return '';
+  const cls = 'farm-logo' + (size ? ' '+size : '');
+  return `<span class="${cls}" title="${esc(m.name)}">
+    <img src="${esc(farmLogoSrc(m))}" alt="${esc(m.name)} logo" loading="lazy"
+         onerror="this.closest('.farm-logo').classList.add('is-missing'); this.remove();">
+    <span class="farm-initials">${esc(farmInitials(m.name))}</span>
+  </span>`;
+}
+function farmCell(m, size){
+  return `<span class="farm-cell">${farmLogo(m, size||'sm')}<span class="fname">${esc(m.name)}</span></span>`;
+}
+
+/* ============================================================
+   Motion
+   Entrance, transition and feedback motion for the whole app.
+   The logo lockup is only ever moved or scaled as one object —
+   its parts are never animated out of position (guidelines p11).
+   Everything here yields to prefers-reduced-motion via the CSS.
+   ============================================================ */
+const REDUCED_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// Stagger direct children of a freshly rendered container.
+function staggerIn(container, selector){
+  if(!container) return;
+  const nodes = container.querySelectorAll(selector || ':scope > .card, :scope > .grid2, :scope > .grid3, :scope > .grid4, :scope > .section-label, :scope > .chips, :scope > .msg-banner');
+  nodes.forEach((n,i)=>{
+    n.classList.add('reveal');
+    if(i < 8) n.classList.add('reveal-'+(i+1));
+  });
+}
+
+// Reveal cards as they scroll into view.
+let scrollObserver = null;
+function observeScrollReveals(container){
+  if(REDUCED_MOTION || !('IntersectionObserver' in window)) return;
+  if(!scrollObserver){
+    scrollObserver = new IntersectionObserver(entries=>{
+      entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('seen'); scrollObserver.unobserve(e.target); } });
+    }, {rootMargin:'0px 0px -40px 0px', threshold:.05});
+  }
+  const cards = container.querySelectorAll('.card');
+  cards.forEach((c,i)=>{
+    if(i < 4) return;                    // the first screenful uses the entrance stagger
+    c.classList.add('onscroll');
+    scrollObserver.observe(c);
+  });
+}
+
+// Count metric values up from zero.
+function animateCounters(container){
+  container.querySelectorAll('[data-count]').forEach(el=>{
+    const target = Number(el.getAttribute('data-count'))||0;
+    const suffix = el.getAttribute('data-suffix')||'';
+    if(REDUCED_MOTION || !target){ el.textContent = fmt(target)+suffix; return; }
+    const dur = 900, start = performance.now();
+    function tick(now){
+      const p = Math.min(1,(now-start)/dur);
+      const eased = 1 - Math.pow(1-p, 3);
+      el.textContent = fmt(Math.round(target*eased))+suffix;
+      if(p < 1) requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  });
+}
+
+// Ripple feedback on every button press.
+document.addEventListener('click', function(e){
+  const btn = e.target.closest('.btn');
+  if(!btn || REDUCED_MOTION) return;
+  const r = btn.getBoundingClientRect();
+  const d = Math.max(r.width, r.height);
+  const span = document.createElement('span');
+  span.className = 'ripple';
+  span.style.width = span.style.height = d+'px';
+  span.style.left = (e.clientX - r.left - d/2)+'px';
+  span.style.top = (e.clientY - r.top - d/2)+'px';
+  btn.appendChild(span);
+  setTimeout(()=>span.remove(), 640);
+});
+
+// Shake a field-level error into view.
+function flagError(el, message){
+  if(!el) return;
+  el.textContent = message;
+  const box = el.closest('.card') || el;
+  box.classList.remove('err-shake');
+  void box.offsetWidth;                  // restart the animation
+  box.classList.add('err-shake');
+  setTimeout(()=>box.classList.remove('err-shake'), 500);
+}
+
+// Arc curtain used when crossing between signed-out and signed-in.
+function curtainTransition(midpoint){
+  if(REDUCED_MOTION){ midpoint(); return; }
+  const c = document.createElement('div');
+  c.className = 'curtain in';
+  document.body.appendChild(c);
+  setTimeout(()=>{
+    midpoint();
+    c.className = 'curtain out';
+    setTimeout(()=>c.remove(), 460);
+  }, 420);
+}
+
+const CHECK_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>';
+/* Line icons: 1.5 stroke, rounded caps and joins, 24px grid (guidelines p17) */
+function lineIcon(path){
+  return `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${path}</svg>`;
+}
+// The association's four values, Brand Profile 2026 p07
+const BRAND_VALUES = [
+  {title:'Grounded',    text:'We speak from the field, not from a boardroom.',       icon:lineIcon('<path d="M12 22V9"/><path d="M12 9C12 9 7 8 5 4c4-1 7 2 7 5z"/><path d="M12 12c0-3 3-6 7-5-2 4-7 5-7 5z"/>')},
+  {title:'Professional',text:'Standards, records, measurement. Farming as enterprise.',icon:lineIcon('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>')},
+  {title:'Progressive', text:'Open to better methods, varieties and technology.',     icon:lineIcon('<path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/>')},
+  {title:'Collective',  text:'Umoja. What one member learns, the membership gains.',  icon:lineIcon('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 6.5a3 3 0 0 1 0 5.8"/><path d="M18.5 20a5.5 5.5 0 0 0-3-4.9"/>')},
+];
+const LOCK_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
 function blankPeriod(list, val){ const o={}; list.forEach(k=>o[k]=val); return o; }
 const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -359,39 +866,54 @@ function downloadCSV(filename, rows){
 
 function showLoginTab(tab){ state.loginTab = tab; renderLogin(); }
 
-function doMemberLogin(){
+function doMemberLogin(btn){
   const identifier = norm(document.getElementById('login-id').value);
   const password = document.getElementById('login-password').value.trim();
-  if(!identifier || !password){ document.getElementById('login-error').textContent = 'Enter your phone number/email and password.'; return; }
+  if(!identifier || !password){ flagError(document.getElementById('login-error'), 'Enter your phone number/email and password.'); return; }
   const match = Object.entries(MEMBERS).find(([id,m]) =>
     m.status==='Active' && m.password===password && (norm(m.phone)===identifier || norm(m.email)===identifier));
-  if(!match){ document.getElementById('login-error').textContent = 'No active account matches that phone/email and password.'; return; }
+  if(!match){ flagError(document.getElementById('login-error'), 'No active account matches that phone/email and password.'); return; }
   const [id] = match;
-  state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile';
-  document.body.setAttribute('data-role','member');
-  logAction(`${MEMBERS[id].name} logged in.`);
-  render();
+  signInTransition(btn, ()=>{
+    state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile';
+    document.body.setAttribute('data-role','member');
+    logAction(`${MEMBERS[id].name} signed in.`);
+    render();
+  });
 }
-function doAdminLogin(){
+
+// Brief working state on the button, then an arc curtain across the change of context.
+function signInTransition(btn, done){
+  if(btn) btn.classList.add('is-busy');
+  setTimeout(()=>{
+    if(btn) btn.classList.remove('is-busy');
+    curtainTransition(done);
+  }, REDUCED_MOTION ? 0 : 260);
+}
+function doAdminLogin(btn){
   const identifier = norm(document.getElementById('login-user').value);
   const password = document.getElementById('login-pass').value.trim();
-  if(!identifier || !password){ document.getElementById('login-error-admin').textContent = 'Enter your operator ID and password.'; return; }
+  if(!identifier || !password){ flagError(document.getElementById('login-error-admin'), 'Enter your operator ID and password.'); return; }
   const match = ADMINS.find(a => {
     const u = norm(a.username), local = u.split('@')[0];
     return (identifier===u || identifier===local) && a.password===password;
   });
-  if(!match){ document.getElementById('login-error-admin').textContent = 'Invalid operator ID or password.'; return; }
-  state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = match.name;
-  state.adminSignupMsg = ''; state.adminSignupUser = '';
-  document.body.setAttribute('data-role','admin');
-  logAction(`Operator ${match.name} logged in to the administrator console.`);
-  render();
+  if(!match){ flagError(document.getElementById('login-error-admin'), 'Invalid operator ID or password.'); return; }
+  signInTransition(btn, ()=>{
+    state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = match.name;
+    state.adminSignupMsg = ''; state.adminSignupUser = '';
+    document.body.setAttribute('data-role','admin');
+    logAction(`Operator ${match.name} signed in to the administrator console.`);
+    render();
+  });
 }
 function logout(){
-  logAction(`${state.role==='member' ? MEMBERS[state.member].name : (state.adminName||'Operator')} logged out.`);
-  state.loggedIn = false; state.role = null;
-  document.body.removeAttribute('data-role');
-  render();
+  logAction(`${state.role==='member' ? MEMBERS[state.member].name : (state.adminName||'Operator')} signed out.`);
+  curtainTransition(()=>{
+    state.loggedIn = false; state.role = null;
+    document.body.removeAttribute('data-role');
+    render();
+  });
 }
 
 function toggleRegister(v){ state.showRegister = v; state.regSuccess = false; renderLogin(); }
@@ -406,23 +928,23 @@ function submitAdminSignup(){
   const pass2 = document.getElementById('asignup-pass2').value;
   const codeEl = document.getElementById('asignup-code');
   if(!name || !user || !pass){
-    err.textContent = 'Enter your full name, the operator ID you want, and a password.'; return;
+    flagError(err, 'Enter your full name, the operator ID you want, and a password.'); return;
   }
   if(ADMIN_SIGNUP_CODE && (codeEl.value.trim() !== ADMIN_SIGNUP_CODE)){
-    err.textContent = 'That Secretariat sign-up code is not correct.'; return;
+    flagError(err, 'That Secretariat sign-up code is not correct.'); return;
   }
   if(pass.length < 6){
-    err.textContent = 'Choose a password of at least 6 characters.'; return;
+    flagError(err, 'Choose a password of at least 6 characters.'); return;
   }
   if(pass !== pass2){
-    err.textContent = 'Passwords do not match.'; return;
+    flagError(err, 'Passwords do not match.'); return;
   }
   const u = norm(user), local = u.split('@')[0];
   if(ADMINS.some(a=>{ const au = norm(a.username); return au===u || au.split('@')[0]===local; })){
-    err.textContent = 'That operator ID is already in use.'; return;
+    flagError(err, 'That operator ID is already in use.'); return;
   }
   if(ADMINS.length >= MAX_ADMINS){
-    err.textContent = `All ${MAX_ADMINS} administrator seats are taken — an existing operator must remove one first.`; return;
+    flagError(err, `All ${MAX_ADMINS} administrator seats are taken — an existing operator must remove one first.`); return;
   }
   ADMINS.push({name, username:user, password:pass});
   saveAdmins();
@@ -438,15 +960,15 @@ function submitSelfRegistration(){
   const pass = document.getElementById('reg-password').value;
   const pass2 = document.getElementById('reg-password2').value;
   if(!vals.name || !vals.contact || !vals.phone){
-    document.getElementById('reg-error').textContent = 'Farm name, contact person, and phone number are required.';
+    flagError(document.getElementById('reg-error'), 'Farm name, contact person, and phone number are required.');
     return;
   }
   if(!pass || pass.length < 4){
-    document.getElementById('reg-error').textContent = 'Choose a password of at least 4 characters.';
+    flagError(document.getElementById('reg-error'), 'Choose a password of at least 4 characters.');
     return;
   }
   if(pass !== pass2){
-    document.getElementById('reg-error').textContent = 'Passwords do not match.';
+    flagError(document.getElementById('reg-error'), 'Passwords do not match.');
     return;
   }
   const id = slugify(vals.name);
@@ -459,14 +981,48 @@ function submitSelfRegistration(){
 
 function renderLogin(){
   const box = document.getElementById('loginScreen');
+  const isMember = state.loginTab==='member';
   box.innerHTML = `
-    <div class="loginwrap"><div class="loginbox">
-      <div class="lock-icon">&#128274; Secure sign-in</div>
-      <div class="logintabs">
-        <button class="${state.loginTab==='member'?'active':''}" onclick="showLoginTab('member')">Farm member</button>
-        <button class="${state.loginTab==='admin'?'active':''}" onclick="showLoginTab('admin')">Administrator</button>
+    <div class="loginwrap">
+      <!-- Brand panel: reversed lockup on Deep Green, arcs cropped by the edge (p10, p17) -->
+      <div class="loginbrand">
+        <div class="arcfield" aria-hidden="true">
+          <div class="arc arc--green-1"></div>
+          <div class="arc arc--green-2"></div>
+          <div class="arc arc--green-3"></div>
+        </div>
+        <img class="lb-logo" src="assets/brand/tipfa-logo-reversed.png"
+             alt="TIPFA — Tanzania Indoor &amp; Professional Farmers Association">
+        <div class="eyebrow">Association platform &middot; 2026</div>
+        <h2>Kilimo cha kitaalamu.<br>Mavuno ya uhakika.</h2>
+        <p class="strap">Professional farming. Dependable harvests.
+          <em>One association. One quality standard. One coordinated crop calendar.</em></p>
+        <div class="values">
+          ${BRAND_VALUES.map((v,i)=>`
+            <div class="value reveal reveal-${i+3}">
+              ${v.icon}
+              <div><div class="vt">${v.title}</div><div class="vd">${v.text}</div></div>
+            </div>`).join('')}
+        </div>
+        <div class="lb-foot">
+          Tanzania Indoor &amp; Professional Farmers Association<br>
+          Iringa, Southern Highlands &middot; 0744 443 247 &middot; tipfatz@gmail.com
+        </div>
       </div>
-      ${state.loginTab==='member' ? (
+
+      <div class="loginpane">
+        <div class="arcfield" aria-hidden="true">
+          <div class="arc arc--cream-1"></div>
+          <div class="arc arc--cream-2"></div>
+        </div>
+        <div class="loginbox">
+          <div class="lock-icon">${LOCK_ICON} Secure sign-in</div>
+          <div class="logintabs">
+            <span class="tabglide" style="transform:translateX(${isMember?'0':'100%'});"></span>
+            <button class="${isMember?'active':''}" onclick="showLoginTab('member')">Farm member</button>
+            <button class="${!isMember?'active':''}" onclick="showLoginTab('admin')">Administrator</button>
+          </div>
+      ${isMember ? (
         state.showRegister ? `
         <div class="card">
           ${profileFormFields('reg', {}, {showCategory:false})}
@@ -475,21 +1031,21 @@ function renderLogin(){
           <button class="btn" style="width:100%;" onclick="submitSelfRegistration()">Submit registration</button>
           <p class="helper" id="reg-error" style="color:var(--red);margin-top:8px;"></p>
         </div>
-        <p class="login-note"><a href="#" onclick="toggleRegister(false);return false;">&larr; Back to login</a></p>
+        <p class="login-note"><a href="#" onclick="toggleRegister(false);return false;">&larr; Back to sign-in</a></p>
         <p class="login-note">Your registration is reviewed by the TIPFA Secretariat before your account is activated.</p>
         ` : `
-        ${state.regSuccess ? '<div class="msg-banner">Registration submitted — a TIPFA Secretariat operator will review and approve your account.</div>' : ''}
+        ${state.regSuccess ? `<div class="msg-banner">${CHECK_ICON} Registration submitted — the Secretariat will review and approve your account.</div>` : ''}
         <div class="card">
           <label class="f">Phone number or email</label>
           <input id="login-id" placeholder="+255 7XX XXX XXX or you@example.com">
           <label class="f">Password</label>
           ${pwdField('login-password','Your password')}
-          <button class="btn" style="width:100%;margin-top:10px;" onclick="doMemberLogin()">Log in</button>
+          <button class="btn" style="width:100%;margin-top:10px;" onclick="doMemberLogin(this)">Sign in to your farm</button>
           <p class="helper" id="login-error" style="color:var(--red);margin-top:8px;"></p>
         </div>
-        <p class="login-note">Each member logs in with their own phone/email and password. An account only ever shows its own farm's data.</p>
+        <p class="login-note">Each member signs in with their own phone or email. An account only ever shows its own farm's data.</p>
         <p class="login-note"><a href="#" onclick="toggleRegister(true);return false;">New farm? Register here &rarr;</a></p>
-        <p class="login-note">Demo accounts (password <strong>1234</strong>): She Farms, Fair Farms, Iringa Agro Fresh — sign in with the phone or email shown in Member management.</p>
+        <div class="demo-note">Demo accounts (password <strong>1234</strong>): She Farms, Fair Farms, Iringa Agro Fresh — use the phone or email shown in Member management.</div>
         `
       ) : (
         state.adminSignup ? `
@@ -505,29 +1061,41 @@ function renderLogin(){
           <button class="btn gold" style="width:100%;margin-top:6px;" onclick="submitAdminSignup()">Create administrator account</button>
           <p class="helper" id="asignup-error" style="color:var(--red);margin-top:8px;"></p>
         </div>
-        <p class="login-note"><a href="#" onclick="toggleAdminSignup(false);return false;">&larr; Back to administrator login</a></p>
-        <p class="login-note">${ADMINS.length}/${MAX_ADMINS} administrator seats in use. Your account works immediately and is saved in this browser.${ADMIN_SIGNUP_CODE ? ' Demo sign-up code: <strong>'+ADMIN_SIGNUP_CODE+'</strong>' : ''}</p>
+        <p class="login-note"><a href="#" onclick="toggleAdminSignup(false);return false;">&larr; Back to administrator sign-in</a></p>
+        <p class="login-note">${ADMINS.length}/${MAX_ADMINS} administrator seats in use. Your account works immediately and is saved in this browser.</p>
+        ${ADMIN_SIGNUP_CODE ? `<div class="demo-note">Sign-up code for this prototype: <strong>${ADMIN_SIGNUP_CODE}</strong></div>` : ''}
         ` : `
-        ${state.adminSignupMsg ? `<div class="msg-banner">${state.adminSignupMsg}</div>` : ''}
+        ${state.adminSignupMsg ? `<div class="msg-banner">${CHECK_ICON} ${state.adminSignupMsg}</div>` : ''}
         <div class="card">
           <label class="f">Operator ID / email</label>
           <input id="login-user" value="${state.adminSignupUser||''}" placeholder="e.g. amina.hassan@tipfa.co.tz">
           <label class="f">Password</label>
           ${pwdField('login-pass','Operator password')}
-          <button class="btn gold" style="width:100%;margin-top:10px;" onclick="doAdminLogin()">Log in</button>
+          <button class="btn gold" style="width:100%;margin-top:10px;" onclick="doAdminLogin(this)">Sign in to the console</button>
           <p class="helper" id="login-error-admin" style="color:var(--red);margin-top:8px;"></p>
         </div>
         <p class="login-note"><a href="#" onclick="toggleAdminSignup(true);return false;">New administrator? Create your own account &rarr;</a></p>
-        <p class="login-note">Administrator access is limited to a maximum of five authorised TIPFA Secretariat operators. Every operator action is logged for accountability.</p>
+        <p class="login-note">Administrator access is limited to five authorised Secretariat operators. Every operator action is logged for accountability.</p>
       `)}
-    </div></div>`;
+        </div>
+      </div>
+    </div>`;
 }
 
 function renderTopbarRight(){
   const el = document.getElementById('topbarRight');
   if(!state.loggedIn){ el.innerHTML=''; return; }
-  const who = state.role==='member' ? MEMBERS[state.member].name : (state.adminName || 'Secretariat operator');
-  el.innerHTML = `<div class="session"><span class="who">${who}</span><span>· ${state.role==='member'?'Farm member':'Administrator'} access</span><button onclick="logout()">Log out</button></div>`;
+  const isMember = state.role==='member';
+  const m = isMember ? MEMBERS[state.member] : null;
+  const who = isMember ? m.name : (state.adminName || 'Secretariat operator');
+  el.innerHTML = `<div class="session">
+      ${isMember ? farmLogo(m) : ''}
+      <div>
+        <div class="who">${esc(who)}</div>
+        <div class="role-tag" style="font-size:11px;">${isMember?'Farm member':'Administrator'} access</div>
+      </div>
+      <button onclick="logout()">Log out</button>
+    </div>`;
 }
 
 function switchTab(tab){ state.tab = tab; render(); }
@@ -546,19 +1114,20 @@ const ADMIN_TABS = [
 
 function renderSidebar(){
   const tabs = state.role==='member' ? MEMBER_TABS : ADMIN_TABS;
-  document.getElementById('sidebar').innerHTML = tabs.map(([k,label])=>
-    `<button class="tabbtn ${state.tab===k?'active':''}" onclick="switchTab('${k}')">${label}</button>`
+  document.getElementById('sidebar').innerHTML = tabs.map(([k,label],i)=>
+    `<button class="tabbtn ${state.tab===k?'active':''}" style="animation-delay:${i*35}ms" onclick="switchTab('${k}')">${label}</button>`
   ).join('');
 }
 
 function renderSubbar(){
   const bar = document.getElementById('subbar');
   if(state.role==='member'){
-    bar.innerHTML = `<label>Logged in as</label><span style="font-size:13.5px;font-weight:600;color:var(--role-accent-dark);">${MEMBERS[state.member].name}</span>
-      <span class="helper" style="margin-left:8px;">Only your own farm's data is visible in this session.</span>`;
+    const m = MEMBERS[state.member];
+    bar.innerHTML = `<label>Signed in as</label>${farmLogo(m,'sm')}<span class="who-name">${esc(m.name)}</span>
+      <span class="helper" style="margin-left:8px;">${esc(m.location)} &middot; only your own farm's data is visible in this session.</span>`;
   } else {
-    bar.innerHTML = `<label>Signed in as</label><span style="font-size:13.5px;font-weight:600;color:var(--role-accent-dark);">TIPFA Secretariat operator</span>
-      <span class="helper" style="margin-left:8px;">Cooperative-wide access — every entry here is logged.</span>`;
+    bar.innerHTML = `<label>Signed in as</label><span class="who-name">${esc(state.adminName||'TIPFA Secretariat operator')}</span>
+      <span class="helper" style="margin-left:8px;">Association-wide access — every entry here is logged.</span>`;
   }
 }
 
@@ -578,6 +1147,21 @@ function render(){
   document.getElementById('appScreen').style.display = 'block';
   renderSidebar(); renderSubbar();
   const c = document.getElementById('content');
+  renderTabContent(c);
+  afterRender(c);
+}
+
+// Entrance motion for whatever the active tab just rendered.
+function afterRender(c){
+  c.classList.remove('is-swapping');
+  void c.offsetWidth;
+  c.classList.add('is-swapping');
+  staggerIn(c);
+  animateCounters(c);
+  observeScrollReveals(c);
+}
+
+function renderTabContent(c){
   if(state.role==='member'){
     if(state.tab==='profile') return renderProfile(c);
     if(state.tab==='calendar') return renderCropCalendar(c);
@@ -600,11 +1184,26 @@ function render(){
   }
 }
 
+// Farm identity header — the member's own mark, name and standing.
+function farmHeader(m, extra){
+  return `<div class="farm-head">
+    <div class="fh-arc" aria-hidden="true"></div>
+    ${farmLogo(m,'xl')}
+    <div class="fh-meta">
+      <h2>${esc(m.name)}</h2>
+      <div class="fh-sub">${esc(m.category)} member &middot; ${esc(m.location)} &middot; registered ${esc(m.registered)}</div>
+      <div style="margin-top:8px;"><span class="status-pill status-${m.status.toLowerCase()}">${esc(m.status)}</span>
+      ${extra||''}</div>
+    </div>
+  </div>`;
+}
+
 function renderProfile(c){
   const m = MEMBERS[state.member];
   c.innerHTML = `
     <h1 class="page-title">Farm profile</h1>
-    <p class="page-sub">${m.name} · ${m.category} · registered ${m.registered}</p>
+    <p class="page-sub">Your farm's record with the Association</p>
+    ${farmHeader(m)}
     <div class="card">
       ${profileFormFields('prof', m, {showCategory:false})}
       <button class="btn" onclick="saveProfile()">Save profile</button>
@@ -743,6 +1342,22 @@ function addMarketStandard(){
 }
 
 // ---- Market prices: buyer prices + weekly/monthly/annual trend ----
+// Charts inherit the identity: Inter for labels, Tipfa Green as the primary
+// series, Harvest Orange rationed to a single highlighted series (p14).
+const CHART_INK = '#23281F', CHART_GRID = '#E4E2D4';
+if(window.Chart){
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#6E7466';
+  Chart.defaults.animation.duration = REDUCED_MOTION ? 0 : 900;
+  Chart.defaults.animation.easing = 'easeOutQuart';
+  Chart.defaults.plugins.tooltip.backgroundColor = '#2C4423';
+  Chart.defaults.plugins.tooltip.padding = 10;
+  Chart.defaults.plugins.tooltip.cornerRadius = 8;
+  Chart.defaults.plugins.tooltip.titleFont = {family:"'Poppins', sans-serif", weight:'600'};
+}
+const CHART_SERIES = ['#405E35','#E8A734','#7E9B3F','#2C4423','#A85C3F','#8C9A6B'];
+
 let priceChartRef = null;
 function priceTrendData(crop, period){
   const base = PRICE_BASE[crop] || 1000;
@@ -784,12 +1399,13 @@ function addMarketPrice(){
   render();
 }
 function drawPriceChart(){
+  if(!window.Chart) return;
   const ctx = document.getElementById('priceChart'); if(!ctx) return;
   if(priceChartRef) priceChartRef.destroy();
   const {labels,data} = priceTrendData(state.priceCrop, state.period);
-  priceChartRef = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:state.priceCrop+' price (TZS/kg)', data, borderColor:'#2F7A82', backgroundColor:'rgba(47,122,130,0.15)', fill:true, tension:0.3, pointRadius:3 }] },
+  priceChartRef = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:state.priceCrop+' price (TZS/kg)', data, borderColor:'#405E35', backgroundColor:'rgba(64,94,53,0.14)', pointBackgroundColor:'#E8A734', pointBorderColor:'#405E35', fill:true, tension:0.3, pointRadius:3 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ y:{ grid:{ color:'#E4E7D6' }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
+      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
 }
 
 // ---- Future planning: investment tracking + 2-3 year outlook ----
@@ -1009,7 +1625,7 @@ function renderMembers(c){
     <p class="page-sub">Approve registrations, register new members, and view, edit, or remove any profile</p>
     <div class="card" style="overflow-x:auto;">
       <table class="grid-table"><thead><tr><th>Farm</th><th>Category</th><th>Location</th><th>Status</th><th style="min-width:230px;"></th></tr></thead>
-      <tbody>${Object.entries(MEMBERS).map(([id,m])=>`<tr><td>${m.name}</td><td>${m.category}</td><td>${m.location}</td>
+      <tbody>${Object.entries(MEMBERS).map(([id,m])=>`<tr><td>${farmCell(m)}</td><td>${m.category}</td><td>${m.location}</td>
         <td><span class="status-pill status-${m.status.toLowerCase()}">${m.status}</span></td>
         <td>
           <button class="btn small ghost" onclick="openMemberView('${id}')">View</button>
@@ -1189,8 +1805,9 @@ function comparisonBar(label, plan, actual){
     <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px;">
       <span>${label}</span><span>${fmt(actual)} / ${fmt(plan)} kg · ${p}% of plan</span>
     </div>
-    <div style="height:10px;background:#E4E7D6;border-radius:99px;overflow:hidden;">
-      <div style="height:100%;width:${Math.min(p,100)}%;background:${barColor};"></div>
+    <div style="height:10px;background:#E4E2D4;border-radius:99px;overflow:hidden;">
+      <div class="bar-fill" style="height:100%;width:${Math.min(p,100)}%;background:${barColor};border-radius:99px;
+        animation:barGrow .95s var(--ease-out) both;"></div>
     </div>
   </div>`;
 }
@@ -1216,27 +1833,27 @@ function renderDashboard(c){
     <div class="section-label">Weekly — Week ${week} of ${MONTHS[month-1]}</div>
     <div class="card">
       <div class="grid3">
-        <div class="metric"><div class="lbl">Weekly plan</div><div class="val">${fmt(weekPlan)} kg</div></div>
-        <div class="metric"><div class="lbl">Weekly actual</div><div class="val" style="color:var(--gold);">${fmt(weekActual)} kg</div></div>
-        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--teal);">${pct(weekActual,weekPlan)}%</div></div>
+        <div class="metric"><div class="lbl">Weekly plan</div><div class="val" data-count="${weekPlan}" data-suffix=" kg">0</div></div>
+        <div class="metric"><div class="lbl">Weekly actual</div><div class="val" style="color:var(--gold);" data-count="${weekActual}" data-suffix=" kg">0</div></div>
+        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--leaf-green);" data-count="${pct(weekActual,weekPlan)}" data-suffix="%">0</div></div>
       </div>
       ${comparisonBar('Week '+week+' performance', weekPlan, weekActual)}
     </div>
     <div class="section-label">Monthly — ${MONTHS[month-1]}</div>
     <div class="card">
       <div class="grid3">
-        <div class="metric"><div class="lbl">Monthly plan</div><div class="val">${fmt(monthPlan)} kg</div></div>
-        <div class="metric"><div class="lbl">Monthly actual</div><div class="val" style="color:var(--gold);">${fmt(monthActual)} kg</div></div>
-        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--teal);">${pct(monthActual,monthPlan)}%</div></div>
+        <div class="metric"><div class="lbl">Monthly plan</div><div class="val" data-count="${monthPlan}" data-suffix=" kg">0</div></div>
+        <div class="metric"><div class="lbl">Monthly actual</div><div class="val" style="color:var(--gold);" data-count="${monthActual}" data-suffix=" kg">0</div></div>
+        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--leaf-green);" data-count="${pct(monthActual,monthPlan)}" data-suffix="%">0</div></div>
       </div>
       ${comparisonBar(MONTHS[month-1]+' performance', monthPlan, monthActual)}
     </div>
     <div class="section-label">Annual — 2026</div>
     <div class="card">
       <div class="grid3">
-        <div class="metric"><div class="lbl">Annual plan</div><div class="val">${fmt(yearPlan)} kg</div></div>
-        <div class="metric"><div class="lbl">Annual actual</div><div class="val" style="color:var(--gold);">${fmt(yearActual)} kg</div></div>
-        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--teal);">${pct(yearActual,yearPlan)}%</div></div>
+        <div class="metric"><div class="lbl">Annual plan</div><div class="val" data-count="${yearPlan}" data-suffix=" kg">0</div></div>
+        <div class="metric"><div class="lbl">Annual actual</div><div class="val" style="color:var(--gold);" data-count="${yearActual}" data-suffix=" kg">0</div></div>
+        <div class="metric"><div class="lbl">Performance</div><div class="val" style="color:var(--leaf-green);" data-count="${pct(yearActual,yearPlan)}" data-suffix="%">0</div></div>
       </div>
       ${comparisonBar('Year-to-date performance', yearPlan, yearActual)}
     </div>
@@ -1249,12 +1866,14 @@ function renderDashboard(c){
 }
 
 function drawCapacityChart(){
+  if(!window.Chart) return;
   const ctx = document.getElementById('capacityChart'); if(!ctx) return;
   if(capacityChartRef) capacityChartRef.destroy();
-  capacityChartRef = new Chart(ctx, { type:'doughnut', data:{ labels:CROPS, datasets:[{ data:coopCapacityByCrop('actual', state.selMonth), backgroundColor:['#A85C3F','#35633A','#D69A2D','#2F7A82','#7A8C3A','#8C4E7A'], borderColor:'#FFFFFF', borderWidth:2 }] },
+  capacityChartRef = new Chart(ctx, { type:'doughnut', data:{ labels:CROPS, datasets:[{ data:coopCapacityByCrop('actual', state.selMonth), backgroundColor:CHART_SERIES, borderColor:'#FFFFFF', borderWidth:2 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ family:'IBM Plex Sans', size:10.5 }, color:'#23301E' } } } } });
 }
 function drawTrendChart(){
+  if(!window.Chart) return;
   const ctx = document.getElementById('trendChart'); if(!ctx) return;
   if(trendChartRef) trendChartRef.destroy();
   const month = state.selMonth;
@@ -1262,13 +1881,14 @@ function drawTrendChart(){
   const actualWeeks = [1,2,3,4].map(w=>coopWeekTotal('actual',month,w));
   trendChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
     datasets:[
-      { label:'Plan', data:planWeeks, backgroundColor:'#D8D9C8', borderRadius:4, maxBarThickness:26 },
-      { label:'Actual', data:actualWeeks, backgroundColor:'#35633A', borderRadius:4, maxBarThickness:26 }
+      { label:'Plan', data:planWeeks, backgroundColor:'#D9D7C6', borderRadius:6, maxBarThickness:26 },
+      { label:'Actual', data:actualWeeks, backgroundColor:'#405E35', borderRadius:6, maxBarThickness:26 }
     ] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
-      scales:{ y:{ grid:{ color:'#E4E7D6' }, ticks:{ font:{ size:10 }, color:'#6B7263' } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, color:'#6B7263' } } } } });
+      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 }, color:'#6B7263' } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, color:'#6B7263' } } } } });
 }
 function drawMemberTrendChart(){
+  if(!window.Chart) return;
   const ctx = document.getElementById('memberTrend'); if(!ctx) return;
   if(memberChartRef) memberChartRef.destroy();
   const m = state.member, month = state.selMonth;
@@ -1276,11 +1896,11 @@ function drawMemberTrendChart(){
   const actualWeeks = [1,2,3,4].map(w=>{ let t=0; CROPS.forEach(cr=> t+=harvest[m].actual[month][w][cr]||0); return t; });
   memberChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
     datasets:[
-      { label:'Plan', data:planWeeks, backgroundColor:'#D8D9C8', borderRadius:4, maxBarThickness:26 },
-      { label:'Actual', data:actualWeeks, backgroundColor:'#2F7A82', borderRadius:4, maxBarThickness:26 }
+      { label:'Plan', data:planWeeks, backgroundColor:'#D9D7C6', borderRadius:6, maxBarThickness:26 },
+      { label:'Actual', data:actualWeeks, backgroundColor:'#7E9B3F', borderRadius:6, maxBarThickness:26 }
     ] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
-      scales:{ y:{ grid:{ color:'#E4E7D6' }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:9.5 } } } } } });
+      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:9.5 } } } } } });
 }
 
 function renderGrowth(c){
@@ -1391,7 +2011,9 @@ function renderGovernance(c){
       <p class="helper" style="margin-top:12px;">Operators can also create their own account from the Administrator tab of the sign-in screen${ADMIN_SIGNUP_CODE ? ` by quoting the Secretariat sign-up code (<strong>${ADMIN_SIGNUP_CODE}</strong>)` : ''}. Self sign-ups appear in this list and are recorded in the audit log below.</p>
     </div>
     <div class="section-label">Audit log</div>
-    <div class="card">${auditLog.slice(0,12).map(l=>`<div class="log-item">${l.time} — ${l.text}</div>`).join('')}</div>`;
+    <div class="card">${auditLog.slice(0,12).map((l,i)=>
+      `<div class="log-item" style="animation-delay:${Math.min(i,10)*40}ms"><span class="t">${l.time}</span><span>${esc(l.text)}</span></div>`
+    ).join('')}</div>`;
 }
 function addAdmin(){
   if(ADMINS.length >= MAX_ADMINS) return;
