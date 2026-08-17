@@ -115,11 +115,8 @@ a{color:var(--tipfa-green);}
 .brandblock:hover .brandlogo{transform:scale(1.03);}
 .brandrule{width:1px;height:38px;background:rgba(239,237,226,.30);}
 .brandblock .tagline{
-  font-size:11px;letter-spacing:.02em;line-height:1.4;opacity:.78;margin-top:1px;
+  font-size:11.5px;letter-spacing:.02em;line-height:1.4;opacity:.8;margin-top:2px;font-style:italic;
 }
-.brandblock .tagline span{display:inline;}
-.brandblock .tagline .sw{font-weight:500;}
-.brandblock .tagline .sw{display:block;font-weight:500;}
 .session{display:flex;align-items:center;gap:12px;color:var(--field-cream);font-size:12.5px;animation:riseIn var(--dur-3) var(--ease-out) .08s both;}
 .session .who{font-weight:600;font-family:'Poppins',sans-serif;}
 .session .role-tag{opacity:.82;}
@@ -376,6 +373,25 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
 .farm-cell{display:flex;align-items:center;gap:10px;}
 .farm-cell .fname{font-weight:500;}
 
+.logo-picker{
+  display:flex;gap:16px;align-items:flex-start;padding:14px;margin-bottom:16px;
+  background:#F7F6EF;border:1px dashed var(--line);border-radius:var(--radius);
+}
+.logo-picker .lp-body{flex:1;min-width:0;}
+.logo-picker input[type="file"]{margin-bottom:6px;}
+.logo-picker .farm-logo{background:#fff;}
+
+.empty-state{text-align:center;padding:38px 26px;}
+.empty-state .es-mark{
+  width:52px;height:52px;border-radius:50%;background:#EEF0E4;color:var(--tipfa-green);
+  display:flex;align-items:center;justify-content:center;margin:0 auto 14px;
+  animation:softPulse 3s var(--ease-in-out) infinite;
+}
+.empty-state .es-mark svg{width:24px;height:24px;}
+.empty-state h3{font-family:'Poppins',sans-serif;font-size:16px;font-weight:600;color:var(--deep-green);margin:0 0 6px;}
+.empty-state p{font-size:13px;color:var(--muted);margin:0 auto;max-width:46ch;line-height:1.6;}
+.empty-state .btn{margin-top:16px;}
+
 /* Farm identity header on member pages */
 .farm-head{
   display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line-soft);
@@ -487,10 +503,7 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
       <div class="brandrule"></div>
       <div class="brandtext">
         <div class="bt-name">TIPFA <span>Association Platform</span></div>
-        <div class="tagline">
-          <span class="sw">Kilimo cha kitaalamu.</span>
-          <span>Mavuno ya uhakika.</span>
-        </div>
+        <div class="tagline">Farming together. Harvesting excellence.</div>
       </div>
     </div>
     <div id="topbarRight"></div>
@@ -517,18 +530,10 @@ const INVEST_CATEGORIES = ['Seeds','Labour','Infrastructure','Other'];
 const CROP_STAGES = ['Sowing','Transplanting','Flowering','Harvesting'];
 const MARKET_STANDARD_OPTIONS = ['GlobalG.A.P.','Organic','Fair Trade','Other'];
 
-const MEMBERS = {
-  she: {name:'She Farms', contact:'Brenda Sandstrom', phone:'+255 754 000 111', email:'she.farms@tipfa.co.tz', password:'1234', location:'Iringa', category:'Functional', totalArea:2.5, indoorSqm:800, indoorUnits:3, outdoorArea:1.2, irrigation:'Drip', water:'Borehole', registered:'2026-07-08', status:'Active',
-    crops:[{crop:'Tomatoes',variety:'Anna F1',area:0.3,planted:'2026-05-01',expected:'2026-08-01'},{crop:'Melons',variety:'Sweet Gold',area:0.15,planted:'2026-06-05',expected:'2026-08-25'}]},
-  fair: {name:'Fair Farms', contact:'Suleiman Farej', phone:'+255 754 000 222', email:'fair.farms@tipfa.co.tz', password:'1234', location:'Iringa', category:'Functional', totalArea:3.2, indoorSqm:1100, indoorUnits:4, outdoorArea:1.8, irrigation:'Drip', water:'Piped', registered:'2026-07-08', status:'Active',
-    crops:[{crop:'Capsicum Red',variety:'Fair Miche',area:0.2,planted:'2026-05-20',expected:'2026-08-10'},{crop:'Capsicum Yellow',variety:'Fair Miche',area:0.2,planted:'2026-05-20',expected:'2026-08-10'}]},
-  iringa: {name:'Iringa Agro Fresh', contact:'Borja Viton', phone:'+255 754 000 333', email:'iringa.fresh@tipfa.co.tz', password:'1234', location:'Iringa', category:'Functional', totalArea:4.0, indoorSqm:1400, indoorUnits:5, outdoorArea:2.0, irrigation:'Drip', water:'Borehole', registered:'2026-07-08', status:'Active',
-    crops:[{crop:'Cherry Tomatoes',variety:'Sakura',area:0.1,planted:'2026-06-01',expected:'2026-08-20'},{crop:'Cucumbers',variety:'Marketmore',area:0.25,planted:'2026-05-15',expected:'2026-07-30'}]},
-  nahdi: {name:'Nahdi Youth Farm', contact:'Agnes M. Mrilenjele', phone:'+255 754 000 444', email:'nahdi.youth@tipfa.co.tz', password:'1234', location:'Iringa', category:'Non-functional', totalArea:1.0, indoorSqm:300, indoorUnits:1, outdoorArea:0.5, irrigation:'Manual', water:'Rain-fed', registered:'2026-08-01', status:'Pending',
-    crops:[]},
-  pinerjo: {name:'Pinerjo Smart Farm', contact:'Leonard Mkongwa', phone:'+255 754 000 555', email:'pinerjo.smart@tipfa.co.tz', password:'1234', location:'Iringa', category:'Honorable', totalArea:1.5, indoorSqm:500, indoorUnits:2, outdoorArea:0.7, irrigation:'Drip', water:'Borehole', registered:'2026-08-02', status:'Pending',
-    crops:[]},
-};
+// The membership register starts empty. Farms join by signing up on the
+// sign-in screen, or are registered directly by a Secretariat operator,
+// and every farm owns and edits its own profile from there.
+let MEMBERS = {};
 
 const DEFAULT_ADMINS = [
   {name:'Samson Abel Mwaikenda', username:'samsonabel627@gmail.com', password:'sam2026'},
@@ -540,6 +545,53 @@ const MAX_ADMINS = 5;
 // from the sign-in screen. Set to '' to allow administrator sign-up without a code.
 const ADMIN_SIGNUP_CODE = 'TIPFA2026';
 const ADMIN_STORE_KEY = 'tipfa.admins.v1';
+const MEMBER_STORE_KEY = 'tipfa.members.v1';
+
+/* ============================================================
+   Storage
+   Farms, their records and their submissions are kept in this
+   browser so an account survives a reload. This is per-browser,
+   not a server: a farm registered on one device is not visible
+   on another.
+   ============================================================ */
+// Nothing is written until the stored register has been read back, so the
+// startup log entry cannot overwrite a saved one with an empty register.
+let storeReady = false;
+function saveMembers(){
+  if(!storeReady) return;
+  try{
+    localStorage.setItem(MEMBER_STORE_KEY, JSON.stringify({
+      members: MEMBERS, harvest: harvest, inputs: inputsData,
+      complaints: complaints, nextComplaintId: nextComplaintId
+    }));
+  }catch(e){ /* storage full or unavailable — the session still works */ }
+}
+function loadMembers(){
+  try{
+    const raw = localStorage.getItem(MEMBER_STORE_KEY);
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    if(!d || !d.members || typeof d.members !== 'object') return;
+    /* falls through to restore the stored register */
+    MEMBERS = d.members;
+    harvest = d.harvest || {};
+    inputsData = d.inputs || {};
+    complaints = Array.isArray(d.complaints) ? d.complaints : [];
+    nextComplaintId = d.nextComplaintId || (complaints.length + 1);
+    // Backfill anything a stored record predates, so an older save still opens.
+    Object.keys(MEMBERS).forEach(id=>{
+      const m = MEMBERS[id];
+      if(!Array.isArray(m.crops)) m.crops = [];
+      if(!Array.isArray(m.marketStandards)) m.marketStandards = [];
+      if(!Array.isArray(m.marketPrices)) m.marketPrices = [];
+      if(!m.investments) m.investments = blankInvestments();
+      if(!m.futurePlan) m.futurePlan = { year1:'', year2:'', year3:'' };
+      if(!harvest[id]) harvest[id] = { plan: blankMonthWeeks(), actual: blankMonthWeeks() };
+      if(!inputsData[id]) inputsData[id] = { weekly:blankPeriod(INPUTS,0), monthly:blankPeriod(INPUTS,0), annual:blankPeriod(INPUTS,0) };
+    });
+  }catch(e){ /* unreadable store — start empty rather than fail to load */ }
+  finally{ storeReady = true; }
+}
 
 // Administrator accounts are kept in the browser so an account created here
 // still works after a page reload. Falls back to memory only if storage is blocked.
@@ -577,8 +629,35 @@ function farmLogoSlug(name){
 }
 function farmLogoSrc(m){
   if(!m) return '';
-  if(m.logo) return m.logo;                       // explicit override wins
+  if(m.avatar) return m.avatar;                   // the farm's own uploaded image
+  if(m.logo) return m.logo;                       // explicit file override
   return FARM_LOGO_DIR + farmLogoSlug(m.name) + FARM_LOGO_EXT;
+}
+
+/* A farm's profile image is its logo: it is shown wherever the farm appears.
+   The picture is squared off and scaled down before it is stored, so a photo
+   straight off a phone does not fill up the browser's storage. */
+const AVATAR_PX = 320;
+function readImageAsLogo(file, done, fail){
+  if(!file){ fail && fail('Choose an image file.'); return; }
+  if(!/^image\//.test(file.type)){ fail && fail('That file is not an image.'); return; }
+  const reader = new FileReader();
+  reader.onerror = ()=> fail && fail('That image could not be read.');
+  reader.onload = ()=>{
+    const img = new Image();
+    img.onerror = ()=> fail && fail('That image could not be opened.');
+    img.onload = ()=>{
+      const side = Math.min(img.width, img.height);
+      const cv = document.createElement('canvas');
+      cv.width = cv.height = AVATAR_PX;
+      const ctx = cv.getContext('2d');
+      ctx.drawImage(img, (img.width-side)/2, (img.height-side)/2, side, side, 0, 0, AVATAR_PX, AVATAR_PX);
+      // PNG keeps a transparent logo transparent; a photo is fine either way.
+      done(cv.toDataURL('image/png'));
+    };
+    img.src = reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 function farmInitials(name){
   const words = (name||'').split(/\s+/).filter(Boolean);
@@ -703,7 +782,7 @@ const BRAND_VALUES = [
   {title:'Grounded',    text:'We speak from the field, not from a boardroom.',       icon:lineIcon('<path d="M12 22V9"/><path d="M12 9C12 9 7 8 5 4c4-1 7 2 7 5z"/><path d="M12 12c0-3 3-6 7-5-2 4-7 5-7 5z"/>')},
   {title:'Professional',text:'Standards, records, measurement. Farming as enterprise.',icon:lineIcon('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/>')},
   {title:'Progressive', text:'Open to better methods, varieties and technology.',     icon:lineIcon('<path d="M3 17l5-5 4 4 8-8"/><path d="M15 8h5v5"/>')},
-  {title:'Collective',  text:'Umoja. What one member learns, the membership gains.',  icon:lineIcon('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 6.5a3 3 0 0 1 0 5.8"/><path d="M18.5 20a5.5 5.5 0 0 0-3-4.9"/>')},
+  {title:'Collective',  text:'What one member learns, the whole membership gains.',  icon:lineIcon('<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M16 6.5a3 3 0 0 1 0 5.8"/><path d="M18.5 20a5.5 5.5 0 0 0-3-4.9"/>')},
 ];
 const LOCK_ICON = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>';
 
@@ -718,68 +797,24 @@ function blankMonthWeeks(){
   for(let m=1;m<=12;m++){ months[m] = {1:blankPeriod(CROPS,0), 2:blankPeriod(CROPS,0), 3:blankPeriod(CROPS,0), 4:blankPeriod(CROPS,0)}; }
   return months;
 }
-const harvest = {}, inputsData = {};
-Object.keys(MEMBERS).forEach(id=>{
-  harvest[id] = { plan: blankMonthWeeks(), actual: blankMonthWeeks() };
-  inputsData[id] = { weekly:blankPeriod(INPUTS,0), monthly:blankPeriod(INPUTS,0), annual:blankPeriod(INPUTS,0) };
-});
-
-function seedMonth(id, crop, month, planBase, weeksActual){
-  weeksActual = weeksActual===undefined ? 4 : weeksActual;
-  for(let w=1; w<=4; w++){
-    harvest[id].plan[month][w][crop] = Math.round(planBase);
-    harvest[id].actual[month][w][crop] = w<=weeksActual ? Math.round(planBase * WEEK_FACTORS[w-1]) : 0;
-  }
-}
-// June and July: complete past months (plan + actual for all 4 weeks).
-// August: current month — plan set for the whole month, actual only filled through week 1.
-seedMonth('she','Tomatoes',6,180); seedMonth('she','Tomatoes',7,190); seedMonth('she','Tomatoes',8,200,CURRENT_WEEK);
-seedMonth('she','Melons',6,55); seedMonth('she','Melons',7,60); seedMonth('she','Melons',8,70,CURRENT_WEEK);
-seedMonth('fair','Capsicum Red',6,95); seedMonth('fair','Capsicum Red',7,100); seedMonth('fair','Capsicum Red',8,110,CURRENT_WEEK);
-seedMonth('fair','Capsicum Yellow',6,80); seedMonth('fair','Capsicum Yellow',7,85); seedMonth('fair','Capsicum Yellow',8,90,CURRENT_WEEK);
-seedMonth('iringa','Cherry Tomatoes',6,38); seedMonth('iringa','Cherry Tomatoes',7,42); seedMonth('iringa','Cherry Tomatoes',8,45,CURRENT_WEEK);
-seedMonth('iringa','Cucumbers',6,90); seedMonth('iringa','Cucumbers',7,95); seedMonth('iringa','Cucumbers',8,100,CURRENT_WEEK);
-
-inputsData.she.weekly={Seeds:4,Fertiliser:8,'Greenhouse Supplies':0,Water:180};
-inputsData.fair.weekly={Seeds:6,Fertiliser:12,'Greenhouse Supplies':2,Water:220};
-inputsData.iringa.weekly={Seeds:5,Fertiliser:9,'Greenhouse Supplies':1,Water:260};
-
-// New modules: market standards, market prices, investment tracking, future planning, crop stages
+let harvest = {}, inputsData = {};
 function blankInvestments(){ return { weekly:blankPeriod(INVEST_CATEGORIES,0), monthly:blankPeriod(INVEST_CATEGORIES,0), annual:blankPeriod(INVEST_CATEGORIES,0) }; }
-Object.keys(MEMBERS).forEach(id=>{
-  MEMBERS[id].marketStandards = [];
-  MEMBERS[id].marketPrices = [];
-  MEMBERS[id].investments = blankInvestments();
-  MEMBERS[id].futurePlan = { year1:'', year2:'', year3:'' };
-});
-Object.values(MEMBERS).forEach(m=> m.crops.forEach(cr=>{
-  if(!cr.stage){ cr.stage = 'Harvesting'; cr.stageInputs = 'Routine harvesting labour, crates, transport'; }
-}));
-MEMBERS.she.marketStandards = [{crop:'Tomatoes', standard:'GlobalG.A.P.', notes:'Certification in progress, targeting Q4 2026'}];
-MEMBERS.fair.marketStandards = [{crop:'Capsicum Red', standard:'Organic', notes:'Third season under organic management'}];
-MEMBERS.she.marketPrices = [
-  {crop:'Tomatoes', buyer:'Iringa Town Market', price:1180, date:'2026-07-28'},
-  {crop:'Tomatoes', buyer:'Dodoma Wholesalers Ltd', price:1250, date:'2026-08-02'},
-];
-MEMBERS.fair.marketPrices = [
-  {crop:'Capsicum Red', buyer:'Fair Miche Export', price:2300, date:'2026-08-01'},
-];
-MEMBERS.she.investments.monthly = {Seeds:180000, Labour:420000, Infrastructure:0, Other:35000};
-MEMBERS.she.futurePlan = { year1:'Expand tomato greenhouse by one unit', year2:'Add drip irrigation to outdoor plot', year3:'Pursue GlobalG.A.P. certification for melons' };
 
-const complaints = [
-  {id:1, member:'iringa', type:'Request', text:'Greenhouse entrance porch budget approval', status:'progress', assignee:'Secretariat'},
-  {id:2, member:'fair', type:'Request', text:'Rijk Zwaan pollination scheduling', status:'resolved', assignee:'Suleiman F.'},
-  {id:3, member:'she', type:'Complaint', text:'Support choosing next crop variety', status:'open', assignee:'Unassigned'},
-];
-let nextComplaintId = 4;
+let complaints = [];
+let nextComplaintId = 1;
 
 const auditLog = [];
-function logAction(text){ auditLog.unshift({time:new Date().toLocaleString('en-GB',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}), text}); }
-logAction('System initialised — TIPFA Association Platform prototype loaded.');
+// Every logged action is a change worth keeping; the unload hook catches the
+// inline field edits that do not log.
+function logAction(text){
+  auditLog.unshift({time:new Date().toLocaleString('en-GB',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}), text});
+  saveMembers();
+}
+window.addEventListener('beforeunload', saveMembers);
+logAction('System initialised — TIPFA Association Platform ready.');
 
-const state = { role:null, tab:'profile', member:'she', period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
-  adminSignup:false, adminSignupMsg:'', adminSignupUser:'' };
+const state = { role:null, tab:'profile', member:null, period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
+  adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'' };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -816,6 +851,48 @@ function createBlankRecords(id){
   MEMBERS[id].futurePlan = { year1:'', year2:'', year3:'' };
 }
 
+// Profile image picker. The chosen image becomes the farm's logo everywhere.
+function logoPicker(prefix, current, name){
+  return `<div class="logo-picker">
+    <span class="farm-logo lg" id="${prefix}-logo-preview">
+      ${current ? `<img src="${esc(current)}" alt="Farm logo">`
+                : `<span class="farm-initials" style="display:block;">${esc(farmInitials(name||''))}</span>`}
+    </span>
+    <div class="lp-body">
+      <label class="f">Farm logo / profile image</label>
+      <input type="file" accept="image/*" id="${prefix}-logo-input" onchange="pickLogo('${prefix}', this)">
+      <p class="helper" id="${prefix}-logo-msg">Used as your farm's logo across the platform. A square PNG with a transparent background works best.</p>
+      ${current ? `<button type="button" class="btn small ghost" onclick="clearLogo('${prefix}')">Remove image</button>` : ''}
+    </div>
+  </div>`;
+}
+// Holds the picked image until the surrounding form is saved.
+const pendingLogos = {};
+function pickLogo(prefix, input){
+  const msg = document.getElementById(prefix+'-logo-msg');
+  readImageAsLogo(input.files && input.files[0], function(dataUrl){
+    pendingLogos[prefix] = dataUrl;
+    if(prefix === 'reg') state.regAvatar = dataUrl;
+    const box = document.getElementById(prefix+'-logo-preview');
+    if(box){ box.classList.remove('is-missing'); box.innerHTML = `<img src="${dataUrl}" alt="Farm logo">`; }
+    if(msg){ msg.textContent = 'Image ready — save the profile to apply it.'; msg.style.color = 'var(--tipfa-green)'; }
+  }, function(err){
+    if(msg){ msg.textContent = err; msg.style.color = 'var(--red)'; }
+  });
+}
+function clearLogo(prefix){
+  pendingLogos[prefix] = '';
+  if(prefix === 'reg') state.regAvatar = '';
+  if(prefix === 'prof' && state.member){
+    MEMBERS[state.member].avatar = '';
+    logAction(`${MEMBERS[state.member].name} removed their farm logo.`);
+    render();
+    return;
+  }
+  const box = document.getElementById(prefix+'-logo-preview');
+  if(box) box.innerHTML = `<span class="farm-initials" style="display:block;">—</span>`;
+}
+
 function profileFormFields(prefix, v, opts){
   v = v || {}; opts = opts || {};
   const catField = opts.showCategory ? `<div><label class="f">Member category</label><select id="${prefix}-category">
@@ -840,7 +917,7 @@ function profileFormFields(prefix, v, opts){
 }
 function readProfileFields(prefix){
   const catEl = document.getElementById(`${prefix}-category`);
-  return {
+  const vals = {
     name: document.getElementById(`${prefix}-name`).value.trim(),
     contact: document.getElementById(`${prefix}-contact`).value.trim(),
     phone: document.getElementById(`${prefix}-phone`).value.trim(),
@@ -854,6 +931,10 @@ function readProfileFields(prefix){
     irrigation: document.getElementById(`${prefix}-irrigation`).value.trim(),
     water: document.getElementById(`${prefix}-water`).value.trim(),
   };
+  // Only carry the image through when one was actually picked or cleared,
+  // so saving the form otherwise leaves the existing logo alone.
+  if(pendingLogos[prefix] !== undefined) vals.avatar = pendingLogos[prefix];
+  return vals;
 }
 
 function downloadCSV(filename, rows){
@@ -871,8 +952,16 @@ function doMemberLogin(btn){
   const password = document.getElementById('login-password').value.trim();
   if(!identifier || !password){ flagError(document.getElementById('login-error'), 'Enter your phone number/email and password.'); return; }
   const match = Object.entries(MEMBERS).find(([id,m]) =>
-    m.status==='Active' && m.password===password && (norm(m.phone)===identifier || norm(m.email)===identifier));
-  if(!match){ flagError(document.getElementById('login-error'), 'No active account matches that phone/email and password.'); return; }
+    m.status!=='Rejected' && m.password===password && (norm(m.phone)===identifier || norm(m.email)===identifier));
+  if(!match){
+    const known = Object.entries(MEMBERS).find(([id,m]) => norm(m.phone)===identifier || norm(m.email)===identifier);
+    flagError(document.getElementById('login-error'),
+      known ? (known[1].status==='Rejected'
+                ? 'That registration was not approved. Contact the Secretariat on 0744 443 247.'
+                : 'That password does not match this account.')
+            : 'No account matches that phone number or email. Register your farm below.');
+    return;
+  }
   const [id] = match;
   signInTransition(btn, ()=>{
     state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile';
@@ -916,7 +1005,7 @@ function logout(){
   });
 }
 
-function toggleRegister(v){ state.showRegister = v; state.regSuccess = false; renderLogin(); }
+function toggleRegister(v){ state.showRegister = v; state.regSuccess = false; delete pendingLogos.reg; state.regAvatar=''; renderLogin(); }
 
 function toggleAdminSignup(v){ state.adminSignup = v; state.adminSignupMsg = ''; renderLogin(); }
 
@@ -971,12 +1060,31 @@ function submitSelfRegistration(){
     flagError(document.getElementById('reg-error'), 'Passwords do not match.');
     return;
   }
+  if(findMemberByLogin(vals.phone) || (vals.email && findMemberByLogin(vals.email))){
+    flagError(document.getElementById('reg-error'), 'A farm is already registered with that phone number or email.');
+    return;
+  }
   const id = slugify(vals.name);
-  MEMBERS[id] = Object.assign({}, vals, { password: pass, category:'Pending review', registered: todayStr(), status:'Pending', crops:[] });
+  // The account is usable straight away, so a new farm can build out its own
+  // profile at once. The Secretariat still reviews it — the membership stays
+  // Pending in Member management until an operator approves it.
+  MEMBERS[id] = Object.assign({}, vals, {
+    password: pass, category:'Pending review', registered: todayStr(), status:'Pending',
+    crops:[], avatar: state.regAvatar || ''
+  });
   createBlankRecords(id);
-  logAction(`${vals.name} submitted a new registration (self sign-up), pending Secretariat approval.`);
+  logAction(`${vals.name} registered on the platform (self sign-up) — membership pending Secretariat review.`);
+  state.regAvatar = '';
   state.showRegister = false; state.regSuccess = true;
   renderLogin();
+}
+
+// Match a member by phone or email, the two things a farm signs in with.
+function findMemberByLogin(identifier){
+  const t = norm(identifier);
+  if(!t) return null;
+  const hit = Object.entries(MEMBERS).find(([id,m]) => norm(m.phone)===t || norm(m.email)===t);
+  return hit ? hit[0] : null;
 }
 
 function renderLogin(){
@@ -994,9 +1102,9 @@ function renderLogin(){
         <img class="lb-logo" src="assets/brand/tipfa-logo-reversed.png"
              alt="TIPFA — Tanzania Indoor &amp; Professional Farmers Association">
         <div class="eyebrow">Association platform &middot; 2026</div>
-        <h2>Kilimo cha kitaalamu.<br>Mavuno ya uhakika.</h2>
-        <p class="strap">Professional farming. Dependable harvests.
-          <em>One association. One quality standard. One coordinated crop calendar.</em></p>
+        <h2>Farming together.<br>Harvesting excellence.</h2>
+        <p class="strap">One association. One quality standard. One coordinated crop calendar.
+          <em>Tanzania Indoor &amp; Professional Farmers Association</em></p>
         <div class="values">
           ${BRAND_VALUES.map((v,i)=>`
             <div class="value reveal reveal-${i+3}">
@@ -1025,6 +1133,7 @@ function renderLogin(){
       ${isMember ? (
         state.showRegister ? `
         <div class="card">
+          ${logoPicker('reg', state.regAvatar, '')}
           ${profileFormFields('reg', {}, {showCategory:false})}
           <label class="f">Set a password</label>${pwdField('reg-password','At least 4 characters')}
           <label class="f">Confirm password</label>${pwdField('reg-password2','Re-enter password')}
@@ -1045,7 +1154,7 @@ function renderLogin(){
         </div>
         <p class="login-note">Each member signs in with their own phone or email. An account only ever shows its own farm's data.</p>
         <p class="login-note"><a href="#" onclick="toggleRegister(true);return false;">New farm? Register here &rarr;</a></p>
-        <div class="demo-note">Demo accounts (password <strong>1234</strong>): She Farms, Fair Farms, Iringa Agro Fresh — use the phone or email shown in Member management.</div>
+        <div class="demo-note">No account yet? Register your farm above — you can sign in and start filling in your profile straight away, while the Secretariat reviews your membership.</div>
         `
       ) : (
         state.adminSignup ? `
@@ -1111,6 +1220,17 @@ const ADMIN_TABS = [
   ['members','Member management'], ['bulk','Bulk data entry'], ['dashboard','Central dashboard'],
   ['growth','Growth planning'], ['reportsA','Reports'], ['commsA','Communication'], ['gov','Governance']
 ];
+
+// Shown wherever a view has nothing to work with until farms have joined.
+function emptyState(title, body, action){
+  return `<div class="card empty-state">
+    <div class="es-mark" aria-hidden="true">${lineIcon('<path d="M12 22V9"/><path d="M12 9C12 9 7 8 5 4c4-1 7 2 7 5z"/><path d="M12 12c0-3 3-6 7-5-2 4-7 5-7 5z"/>')}</div>
+    <h3>${title}</h3>
+    <p>${body}</p>
+    ${action||''}
+  </div>`;
+}
+function noMembersYet(){ return Object.keys(MEMBERS).length === 0; }
 
 function renderSidebar(){
   const tabs = state.role==='member' ? MEMBER_TABS : ADMIN_TABS;
@@ -1202,9 +1322,11 @@ function renderProfile(c){
   const m = MEMBERS[state.member];
   c.innerHTML = `
     <h1 class="page-title">Farm profile</h1>
-    <p class="page-sub">Your farm's record with the Association</p>
+    <p class="page-sub">Your farm's record with the Association — yours to complete and keep up to date</p>
+    ${m.status==='Pending' ? `<div class="msg-banner">${CHECK_ICON} Your registration is with the Secretariat for review. You can build out your full profile in the meantime.</div>` : ''}
     ${farmHeader(m)}
     <div class="card">
+      ${logoPicker('prof', m.avatar, m.name)}
       ${profileFormFields('prof', m, {showCategory:false})}
       <button class="btn" onclick="saveProfile()">Save profile</button>
       <p class="helper" id="profile-msg" style="margin-top:8px;"></p>
@@ -1235,9 +1357,11 @@ function saveProfile(){
     return;
   }
   const preservedCategory = MEMBERS[state.member].category;
+  const logoChanged = vals.avatar !== undefined && vals.avatar !== MEMBERS[state.member].avatar;
   Object.assign(MEMBERS[state.member], vals);
   MEMBERS[state.member].category = preservedCategory;
-  logAction(`${vals.name} updated their farm profile.`);
+  delete pendingLogos.prof;
+  logAction(`${vals.name} updated their farm profile${logoChanged ? ' and farm logo' : ''}.`);
   const el = document.getElementById('profile-msg');
   el.style.color = 'var(--leaf-dark)'; el.textContent = 'Profile updated.';
   setTimeout(()=>{ const e=document.getElementById('profile-msg'); if(e) e.textContent=''; },3000);
@@ -1426,7 +1550,7 @@ function renderFuturePlanning(c){
     <div class="section-label">Expected activity — next two to three years</div>
     <div class="card">
       ${[1,2,3].map(y=>`<label class="f">Year ${y}</label><input value="${m.futurePlan['year'+y]||''}" onchange="MEMBERS['${state.member}'].futurePlan['year${y}']=this.value;" placeholder="Expected harvest, expansion, or investment plans">`).join('')}
-      <p class="helper">Helps the Secretariat plan cooperative-wide support and interventions ahead of time.</p>
+      <p class="helper">Helps the Secretariat plan association-wide support and interventions ahead of time.</p>
     </div>`;
 }
 function saveInvestments(){
@@ -1480,7 +1604,7 @@ function saveHarvest(kind){
   const m = MEMBERS[state.member];
   logAction(`${m.name} saved ${kind==='plan'?'harvest plan':'actual harvest'} for ${MONTHS[state.selMonth-1]}, week ${state.selWeek}.`);
   const el = document.getElementById('save-msg');
-  if(el){ el.textContent = 'Saved — synced to the cooperative dashboard.'; setTimeout(()=>{ if(el) el.textContent=''; },3000); }
+  if(el){ el.textContent = 'Saved — synced to the central dashboard.'; setTimeout(()=>{ if(el) el.textContent=''; },3000); }
 }
 
 function renderInputs(c){
@@ -1573,7 +1697,7 @@ function renderComms(c, isAdmin){
     <div class="section-label">${isAdmin?'All submissions':'Recent submissions'}</div>
     <div class="card">
       <table class="grid-table"><thead><tr><th>Farm</th><th>Message</th>${isAdmin?'<th>Assignee</th>':''}<th>Status</th></tr></thead>
-      <tbody>${list.length ? list.map(x=>`<tr><td>${MEMBERS[x.member].name}</td><td>${x.type}: ${x.text}</td>
+      <tbody>${list.length ? list.map(x=>`<tr><td>${MEMBERS[x.member] ? farmCell(MEMBERS[x.member]) : 'Removed farm'}</td><td>${esc(x.type)}: ${esc(x.text)}</td>
         ${isAdmin?`<td>${x.assignee}</td>`:''}
         <td>${isAdmin ? `<select onchange="updateStatus(${x.id},this.value)">
             <option value="open" ${x.status==='open'?'selected':''}>Open</option>
@@ -1593,11 +1717,11 @@ function addComplaint(){
 }
 function updateStatus(id, status){
   const item = complaints.find(x=>x.id===id); item.status = status;
-  logAction(`Submission #${id} (${MEMBERS[item.member].name}) status set to ${status}.`);
+  logAction(`Submission #${id} (${MEMBERS[item.member] ? MEMBERS[item.member].name : 'removed farm'}) status set to ${status}.`);
   render();
 }
 
-function toggleAdminRegister(v){ state.showAdminRegister = v; render(); }
+function toggleAdminRegister(v){ state.showAdminRegister = v; delete pendingLogos.areg; render(); }
 
 function submitAdminRegistration(){
   const vals = readProfileFields('areg');
@@ -1610,9 +1734,14 @@ function submitAdminRegistration(){
     document.getElementById('areg-error').textContent = 'Set a password of at least 4 characters for this member.';
     return;
   }
+  if(findMemberByLogin(vals.phone) || (vals.email && findMemberByLogin(vals.email))){
+    flagError(document.getElementById('areg-error'), 'A farm is already registered with that phone number or email.');
+    return;
+  }
   const id = slugify(vals.name);
   MEMBERS[id] = Object.assign({}, vals, { password: pass, category: vals.category || 'Functional', registered: todayStr(), status:'Active', crops:[] });
   createBlankRecords(id);
+  delete pendingLogos.areg;
   logAction(`Operator registered a new member directly: ${vals.name} (activated immediately).`);
   state.showAdminRegister = false;
   render();
@@ -1622,7 +1751,9 @@ function renderMembers(c){
   const panel = state.memberPanel;
   c.innerHTML = `
     <h1 class="page-title">Member management</h1>
-    <p class="page-sub">Approve registrations, register new members, and view, edit, or remove any profile</p>
+    <p class="page-sub">Approve registrations, register new farms, and view, edit, or remove any profile</p>
+    ${noMembersYet() ? emptyState('No farms have registered yet',
+        'Farms appear here as soon as they sign up on the sign-in screen. You can also register one directly using the button below.') : `
     <div class="card" style="overflow-x:auto;">
       <table class="grid-table"><thead><tr><th>Farm</th><th>Category</th><th>Location</th><th>Status</th><th style="min-width:230px;"></th></tr></thead>
       <tbody>${Object.entries(MEMBERS).map(([id,m])=>`<tr><td>${farmCell(m)}</td><td>${m.category}</td><td>${m.location}</td>
@@ -1635,13 +1766,14 @@ function renderMembers(c){
           <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeMember('${id}')">Remove</button>
         </td>
       </tr>`).join('')}</tbody></table>
-    </div>
+    </div>`}
     ${panel && panel.mode==='view' ? renderMemberViewPanel(panel.id) : ''}
     ${panel && panel.mode==='edit' ? renderMemberEditPanel(panel.id) : ''}
     <div style="margin:14px 0;"><button class="btn gold" onclick="toggleAdminRegister(${!state.showAdminRegister})">${state.showAdminRegister ? 'Cancel' : '+ Register new member'}</button></div>
     ${state.showAdminRegister ? `
       <div class="section-label">Register a new member</div>
       <div class="card">
+        ${logoPicker('areg', '', '')}
         ${profileFormFields('areg', {}, {showCategory:true})}
         <label class="f">Set a password</label>${pwdField('areg-password','At least 4 characters')}
         <button class="btn" onclick="submitAdminRegistration()">Register member</button>
@@ -1733,12 +1865,14 @@ function renderBulk(c){
       <span class="chip ${set==='harvestPlan'?'active':''}" onclick="state.bulkSet='harvestPlan';switchTab('bulk')">Harvest plan</span>
       <span class="chip ${set==='inputs'?'active':''}" onclick="state.bulkSet='inputs';switchTab('bulk')">Input requirements</span>
     </div>
+    ${ids.length ? `
     ${isHarvest ? monthWeekChips() : periodChips()}
     <div class="card" style="overflow-x:auto;">
       ${renderBulkTable(ids)}
       <div style="margin-top:14px;"><button class="btn gold" onclick="saveBulk()">Save all entries</button></div>
       <p class="helper" id="bulk-msg" style="margin-top:8px;"></p>
-    </div>`;
+    </div>` : emptyState('No active farms to enter data for',
+        'Once a farm has registered and been approved in Member management, its rows appear here for bulk entry.')}`;
 }
 function renderBulkTable(ids){
   const set = state.bulkSet || 'harvestActual';
@@ -1768,7 +1902,7 @@ function saveBulk(){
   });
   const when = set==='inputs' ? state.period : `${MONTHS[month-1]}, week ${week}`;
   logAction(`Operator saved bulk ${set==='harvestActual'?'actual harvest':set==='harvestPlan'?'harvest plan':'input requirement'} entries (${when}) for ${activeMembers().length} farms.`);
-  document.getElementById('bulk-msg').textContent = 'Saved — cooperative dashboard updated.';
+  document.getElementById('bulk-msg').textContent = 'Saved — central dashboard updated.';
   setTimeout(()=>{ const el=document.getElementById('bulk-msg'); if(el) el.textContent=''; },3000);
 }
 
@@ -1826,6 +1960,14 @@ function renderDashboard(c){
   const weekPlan = coopWeekTotal('plan', month, week), weekActual = coopWeekTotal('actual', month, week);
   const monthPlan = coopMonthTotal('plan', month), monthActual = coopMonthTotal('actual', month);
   const yearPlan = coopYearTotal('plan'), yearActual = coopYearTotal('actual');
+  if(!activeMembers().length){
+    c.innerHTML = `
+      <h1 class="page-title">Central dashboard</h1>
+      <p class="page-sub">Live totals across all active member farms</p>
+      ${emptyState('No farms are reporting yet',
+        'Association-wide totals, performance against plan and the crop charts appear here as soon as an active farm records a harvest.')}`;
+    return;
+  }
   c.innerHTML = `
     <h1 class="page-title">Central dashboard</h1>
     <p class="page-sub">Live totals across all active member farms · ${activeMembers().length} / ${Object.keys(MEMBERS).length} reporting</p>
@@ -1909,22 +2051,33 @@ function renderGrowth(c){
   const ytd = coopYearTotal('actual') || 31900;
   c.innerHTML = `
     <h1 class="page-title">Growth planning</h1>
-    <p class="page-sub">Cooperative-wide input needs and expansion outlook</p>
+    <p class="page-sub">Association-wide input needs and expansion outlook</p>
     ${periodChips()}
+    ${activeMembers().length ? `
     <div class="section-label">Input needs (${state.period}, all active farms)</div>
     <div class="card"><table class="grid-table"><thead><tr><th>Input</th><th>Total requested</th></tr></thead><tbody>${rows}</tbody></table></div>
     <div class="section-label">Expansion outlook</div>
-    <div class="card"><p style="font-size:13.5px;line-height:1.6;margin:0;">At current pace, association-wide capacity is projected to reach approximately <strong>${fmt(Math.round(ytd*1.44))} kg/year</strong> by 2027 — a 44% increase — if input needs above are met on schedule and pending members are onboarded.</p></div>`;
+    <div class="card"><p style="font-size:13.5px;line-height:1.6;margin:0;">At current pace, association-wide capacity is projected to reach approximately <strong>${fmt(Math.round(ytd*1.44))} kg/year</strong> by 2027 — a 44% increase — if the input needs above are met on schedule and pending farms are onboarded.</p></div>`
+    : emptyState('Nothing to plan against yet',
+        'Input needs and the expansion outlook are calculated from active farms\' records. They appear once farms have joined and started reporting.')}`;
 }
 
 function renderReportsAdmin(c){
+  if(noMembersYet()){
+    c.innerHTML = `
+      <h1 class="page-title">Reports</h1>
+      <p class="page-sub">Association-wide exports for buyers, financiers and government partners</p>
+      ${emptyState('There is nothing to report on yet',
+        'Every export here is built from member farm records. They become available once farms have registered and started reporting.')}`;
+    return;
+  }
   c.innerHTML = `
     <h1 class="page-title">Reports</h1>
-    <p class="page-sub">Cooperative-wide exports for buyers, financiers, and government partners</p>
+    <p class="page-sub">Association-wide exports for buyers, financiers and government partners</p>
     ${monthWeekChips()}
     <div class="grid2">
-      <div class="card"><strong>Cooperative harvest plan report</strong><p class="helper">All farms, weekly/monthly/annual plan vs. actual.</p><button class="btn small" onclick="exportCoopHarvest()">Export CSV (Excel)</button></div>
-      <div class="card"><strong>Actual harvest report</strong><p class="helper">Farm-level and cooperative-level totals.</p><button class="btn small" onclick="exportActualHarvest()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Association harvest plan report</strong><p class="helper">All farms, weekly/monthly/annual plan vs. actual.</p><button class="btn small" onclick="exportCoopHarvest()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Actual harvest report</strong><p class="helper">Farm-level and association-level totals.</p><button class="btn small" onclick="exportActualHarvest()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Input requirement report</strong><p class="helper">Totals and per-farm breakdown.</p><button class="btn small" onclick="exportCoopInputs()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Member activity report</strong><p class="helper">Functional vs. non-functional members.</p><button class="btn small" onclick="exportMemberActivity()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Issue resolution report</strong><p class="helper">All complaints/requests and status.</p><button class="btn small" onclick="exportIssues()">Export CSV (Excel)</button></div>
@@ -1960,7 +2113,7 @@ function exportCoopHarvest(){
     let yp=0, ya=0; for(let mo=1;mo<=12;mo++){ yp+=memberMonthCropTotal(id,'plan',mo,cr); ya+=memberMonthCropTotal(id,'actual',mo,cr); }
     rows.push([MEMBERS[id].name, cr, wp, wa, mp, ma, yp, ya]);
   }));
-  downloadCSV(`TIPFA_cooperative_harvest_plan_${MONTHS[month-1]}_wk${week}.csv`, rows); logAction('Operator exported cooperative harvest plan report.');
+  downloadCSV(`TIPFA_association_harvest_plan_${MONTHS[month-1]}_wk${week}.csv`, rows); logAction('Operator exported the association harvest plan report.');
 }
 function exportActualHarvest(){
   const month = state.selMonth;
@@ -1983,7 +2136,7 @@ function exportMemberActivity(){
 }
 function exportIssues(){
   const rows=[['Farm','Type','Message','Status','Assignee']];
-  complaints.forEach(x=> rows.push([MEMBERS[x.member].name, x.type, x.text, x.status, x.assignee]));
+  complaints.forEach(x=> rows.push([MEMBERS[x.member] ? MEMBERS[x.member].name : 'Removed farm', x.type, x.text, x.status, x.assignee]));
   downloadCSV(`TIPFA_issue_resolution.csv`, rows); logAction('Operator exported issue resolution report.');
 }
 
@@ -2046,6 +2199,7 @@ function removeAdmin(i){
   render();
 }
 
+loadMembers();
 render();
 </script>
 </body>
