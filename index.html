@@ -522,10 +522,36 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
 </div>
 
 <script>
-const CROPS = ['Tomatoes','Cucumbers','Melons','Capsicum Red','Capsicum Yellow','Cherry Tomatoes'];
+/* Crops are not a fixed list. Each farm names the crops it actually grows in
+   its own crop profile, and every harvest, price and report view follows from
+   that. These helpers are the single source of truth for "which crops". */
+function memberCrops(id){
+  const m = MEMBERS[id];
+  if(!m || !Array.isArray(m.crops)) return [];
+  const seen = [];
+  m.crops.forEach(cr=>{ const n=(cr.crop||'').trim(); if(n && seen.indexOf(n)===-1) seen.push(n); });
+  return seen;
+}
+// Every crop grown anywhere on the register, for association-wide views.
+function allCrops(){
+  const seen = [];
+  Object.keys(MEMBERS).forEach(id=> memberCrops(id).forEach(n=>{ if(seen.indexOf(n)===-1) seen.push(n); }));
+  return seen.sort((a,b)=> a.localeCompare(b));
+}
+function activeCrops(){
+  const seen = [];
+  activeMembers().forEach(id=> memberCrops(id).forEach(n=>{ if(seen.indexOf(n)===-1) seen.push(n); }));
+  return seen.sort((a,b)=> a.localeCompare(b));
+}
 let INPUTS = ['Seeds','Fertiliser','Greenhouse Supplies','Water'];
 const PERIODS = ['weekly','monthly','annual'];
-const PRICE_BASE = {Tomatoes:1200, Cucumbers:900, Melons:1500, 'Capsicum Red':2200, 'Capsicum Yellow':2100, 'Cherry Tomatoes':3000};
+// The price trend is anchored to what the farm has actually been paid for a
+// crop, rather than to a table of assumed prices.
+function priceBaseFor(m, crop){
+  const logged = (m.marketPrices||[]).filter(p=>p.crop===crop && p.price>0);
+  if(!logged.length) return 0;
+  return Math.round(logged.reduce((t,p)=>t+p.price,0) / logged.length);
+}
 const INVEST_CATEGORIES = ['Seeds','Labour','Infrastructure','Other'];
 const CROP_STAGES = ['Sowing','Transplanting','Flowering','Harvesting'];
 const MARKET_STANDARD_OPTIONS = ['GlobalG.A.P.','Organic','Fair Trade','Other'];
@@ -794,7 +820,7 @@ const WEEK_FACTORS = [0.90, 0.97, 1.03, 0.92]; // deterministic actual-vs-plan r
 
 function blankMonthWeeks(){
   const months = {};
-  for(let m=1;m<=12;m++){ months[m] = {1:blankPeriod(CROPS,0), 2:blankPeriod(CROPS,0), 3:blankPeriod(CROPS,0), 4:blankPeriod(CROPS,0)}; }
+  for(let m=1;m<=12;m++){ months[m] = {1:{}, 2:{}, 3:{}, 4:{}}; }
   return months;
 }
 let harvest = {}, inputsData = {};
@@ -1334,18 +1360,76 @@ function renderProfile(c){
     </div>
     <div class="section-label">Crop profile</div>
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th></th></tr></thead>
-      <tbody>${m.crops.length ? m.crops.map((cr,i)=>`<tr><td>${cr.crop}</td><td>${cr.variety}</td><td>${cr.area}</td><td>${cr.planted}</td><td>${cr.expected}</td><td><button class="btn small ghost" onclick="removeCrop(${i})">Remove</button></td></tr>`).join('') : '<tr><td colspan="6" style="color:var(--muted);">No crops recorded yet.</td></tr>'}</tbody></table>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th></th></tr></thead>
+      <tbody>${m.crops.length ? m.crops.map((cr,i)=>`<tr><td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td><td>${cr.seedCompany ? esc(cr.seedCompany) : '<span style="color:var(--muted);">Not recorded</span>'}</td><td>${esc(cr.area)}</td><td>${esc(cr.planted)}</td><td>${esc(cr.expected)}</td><td><button class="btn small ghost" onclick="removeCrop(${i})">Remove</button></td></tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);">No crops recorded yet — add the crops you grow below.</td></tr>'}</tbody></table>
       <div class="section-label" style="margin-top:16px;">Add a crop</div>
       <div class="grid2">
-        <div><label class="f">Crop</label><select id="newcrop-crop">${CROPS.map(cr=>`<option>${cr}</option>`).join('')}</select></div>
+        <div><label class="f">Crop</label><input id="newcrop-crop" list="crop-suggestions" placeholder="Whatever you grow — type it in"></div>
         <div><label class="f">Variety</label><input id="newcrop-variety" placeholder="e.g. Anna F1"></div>
+        <div><label class="f">Seed company</label><input id="newcrop-seed" list="seed-companies" placeholder="Who supplied the seed"></div>
         <div><label class="f">Area covered (ha)</label><input id="newcrop-area" type="number" step="0.01"></div>
         <div><label class="f">Planting date</label><input id="newcrop-planted" type="date"></div>
         <div><label class="f">Expected harvest date</label><input id="newcrop-expected" type="date"></div>
       </div>
+      ${cropSuggestionList()}
+      ${seedCompanyList()}
       <button class="btn small" onclick="addCrop()">+ Add crop</button>
       <p class="helper" id="crop-msg" style="margin-top:8px;"></p>
+      <p class="helper">Your crop names are your own — they carry through to your harvest plan, actual harvest and market prices.</p>
+    </div>
+    ${seedCompanyPanel(m)}`;
+}
+
+/* Crops and seed companies other farms have already entered are offered as
+   suggestions only. Nothing is preset, and a farm can always type its own. */
+function cropSuggestionList(){
+  const names = allCrops();
+  return names.length ? `<datalist id="crop-suggestions">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>` : '';
+}
+function seedCompanyList(){
+  const names = seedCompanyTally().map(r=>r.name);
+  return names.length ? `<datalist id="seed-companies">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>` : '';
+}
+
+// How many farms use each seed company, and for which crops.
+function seedCompanyTally(){
+  const tally = {};
+  Object.keys(MEMBERS).forEach(id=>{
+    const seenHere = {};
+    (MEMBERS[id].crops||[]).forEach(cr=>{
+      const co = (cr.seedCompany||'').trim();
+      if(!co) return;
+      const key = co.toLowerCase();
+      if(!tally[key]) tally[key] = { name:co, farms:0, entries:0, crops:[] };
+      tally[key].entries++;
+      if(!seenHere[key]){ tally[key].farms++; seenHere[key] = true; }
+      const cropName = (cr.crop||'').trim();
+      if(cropName && tally[key].crops.indexOf(cropName)===-1) tally[key].crops.push(cropName);
+    });
+  });
+  return Object.values(tally).sort((a,b)=> b.farms-a.farms || b.entries-a.entries || a.name.localeCompare(b.name));
+}
+
+// What the membership is actually planting, so a farm can see which seed
+// companies other TIPFA farms rely on before choosing its own.
+function seedCompanyPanel(m){
+  const rows = seedCompanyTally();
+  const farmCount = Object.keys(MEMBERS).length;
+  const mine = {};
+  (m ? (m.crops||[]) : []).forEach(cr=>{ const c=(cr.seedCompany||'').trim(); if(c) mine[c.toLowerCase()] = true; });
+  const top = rows[0];
+  return `
+    <div class="section-label">Seed companies used across TIPFA</div>
+    <div class="card">
+      ${rows.length ? `
+      <p class="helper" style="margin-bottom:12px;">Drawn from every crop entry on the register${farmCount ? ` — ${farmCount} farm${farmCount===1?'':'s'}` : ''}.${top && top.farms>1 ? ` <strong>${esc(top.name)}</strong> is the most widely used.` : ''}</p>
+      <table class="grid-table"><thead><tr><th>Seed company</th><th style="width:120px;">Farms using</th><th>Crops grown from it</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr${mine[r.name.toLowerCase()] ? ' style="font-weight:500;"' : ''}>
+        <td>${esc(r.name)}${mine[r.name.toLowerCase()] ? ' <span class="status-pill status-active" style="margin-left:6px;">You</span>' : ''}</td>
+        <td>${r.farms} of ${farmCount}</td>
+        <td>${r.crops.map(c=>esc(c)).join(', ')}</td>
+      </tr>`).join('')}</tbody></table>`
+      : `<p class="helper">No seed companies recorded yet. As farms add the seed company for each crop, this table shows which suppliers the membership relies on most.</p>`}
     </div>`;
 }
 
@@ -1369,18 +1453,22 @@ function saveProfile(){
 }
 
 function addCrop(){
-  const crop = document.getElementById('newcrop-crop').value;
+  const msg = document.getElementById('crop-msg');
+  const crop = document.getElementById('newcrop-crop').value.trim();
   const variety = document.getElementById('newcrop-variety').value.trim();
+  const seedCompany = document.getElementById('newcrop-seed').value.trim();
   const area = Number(document.getElementById('newcrop-area').value)||0;
   const planted = document.getElementById('newcrop-planted').value;
   const expected = document.getElementById('newcrop-expected').value;
-  if(!variety || !planted || !expected){
-    document.getElementById('crop-msg').textContent = 'Enter variety, planting date, and expected harvest date.';
-    document.getElementById('crop-msg').style.color = 'var(--red)';
-    return;
+  const fail = t=>{ msg.textContent = t; msg.style.color = 'var(--red)'; };
+  if(!crop){ fail('Enter the name of the crop you grow.'); return; }
+  if(!variety || !planted || !expected){ fail('Enter variety, planting date, and expected harvest date.'); return; }
+  const m = MEMBERS[state.member];
+  if(m.crops.some(cr=> (cr.crop||'').toLowerCase()===crop.toLowerCase() && (cr.variety||'').toLowerCase()===variety.toLowerCase())){
+    fail('That crop and variety are already in your crop profile.'); return;
   }
-  MEMBERS[state.member].crops.push({crop,variety,area,planted,expected});
-  logAction(`${MEMBERS[state.member].name} added a crop profile entry: ${crop} (${variety}).`);
+  m.crops.push({crop, variety, seedCompany, area, planted, expected, stage:'Sowing', stageInputs:''});
+  logAction(`${m.name} added a crop profile entry: ${crop} (${variety})${seedCompany ? ' from '+seedCompany : ''}.`);
   render();
 }
 function removeCrop(i){
@@ -1483,8 +1571,8 @@ if(window.Chart){
 const CHART_SERIES = ['#405E35','#E8A734','#7E9B3F','#2C4423','#A85C3F','#8C9A6B'];
 
 let priceChartRef = null;
-function priceTrendData(crop, period){
-  const base = PRICE_BASE[crop] || 1000;
+function priceTrendData(crop, period, base){
+  base = base || 1000;
   if(period==='weekly') return {labels:['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6'], data:[0.95,1.0,1.02,0.98,1.04,1.06].map(mu=>Math.round(base*mu))};
   if(period==='monthly') return {labels:['Mar','Apr','May','Jun','Jul','Aug'], data:[0.9,0.95,1.0,1.03,1.05,1.08].map(mu=>Math.round(base*mu))};
   return {labels:['2024','2025','2026'], data:[0.88,0.97,1.05].map(mu=>Math.round(base*mu))};
@@ -1492,19 +1580,29 @@ function priceTrendData(crop, period){
 function selectPriceCrop(crop){ state.priceCrop = crop; render(); }
 function renderMarketPrices(c){
   const m = MEMBERS[state.member];
-  if(!state.priceCrop) state.priceCrop = (m.crops[0] && m.crops[0].crop) || CROPS[0];
+  const crops = memberCrops(state.member);
+  if(!state.priceCrop || crops.indexOf(state.priceCrop)===-1) state.priceCrop = crops[0] || '';
   const crop = state.priceCrop;
   const entries = m.marketPrices.filter(p=>p.crop===crop);
+  if(!crops.length){
+    c.innerHTML = `
+      <h1 class="page-title">Market prices</h1>
+      <p class="page-sub">${esc(m.name)} · track buyer prices and price trends to decide where to sell</p>
+      ${emptyState('Add your crops first',
+        'Buyer prices are recorded against the crops in your crop profile. Add what you grow on the Profile tab and it appears here.')}`;
+    return;
+  }
   c.innerHTML = `
     <h1 class="page-title">Market prices</h1>
-    <p class="page-sub">${m.name} · track buyer prices and price trends to decide where to sell</p>
-    <div class="chips">${CROPS.map(cr=>`<span class="chip ${state.priceCrop===cr?'active':''}" onclick="selectPriceCrop('${cr}')">${cr}</span>`).join('')}</div>
+    <p class="page-sub">${esc(m.name)} · track buyer prices and price trends to decide where to sell</p>
+    <div class="chips">${crops.map(cr=>`<span class="chip ${state.priceCrop===cr?'active':''}" onclick="selectPriceCrop(this.dataset.crop)" data-crop="${esc(cr)}">${esc(cr)}</span>`).join('')}</div>
     ${periodChips()}
-    <div class="card"><div style="position:relative;height:170px;"><canvas id="priceChart"></canvas></div></div>
-    <div class="section-label">Buyer prices — ${crop}</div>
+    <div class="card">${entries.length ? '<div style="position:relative;height:170px;"><canvas id="priceChart"></canvas></div>'
+        : '<p class="helper" style="text-align:center;padding:20px 0;">Log a buyer price below and the trend for this crop is charted here.</p>'}</div>
+    <div class="section-label">Buyer prices — ${esc(crop)}</div>
     <div class="card">
       <table class="grid-table"><thead><tr><th>Buyer</th><th>Price (TZS/kg)</th><th>Date</th></tr></thead>
-      <tbody>${entries.length ? entries.map(e=>`<tr><td>${e.buyer}</td><td>${fmt(e.price)}</td><td>${e.date}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);">No buyer prices logged yet.</td></tr>'}</tbody></table>
+      <tbody>${entries.length ? entries.map(e=>`<tr><td>${esc(e.buyer)}</td><td>${fmt(e.price)}</td><td>${esc(e.date)}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);">No buyer prices logged yet.</td></tr>'}</tbody></table>
       <div class="section-label" style="margin-top:14px;">Add a buyer price</div>
       <div class="grid2">
         <div><label class="f">Buyer</label><input id="price-buyer" placeholder="e.g. Dodoma Central Market"></div>
@@ -1526,7 +1624,7 @@ function drawPriceChart(){
   if(!window.Chart) return;
   const ctx = document.getElementById('priceChart'); if(!ctx) return;
   if(priceChartRef) priceChartRef.destroy();
-  const {labels,data} = priceTrendData(state.priceCrop, state.period);
+  const {labels,data} = priceTrendData(state.priceCrop, state.period, priceBaseFor(MEMBERS[state.member], state.priceCrop));
   priceChartRef = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:state.priceCrop+' price (TZS/kg)', data, borderColor:'#405E35', backgroundColor:'rgba(64,94,53,0.14)', pointBackgroundColor:'#E8A734', pointBorderColor:'#405E35', fill:true, tension:0.3, pointRadius:3 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
       scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
@@ -1565,30 +1663,34 @@ function renderHarvestForm(c, kind){
   const id = state.member, month = state.selMonth, week = state.selWeek;
   const weekData = harvest[id][kind][month][week];
   const monthTotal = memberMonthTotal(id, kind, month);
+  const crops = memberCrops(id);
   c.innerHTML = `
     <h1 class="page-title">${label}</h1>
-    <p class="page-sub">${m.name} · click a month, then a week, and fill in kilograms per crop</p>
+    <p class="page-sub">${esc(m.name)} · click a month, then a week, and fill in kilograms for each of your crops</p>
+    ${crops.length ? `
     ${monthWeekChips()}
     <div class="card">
       <table class="grid-table"><thead><tr><th>Crop</th><th style="width:160px;">${MONTHS[month-1]}, Week ${week} (kg)</th></tr></thead>
-      <tbody>${CROPS.map(crop=>`<tr><td>${crop}</td><td><input type="number" value="${weekData[crop]}" onchange="harvest['${id}']['${kind}'][${month}][${week}]['${crop}']=Number(this.value)||0;"></td></tr>`).join('')}</tbody></table>
+      <tbody>${crops.map(crop=>`<tr><td>${esc(crop)}</td><td><input type="number" value="${weekData[crop]||0}" data-crop="${esc(crop)}" onchange="setHarvest('${kind}', ${month}, ${week}, this.dataset.crop, this.value)"></td></tr>`).join('')}</tbody></table>
       <div style="margin-top:12px;"><button class="btn" onclick="saveHarvest('${kind}')">Save week ${week}</button></div>
       <p class="helper" id="save-msg" style="margin-top:8px;"></p>
       <p class="helper" style="margin-top:10px;">${MONTHS[month-1]} total so far (all 4 weeks): <strong>${fmt(monthTotal)} kg</strong></p>
     </div>
-    ${kind==='actual' ? renderPlanVsActual(m) : ''}`;
+    ${kind==='actual' ? renderPlanVsActual(m) : ''}`
+    : emptyState('Add your crops first',
+        'This table lists the crops from your crop profile. Add the crops you grow on the Profile tab and they appear here to record against.')}`;
 }
 
 function renderPlanVsActual(m){
   const id = state.member, month = state.selMonth, week = state.selWeek;
   let weekPlanTotal=0, weekActualTotal=0;
-  CROPS.forEach(cr=>{ weekPlanTotal += (harvest[id].plan[month][week][cr]||0); weekActualTotal += (harvest[id].actual[month][week][cr]||0); });
+  weekPlanTotal = weekTotal(id,'plan',month,week); weekActualTotal = weekTotal(id,'actual',month,week);
   const monthPlanTotal = memberMonthTotal(id,'plan',month), monthActualTotal = memberMonthTotal(id,'actual',month);
   const yearPlanTotal = memberYearTotal(id,'plan'), yearActualTotal = memberYearTotal(id,'actual');
-  const rows = CROPS.map(cr=>{
+  const rows = memberCrops(id).map(cr=>{
     const p = memberMonthCropTotal(id,'plan',month,cr), a = memberMonthCropTotal(id,'actual',month,cr);
     if(p===0 && a===0) return '';
-    return `<tr><td>${cr}</td><td>${fmt(p)}</td><td>${fmt(a)}</td><td>${pct(a,p)}%</td></tr>`;
+    return `<tr><td>${esc(cr)}</td><td>${fmt(p)}</td><td>${fmt(a)}</td><td>${pct(a,p)}%</td></tr>`;
   }).join('');
   return `<div class="section-label">Plan vs. actual — performance</div>
     <div class="card">
@@ -1600,6 +1702,11 @@ function renderPlanVsActual(m){
     </div>`;
 }
 
+function setHarvest(kind, month, week, crop, value){
+  const id = state.member;
+  if(!harvest[id] || !crop) return;
+  harvest[id][kind][month][week][crop] = Number(value)||0;
+}
 function saveHarvest(kind){
   const m = MEMBERS[state.member];
   logAction(`${m.name} saved ${kind==='plan'?'harvest plan':'actual harvest'} for ${MONTHS[state.selMonth-1]}, week ${state.selWeek}.`);
@@ -1667,7 +1774,7 @@ function exportHarvestPlanReport(id){
   const m = MEMBERS[id];
   const month = state.selMonth, week = state.selWeek;
   const rows = [['Crop','Week '+week+' plan (kg)','Week '+week+' actual (kg)','Monthly plan (kg)','Monthly actual (kg)','Annual plan (kg)','Annual actual (kg)']];
-  CROPS.forEach(cr=>{
+  memberCrops(id).forEach(cr=>{
     const wp = harvest[id].plan[month][week][cr]||0, wa = harvest[id].actual[month][week][cr]||0;
     const mp = memberMonthCropTotal(id,'plan',month,cr), ma = memberMonthCropTotal(id,'actual',month,cr);
     let yp=0, ya=0; for(let mo=1;mo<=12;mo++){ yp+=memberMonthCropTotal(id,'plan',mo,cr); ya+=memberMonthCropTotal(id,'actual',mo,cr); }
@@ -1801,8 +1908,8 @@ function renderMemberViewPanel(id){
         <div><label class="f">Water source</label><input value="${m.water||''}" readonly></div>
       </div>
       <div class="section-label">Crop profile</div>
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th>Stage</th><th>Document</th></tr></thead>
-      <tbody>${m.crops.length ? m.crops.map(cr=>`<tr><td>${cr.crop}</td><td>${cr.variety}</td><td>${cr.area}</td><td>${cr.planted}</td><td>${cr.expected}</td><td>${cr.stage||'—'}</td><td>${cr.docUrl?`<a href="${cr.docUrl}" target="_blank" rel="noopener">${cr.docName}</a>`:'—'}</td></tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);">No crops recorded yet.</td></tr>'}</tbody></table>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th>Stage</th><th>Document</th></tr></thead>
+      <tbody>${m.crops.length ? m.crops.map(cr=>`<tr><td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td><td>${esc(cr.seedCompany||'—')}</td><td>${esc(cr.area)}</td><td>${esc(cr.planted)}</td><td>${esc(cr.expected)}</td><td>${esc(cr.stage||'—')}</td><td>${cr.docUrl?`<a href="${cr.docUrl}" target="_blank" rel="noopener">${esc(cr.docName)}</a>`:'—'}</td></tr>`).join('') : '<tr><td colspan="8" style="color:var(--muted);">No crops recorded yet.</td></tr>'}</tbody></table>
       <div class="section-label">Market standards</div>
       <table class="grid-table"><thead><tr><th>Crop</th><th>Standard</th><th>Notes</th></tr></thead>
       <tbody>${m.marketStandards.length ? m.marketStandards.map(s=>`<tr><td>${s.crop}</td><td>${s.standard}</td><td>${s.notes||'—'}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);">HACCP baseline only — no additional standards logged.</td></tr>'}</tbody></table>
@@ -1876,18 +1983,23 @@ function renderBulk(c){
 }
 function renderBulkTable(ids){
   const set = state.bulkSet || 'harvestActual';
-  const cols = set==='inputs' ? INPUTS : CROPS;
+  const cols = set==='inputs' ? INPUTS : activeCrops();
   const month = state.selMonth, week = state.selWeek;
-  const header = `<tr><th>Farm</th>${cols.map(x=>`<th>${x}</th>`).join('')}</tr>`;
+  const header = `<tr><th>Farm</th>${cols.map(x=>`<th>${esc(x)}</th>`).join('')}</tr>`;
   const rows = ids.map(id=>{
+    const grown = memberCrops(id);
     const cells = cols.map(col=>{
+      // A farm is only given a cell for a crop it actually grows.
+      if(set!=='inputs' && grown.indexOf(col)===-1){
+        return `<td style="background:#F4F3EA;" title="${esc(MEMBERS[id].name)} does not grow ${esc(col)}">—</td>`;
+      }
       let val;
       if(set==='harvestActual') val = harvest[id].actual[month][week][col];
       else if(set==='harvestPlan') val = harvest[id].plan[month][week][col];
       else val = inputsData[id][state.period][col];
-      return `<td><input type="number" value="${val}" data-member="${id}" data-col="${col}" class="bulk-input"></td>`;
+      return `<td><input type="number" value="${Number(val)||0}" data-member="${id}" data-col="${esc(col)}" class="bulk-input"></td>`;
     }).join('');
-    return `<tr><td>${MEMBERS[id].name}</td>${cells}</tr>`;
+    return `<tr><td>${farmCell(MEMBERS[id])}</td>${cells}</tr>`;
   }).join('');
   return `<table class="grid-table"><thead>${header}</thead><tbody>${rows}</tbody></table>`;
 }
@@ -1896,6 +2008,7 @@ function saveBulk(){
   const month = state.selMonth, week = state.selWeek;
   document.querySelectorAll('.bulk-input').forEach(inp=>{
     const id = inp.dataset.member, col = inp.dataset.col, val = Number(inp.value)||0;
+    if(!harvest[id] || !inputsData[id]) return;
     if(set==='harvestActual') harvest[id].actual[month][week][col]=val;
     else if(set==='harvestPlan') harvest[id].plan[month][week][col]=val;
     else inputsData[id][state.period][col]=val;
@@ -1907,16 +2020,22 @@ function saveBulk(){
 }
 
 function memberMonthCropTotal(id, kind, month, crop){
+  if(!harvest[id]) return 0;
   let t=0; for(let w=1; w<=4; w++){ t += (harvest[id][kind][month][w][crop]||0); } return t;
 }
+function weekTotal(id, kind, month, week){
+  const wk = harvest[id] && harvest[id][kind][month][week];
+  if(!wk) return 0;
+  return Object.keys(wk).reduce((t,cr)=> t + (Number(wk[cr])||0), 0);
+}
 function memberMonthTotal(id, kind, month){
-  let t=0; CROPS.forEach(cr=> t += memberMonthCropTotal(id, kind, month, cr)); return t;
+  let t=0; for(let w=1; w<=4; w++){ t += weekTotal(id, kind, month, w); } return t;
 }
 function memberYearTotal(id, kind){
   let t=0; for(let m=1; m<=12; m++){ t += memberMonthTotal(id, kind, m); } return t;
 }
 function coopWeekTotal(kind, month, week){
-  let t=0; activeMembers().forEach(id=> CROPS.forEach(cr=> t += (harvest[id][kind][month][week][cr]||0))); return t;
+  let t=0; activeMembers().forEach(id=> t += weekTotal(id, kind, month, week)); return t;
 }
 function coopMonthTotal(kind, month){
   let t=0; activeMembers().forEach(id=> t += memberMonthTotal(id, kind, month)); return t;
@@ -1925,10 +2044,10 @@ function coopYearTotal(kind){
   let t=0; activeMembers().forEach(id=> t += memberYearTotal(id, kind)); return t;
 }
 function coopCapacityByCrop(kind, month){
-  return CROPS.map(cr=>{ let t=0; activeMembers().forEach(id=> t += memberMonthCropTotal(id, kind, month, cr)); return t; });
+  return activeCrops().map(cr=>{ let t=0; activeMembers().forEach(id=> t += memberMonthCropTotal(id, kind, month, cr)); return t; });
 }
 function coopWeekByCrop(kind, month, week){
-  return CROPS.map(cr=>{ let t=0; activeMembers().forEach(id=> t += (harvest[id][kind][month][week][cr]||0)); return t; });
+  return activeCrops().map(cr=>{ let t=0; activeMembers().forEach(id=> t += (harvest[id][kind][month][week][cr]||0)); return t; });
 }
 function pct(actual, plan){ return plan>0 ? Math.round(actual/plan*100) : (actual>0 ? 100 : 0); }
 
@@ -2011,7 +2130,7 @@ function drawCapacityChart(){
   if(!window.Chart) return;
   const ctx = document.getElementById('capacityChart'); if(!ctx) return;
   if(capacityChartRef) capacityChartRef.destroy();
-  capacityChartRef = new Chart(ctx, { type:'doughnut', data:{ labels:CROPS, datasets:[{ data:coopCapacityByCrop('actual', state.selMonth), backgroundColor:CHART_SERIES, borderColor:'#FFFFFF', borderWidth:2 }] },
+  capacityChartRef = new Chart(ctx, { type:'doughnut', data:{ labels:activeCrops(), datasets:[{ data:coopCapacityByCrop('actual', state.selMonth), backgroundColor:CHART_SERIES, borderColor:'#FFFFFF', borderWidth:2 }] },
     options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ family:'IBM Plex Sans', size:10.5 }, color:'#23301E' } } } } });
 }
 function drawTrendChart(){
@@ -2034,8 +2153,8 @@ function drawMemberTrendChart(){
   const ctx = document.getElementById('memberTrend'); if(!ctx) return;
   if(memberChartRef) memberChartRef.destroy();
   const m = state.member, month = state.selMonth;
-  const planWeeks = [1,2,3,4].map(w=>{ let t=0; CROPS.forEach(cr=> t+=harvest[m].plan[month][w][cr]||0); return t; });
-  const actualWeeks = [1,2,3,4].map(w=>{ let t=0; CROPS.forEach(cr=> t+=harvest[m].actual[month][w][cr]||0); return t; });
+  const planWeeks = [1,2,3,4].map(w=> weekTotal(m,'plan',month,w));
+  const actualWeeks = [1,2,3,4].map(w=> weekTotal(m,'actual',month,w));
   memberChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
     datasets:[
       { label:'Plan', data:planWeeks, backgroundColor:'#D9D7C6', borderRadius:6, maxBarThickness:26 },
@@ -2080,12 +2199,21 @@ function renderReportsAdmin(c){
       <div class="card"><strong>Actual harvest report</strong><p class="helper">Farm-level and association-level totals.</p><button class="btn small" onclick="exportActualHarvest()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Input requirement report</strong><p class="helper">Totals and per-farm breakdown.</p><button class="btn small" onclick="exportCoopInputs()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Member activity report</strong><p class="helper">Functional vs. non-functional members.</p><button class="btn small" onclick="exportMemberActivity()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Crop profile report</strong><p class="helper">Every crop each farm grows, with variety and seed company.</p><button class="btn small" onclick="exportCropProfiles()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Issue resolution report</strong><p class="helper">All complaints/requests and status.</p><button class="btn small" onclick="exportIssues()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Market standards compliance</strong><p class="helper">HACCP baseline + additional certifications, by farm and crop.</p><button class="btn small" onclick="exportMarketStandards()">Export CSV (Excel)</button></div>
       <div class="card"><strong>Market price research summary</strong><p class="helper">All logged buyer prices, by farm and crop.</p><button class="btn small" onclick="exportMarketPrices()">Export CSV (Excel)</button></div>
+      <div class="card"><strong>Seed company usage</strong><p class="helper">Which seed companies member farms use, and for which crops.</p><button class="btn small" onclick="exportSeedCompanies()">Export CSV (Excel)</button></div>
     </div>
     <div class="card"><strong>Print or save this page as PDF</strong><p class="helper">For stakeholder meetings — opens your browser's print dialog; choose "Save as PDF".</p>
       <button class="btn small gold" onclick="window.print()">Print / Save as PDF</button></div>`;
+}
+function exportCropProfiles(){
+  const rows=[['Farm','Crop','Variety','Seed company','Area (ha)','Planted','Expected harvest','Stage']];
+  Object.values(MEMBERS).forEach(m=> (m.crops||[]).forEach(cr=>
+    rows.push([m.name, cr.crop, cr.variety, cr.seedCompany||'', cr.area, cr.planted, cr.expected, cr.stage||''])));
+  downloadCSV('TIPFA_crop_profiles.csv', rows);
+  logAction('Operator exported the crop profile report.');
 }
 function exportMarketStandards(){
   const rows=[['Farm','Crop','Baseline standard','Additional standard','Notes']];
@@ -2107,7 +2235,7 @@ function exportMarketPrices(){
 function exportCoopHarvest(){
   const month = state.selMonth, week = state.selWeek;
   const rows=[['Farm','Crop','Week '+week+' plan','Week '+week+' actual','Monthly plan','Monthly actual','Annual plan','Annual actual']];
-  activeMembers().forEach(id=> CROPS.forEach(cr=>{
+  activeMembers().forEach(id=> memberCrops(id).forEach(cr=>{
     const wp = harvest[id].plan[month][week][cr]||0, wa = harvest[id].actual[month][week][cr]||0;
     const mp = memberMonthCropTotal(id,'plan',month,cr), ma = memberMonthCropTotal(id,'actual',month,cr);
     let yp=0, ya=0; for(let mo=1;mo<=12;mo++){ yp+=memberMonthCropTotal(id,'plan',mo,cr); ya+=memberMonthCropTotal(id,'actual',mo,cr); }
@@ -2118,7 +2246,7 @@ function exportCoopHarvest(){
 function exportActualHarvest(){
   const month = state.selMonth;
   const rows=[['Farm','Crop','Monthly actual (kg)','Annual actual (kg)']];
-  activeMembers().forEach(id=> CROPS.forEach(cr=>{
+  activeMembers().forEach(id=> memberCrops(id).forEach(cr=>{
     let ya=0; for(let mo=1;mo<=12;mo++){ ya+=memberMonthCropTotal(id,'actual',mo,cr); }
     rows.push([MEMBERS[id].name, cr, memberMonthCropTotal(id,'actual',month,cr), ya]);
   }));
@@ -2128,6 +2256,13 @@ function exportCoopInputs(){
   const rows=[['Farm','Input','Quantity']];
   activeMembers().forEach(id=> INPUTS.forEach(i=> rows.push([MEMBERS[id].name, i, inputsData[id][state.period][i]])));
   downloadCSV(`TIPFA_input_requirements_${state.period}.csv`, rows); logAction('Operator exported input requirement report.');
+}
+function exportSeedCompanies(){
+  const rows=[['Seed company','Farms using','Crop entries','Crops grown from it']];
+  seedCompanyTally().forEach(r=> rows.push([r.name, r.farms, r.entries, r.crops.join('; ')]));
+  if(rows.length===1) rows.push(['No seed companies recorded yet','','','']);
+  downloadCSV('TIPFA_seed_company_usage.csv', rows);
+  logAction('Operator exported the seed company usage report.');
 }
 function exportMemberActivity(){
   const rows=[['Farm','Category','Status']];
