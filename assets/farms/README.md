@@ -1,7 +1,19 @@
 # Member farm logos
 
-Drop each member farm's logo in this folder. The platform looks the file up by
-the farm's own name, so no code change is needed when a farm is added.
+Every farm sets its own logo by uploading a profile image when it registers, or
+at any time afterwards from its Profile tab. That upload is stored with the
+farm's record and is what appears across the platform, so this folder is only a
+fallback for farms whose artwork you want to ship with the site.
+
+Resolution order for a farm's mark:
+
+1. the profile image the farm uploaded,
+2. a `logo` path set on the member record,
+3. `assets/farms/<farm-name>.png` — this folder,
+4. the farm's monogram, if none of the above exist.
+
+Files placed here are looked up by the farm's own name, so no code change is
+needed when a farm is added.
 
 ## Naming rule
 
@@ -15,6 +27,9 @@ and replace every run of non-alphanumeric characters with a single hyphen:
 | Iringa Agro Fresh | `iringa-agro-fresh.png` |
 | Nahdi Youth Farm | `nahdi-youth-farm.png` |
 | Pinerjo Smart Farm | `pinerjo-smart-farm.png` |
+
+The registered name has to match for the lookup to find the file, so a farm that
+signs up as "She Farms Ltd" would need `she-farms-ltd.png`.
 
 ## File requirements
 
