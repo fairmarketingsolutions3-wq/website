@@ -1067,7 +1067,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'' };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -1586,8 +1586,9 @@ const MEMBER_TABS = [
   ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication']
 ];
 const ADMIN_TABS = [
-  ['members','Member management'], ['bulk','Bulk data entry'], ['dashboard','Central dashboard'],
-  ['growth','Growth planning'], ['reportsA','Reports'], ['commsA','Communication'], ['gov','Governance']
+  ['members','Member management'], ['calendarsA','Crop calendars'], ['bulk','Bulk data entry'],
+  ['dashboard','Central dashboard'], ['growth','Growth planning'], ['reportsA','Reports'],
+  ['commsA','Communication'], ['gov','Governance']
 ];
 
 // Shown wherever a view has nothing to work with until farms have joined.
@@ -1680,6 +1681,7 @@ function renderTabContent(c){
     if(state.tab==='comms') return renderComms(c,false);
   } else {
     if(state.tab==='members') return renderMembers(c);
+    if(state.tab==='calendarsA') return renderCalendarsAdmin(c);
     if(state.tab==='bulk') return renderBulk(c);
     if(state.tab==='dashboard') return renderDashboard(c);
     if(state.tab==='growth') return renderGrowth(c);
@@ -2258,7 +2260,7 @@ function importPanel(cr){
     </div>`;
 }
 
-function completionPanel(cr){
+function completionPanel(cr, readOnly){
   const rows = CROP_STAGES.map(stage=>{
     const prog = stageProgress(cr, stage);
     const items = stageItems(cr, stage);
@@ -2278,17 +2280,17 @@ function completionPanel(cr){
       <div class="ts-bar"><div class="ts-fill" style="width:${pctDone}%"></div></div>
       ${items.length ? `<div class="ts-items">${items.map(x=>`
         <label class="ts-item ${x.entry.done?'done':''}">
-          <input type="checkbox" ${x.entry.done?'checked':''}
-                 onchange="toggleApplied('${esc(stage)}','${x.cat}',${x.i},this.checked)">
+          <input type="checkbox" ${x.entry.done?'checked':''} ${readOnly?'disabled':''}
+                 ${readOnly?'':`onchange="toggleApplied('${esc(stage)}','${x.cat}',${x.i},this.checked)"`}>
           <span class="ti-body">
             <span class="ti-name">${esc(x.entry.product)}</span>
             <span class="ti-meta">${esc(x.cat)}${x.entry.dose?` &middot; ${esc(x.entry.dose)} ${esc(x.entry.unit||'')}`:''}${x.entry.doneOn?` &middot; applied ${esc(x.entry.doneOn)}`:''}</span>
           </span>
         </label>`).join('')}</div>
-        <div class="ts-actions">
+        ${readOnly ? '' : `<div class="ts-actions">
           <button class="btn small ghost" onclick="setStageApplied('${esc(stage)}', true)">Mark all applied</button>
           ${prog.done ? `<button class="btn small ghost" onclick="setStageApplied('${esc(stage)}', false)">Clear</button>` : ''}
-        </div>`
+        </div>`}`
       : `<p class="helper" style="margin:6px 0 0;">No products listed for this stage yet — add them above and they appear here to tick off.</p>`}
     </div>`;
   }).join('');
@@ -2304,7 +2306,7 @@ function completionPanel(cr){
         <div><span class="tsum-num">${stagesDone}/${CROP_STAGES.length}</span><span class="tsum-lbl">Stages accomplished</span></div>
         <div><span class="tsum-num">${applied}/${listed}</span><span class="tsum-lbl">Products applied</span></div>
       </div>
-      <p class="helper" style="margin:0 0 14px;">Tick each product as you apply it. A stage counts as accomplished once every product listed for it has been used.</p>
+      <p class="helper" style="margin:0 0 14px;">${readOnly ? 'What the farm has recorded as applied. A stage counts as accomplished once every product listed for it has been used.' : 'Tick each product as you apply it. A stage counts as accomplished once every product listed for it has been used.'}</p>
       <div class="tally-grid">${rows}</div>
     </div>`;
 }
@@ -2487,7 +2489,7 @@ function categoryLines(cr, stage, key){
 }
 function protectionLines(cr, stage){ return categoryLines(cr, stage, 'Pesticides'); }
 function fungicideLines(cr, stage){ return categoryLines(cr, stage, 'Fungicides'); }
-function generatedProgramme(m, cr, timing){
+function generatedProgramme(m, cr, timing, readOnly){
   const p = ensureProgramme(cr);
   let fertCount = 0, body = '';
   CROP_STAGES.forEach(stage=>{
@@ -2512,8 +2514,8 @@ function generatedProgramme(m, cr, timing){
       }
       body += f
         ? `<td>${f.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(f.product)}
-             <button class="pg-edit" title="Edit this entry"
-               onclick="editFromProgramme('${esc(stage)}','Fertilizers',${i})">Edit</button></td>
+             ${readOnly ? '' : `<button class="pg-edit" title="Edit this entry"
+               onclick="editFromProgramme('${esc(stage)}','Fertilizers',${i})">Edit</button>`}</td>
            <td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
         : `<td colspan="4" style="color:var(--muted);">No fertilizer recorded for this stage</td>`;
       if(i===0){
@@ -2551,13 +2553,19 @@ function generatedProgramme(m, cr, timing){
       </div>
       <div class="prog-foot">${esc(cr.crop)} — stage count: ${CROP_STAGES.length} &nbsp;|&nbsp; total fertilizer line items: ${fertCount}</div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        ${readOnly ? `
+        <button class="btn small" onclick="exportProgrammeDocumentFor('${esc(readOnly.id)}', ${readOnly.crop})">Download this programme (looks like this page)</button>
+        <button class="btn small ghost" onclick="exportProgrammeFor('${esc(readOnly.id)}', ${readOnly.crop})">Export as CSV (spreadsheet)</button>
+        <button class="btn small ghost" onclick="window.print()">Print / save as PDF</button>
+        ` : `
         <button class="btn small" onclick="exportProgrammeDocument(${state.calCrop})">Download this programme (looks like this page)</button>
         <button class="btn small ghost" onclick="exportProgramme(${state.calCrop})">Export as CSV (spreadsheet)</button>
         <button class="btn small ghost" onclick="exportAllProgrammes()">All crops (CSV)</button>
         <button class="btn small ghost" onclick="window.print()">Print / save as PDF</button>
+        `}
       </div>
-      <p class="helper" style="margin-top:6px;">The first download saves this programme exactly as it appears here — logo, stage colours and all — as a file you can open in any browser or print to PDF. The CSV is for spreadsheets, so it carries the data as columns without the layout.</p>
-      <p class="helper" style="margin-top:10px;">Every row here comes from what you recorded above — use Edit on a row, or the stage tables, to change it. The comment on each stage is yours to edit too. The programme runs from the date you transplanted to your expected harvest date. Change either on the Profile tab — using Edit on the crop — and every stage window here moves with it.</p>
+      ${readOnly ? '' : `<p class="helper" style="margin-top:6px;">The first download saves this programme exactly as it appears here — logo, stage colours and all — as a file you can open in any browser or print to PDF. The CSV is for spreadsheets, so it carries the data as columns without the layout.</p>`}
+      ${readOnly ? '' : `<p class="helper" style="margin-top:10px;">Every row here comes from what you recorded above — use Edit on a row, or the stage tables, to change it. The comment on each stage is yours to edit too. The programme runs from the date you transplanted to your expected harvest date. Change either on the Profile tab — using Edit on the crop — and every stage window here moves with it.</p>`}
     </div>`;
 }
 
@@ -2757,6 +2765,35 @@ async function exportProgrammeDocument(i){
   a.click();
   setTimeout(()=> URL.revokeObjectURL(url), 1000);
   logAction(`${m.name} downloaded the ${cr.crop} programme as a document.`);
+}
+
+function exportProgrammeFor(id, i){
+  const m = MEMBERS[id], cr = m && m.crops[i];
+  if(!cr) return;
+  downloadCSV(`${m.name.replace(/\s+/g,'_')}_${String(cr.crop).replace(/\s+/g,'_')}_programme.csv`,
+              [PROGRAMME_HEADER].concat(programmeRows(m, cr)));
+  logAction(`Operator ${state.adminName||''} exported the ${cr.crop} programme for ${m.name}.`);
+}
+async function exportProgrammeDocumentFor(id, i){
+  const m = MEMBERS[id], cr = m && m.crops[i];
+  if(!cr) return;
+  const logo = await logoDataUrl('assets/brand/tipfa-logo-primary.png');
+  const farmSrc = farmLogoSrc(m);
+  const farmUrl = farmSrc && farmSrc.indexOf('data:') === 0 ? farmSrc : await logoDataUrl(farmSrc);
+  const doc = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>${esc(m.name)} — ${esc(cr.crop)} programme</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>${programmeDocumentCSS()}</style></head>
+<body>${programmeDocumentBody(m, cr, logo, farmUrl)}</body></html>`;
+  const blob = new Blob([doc], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${m.name.replace(/\s+/g,'_')}_${String(cr.crop).replace(/\s+/g,'_')}_programme.html`;
+  a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  logAction(`Operator ${state.adminName||''} downloaded the ${cr.crop} programme for ${m.name}.`);
 }
 
 function exportProgramme(i){
@@ -3179,12 +3216,52 @@ function renderMemberViewPanel(id){
         <div><label class="f">Irrigation system</label><input value="${m.irrigation||''}" readonly></div>
         <div><label class="f">Water source</label><input value="${m.water||''}" readonly></div>
       </div>
-      <div class="section-label">Crop profile</div>
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th>Stage</th><th>Document</th></tr></thead>
-      <tbody>${m.crops.length ? m.crops.map(cr=>`<tr><td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td><td>${esc(cr.seedCompany||'—')}</td><td>${esc(cr.area)}</td><td>${esc(cr.planted)}</td><td>${esc(cr.expected)}</td><td>${esc(cr.stage||'—')}</td><td>${cr.docUrl?`<a href="${cr.docUrl}" target="_blank" rel="noopener">${esc(cr.docName)}</a>`:'—'}</td></tr>`).join('') : '<tr><td colspan="8" style="color:var(--muted);">No crops recorded yet.</td></tr>'}</tbody></table>
+      <div class="section-label">Crop profile &amp; calendar</div>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Transplanted</th><th>Expected harvest</th><th>Stage</th><th>Programme</th><th>Document</th></tr></thead>
+      <tbody>${m.crops.length ? m.crops.map((cr,ci)=>{
+        ensureProgramme(cr);
+        const t = cropProgrammeTotals(cr);
+        return `<tr><td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td><td>${esc(cr.seedCompany||'—')}</td>
+          <td>${esc(areaText(cr.area, cr.areaUnit, 'ha'))}</td><td>${esc(cr.planted||'—')}</td><td>${esc(cr.expected||'—')}</td>
+          <td>${esc(cr.stage||'—')}</td>
+          <td>${t.listed ? `${t.applied} of ${t.listed} applied &middot; ${t.stagesDone}/${CROP_STAGES.length} stages
+               <button class="btn small ghost" style="margin-left:6px;" onclick="openFarmCalendar('${esc(id)}', ${ci})">Open</button>`
+               : '<span style="color:var(--muted);">nothing recorded</span>'}</td>
+          <td>${cr.docUrl?`<a href="${cr.docUrl}" target="_blank" rel="noopener">${esc(cr.docName)}</a>`:'—'}</td></tr>`;
+      }).join('') : '<tr><td colspan="9" style="color:var(--muted);">No crops recorded yet.</td></tr>'}</tbody></table>
+
       <div class="section-label">Market standards</div>
       <table class="grid-table"><thead><tr><th>Crop</th><th>Standard</th><th>Notes</th></tr></thead>
-      <tbody>${m.marketStandards.length ? m.marketStandards.map(s=>`<tr><td>${s.crop}</td><td>${s.standard}</td><td>${s.notes||'—'}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);">HACCP baseline only — no additional standards logged.</td></tr>'}</tbody></table>
+      <tbody>${m.marketStandards.length ? m.marketStandards.map(x=>`<tr><td>${esc(x.crop)}</td><td>${esc(x.standard)}</td><td>${esc(x.notes||'—')}</td></tr>`).join('') : '<tr><td colspan="3" style="color:var(--muted);">HACCP baseline only — no additional standards logged.</td></tr>'}</tbody></table>
+
+      <div class="section-label">Buyer prices logged</div>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Buyer</th><th>Price (TZS/kg)</th><th>Date</th></tr></thead>
+      <tbody>${(m.marketPrices||[]).length ? m.marketPrices.map(x=>`<tr><td>${esc(x.crop)}</td><td>${esc(x.buyer)}</td><td>${fmt(x.price)}</td><td>${esc(x.date)}</td></tr>`).join('') : '<tr><td colspan="4" style="color:var(--muted);">No buyer prices logged.</td></tr>'}</tbody></table>
+
+      <div class="section-label">Input requirements</div>
+      <table class="grid-table"><thead><tr><th>Input</th><th>Weekly</th><th>Monthly</th><th>Annual</th></tr></thead>
+      <tbody>${INPUTS.map(inp=>`<tr><td>${esc(inp)}</td>
+        <td>${fmt((inputsData[id]&&inputsData[id].weekly[inp])||0)}</td>
+        <td>${fmt((inputsData[id]&&inputsData[id].monthly[inp])||0)}</td>
+        <td>${fmt((inputsData[id]&&inputsData[id].annual[inp])||0)}</td></tr>`).join('')}</tbody></table>
+
+      <div class="section-label">Harvest, this month</div>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>${MONTHS[state.selMonth-1]} plan (kg)</th><th>${MONTHS[state.selMonth-1]} actual (kg)</th><th>% of plan</th></tr></thead>
+      <tbody>${memberCrops(id).length ? memberCrops(id).map(crop=>{
+        const pl = memberMonthCropTotal(id,'plan',state.selMonth,crop), ac = memberMonthCropTotal(id,'actual',state.selMonth,crop);
+        return `<tr><td>${esc(crop)}</td><td>${fmt(pl)}</td><td>${fmt(ac)}</td><td>${pct(ac,pl)}%</td></tr>`;
+      }).join('') : '<tr><td colspan="4" style="color:var(--muted);">No crops to report against.</td></tr>'}</tbody></table>
+
+      <div class="section-label">Investment &amp; outlook</div>
+      <table class="grid-table"><thead><tr><th>Category</th><th>Weekly</th><th>Monthly</th><th>Annual</th></tr></thead>
+      <tbody>${INVEST_CATEGORIES.map(cat=>`<tr><td>${esc(cat)}</td>
+        <td>${fmt((m.investments&&m.investments.weekly[cat])||0)}</td>
+        <td>${fmt((m.investments&&m.investments.monthly[cat])||0)}</td>
+        <td>${fmt((m.investments&&m.investments.annual[cat])||0)}</td></tr>`).join('')}</tbody></table>
+      <p class="helper" style="margin-top:8px;">
+        ${[1,2,3].map(y=>`<strong>Year ${y}:</strong> ${esc((m.futurePlan&&m.futurePlan['year'+y])||'not set')}`).join('<br>')}
+      </p>
+
       <button class="btn small ghost" style="margin-top:12px;" onclick="closeMemberPanel()">Close</button>
     </div>`;
 }
@@ -3231,6 +3308,187 @@ function approveMember(id){ MEMBERS[id].status='Active'; logAction(`Operator app
 function rejectMember(id){ MEMBERS[id].status='Rejected'; logAction(`Operator rejected ${MEMBERS[id].name}'s registration.`); render(); }
 
 function activeMembers(){ return Object.keys(MEMBERS).filter(id=>MEMBERS[id].status==='Active'); }
+
+/* ============================================================
+   Operator oversight of crop calendars
+   Every programme a farm builds on its own side is visible here,
+   read only: stages, products in all categories, what has been
+   applied, and the same generated programme the farm sees.
+   ============================================================ */
+function allFarmCrops(){
+  const out = [];
+  Object.keys(MEMBERS).forEach(id=> (MEMBERS[id].crops||[]).forEach((cr, i)=>{
+    ensureProgramme(cr);
+    out.push({id, member:MEMBERS[id], cr, i});
+  }));
+  return out;
+}
+function cropProgrammeTotals(cr){
+  let listed = 0, applied = 0, stagesDone = 0;
+  CROP_STAGES.forEach(st=>{
+    const pr = stageProgress(cr, st);
+    listed += pr.total; applied += pr.done;
+    if(pr.complete) stagesDone++;
+  });
+  return {listed, applied, stagesDone};
+}
+function selectAdminCrop(id, i){ state.admCrop = {id, i}; render(); }
+// Open a farm's calendar from Member management.
+function openFarmCalendar(id, i){ state.admCrop = {id, i}; state.tab = 'calendarsA'; render(); }
+function clearAdminCrop(){ state.admCrop = null; render(); }
+
+// Which products the membership uses most, across every farm's programme.
+function productUsage(){
+  const tally = {};
+  allFarmCrops().forEach(({member, cr})=>{
+    CROP_STAGES.forEach(st=> CATEGORY_KEYS.forEach(k=>
+      (cr.programme[st][k]||[]).forEach(r=>{
+        const name = (r.product||'').trim();
+        if(!name) return;
+        const key = k + '|' + name.toLowerCase();
+        if(!tally[key]) tally[key] = {product:name, cat:k, uses:0, farms:{}};
+        tally[key].uses++;
+        tally[key].farms[member.name] = true;
+      })));
+  });
+  return Object.values(tally)
+    .map(x=> Object.assign(x, {farmCount:Object.keys(x.farms).length}))
+    .sort((a,b)=> b.farmCount-a.farmCount || b.uses-a.uses || a.product.localeCompare(b.product));
+}
+
+function renderCalendarsAdmin(c){
+  const list = allFarmCrops();
+  if(!list.length){
+    c.innerHTML = `
+      <h1 class="page-title">Crop calendars</h1>
+      <p class="page-sub">Every member farm's crop programme, stage by stage</p>
+      ${emptyState('No crop programmes yet',
+        'As soon as a farm adds a crop and records what it applies at each stage, its full calendar appears here for the Secretariat to review.')}`;
+    return;
+  }
+
+  // A single crop opened for inspection.
+  if(state.admCrop){
+    const m = MEMBERS[state.admCrop.id];
+    const cr = m && m.crops[state.admCrop.i];
+    if(!cr){ state.admCrop = null; return renderCalendarsAdmin(c); }
+    ensureProgramme(cr);
+    const timing = stageWindows(cr);
+    const t = cropProgrammeTotals(cr);
+    c.innerHTML = `
+      <h1 class="page-title">Crop calendars</h1>
+      <p class="page-sub">Reviewing one crop programme — recorded by the farm, read only here</p>
+      <div style="margin-bottom:14px;"><button class="btn small ghost" onclick="clearAdminCrop()">&larr; All crop calendars</button></div>
+      <div class="farm-head">
+        <div class="fh-arc" aria-hidden="true"></div>
+        ${farmLogo(m,'xl')}
+        <div class="fh-meta">
+          <h2>${esc(m.name)} &middot; ${esc(cr.crop)}</h2>
+          <div class="fh-sub">${cr.variety?`${esc(cr.variety)} &middot; `:''}${cr.seedCompany?`seed from ${esc(cr.seedCompany)} &middot; `:''}transplanted ${esc(cr.planted||'not set')} &middot; harvest ${esc(cr.expected||'not set')}</div>
+          <div style="margin-top:8px;">
+            <span class="status-pill status-active">Currently: ${esc(cr.stage||CROP_STAGES[0])}</span>
+            <span class="status-pill ${t.stagesDone===CROP_STAGES.length?'status-resolved':'status-progress'}" style="margin-left:6px;">${t.stagesDone}/${CROP_STAGES.length} stages accomplished</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Products recorded, by stage</div>
+      ${CROP_STAGES.map(stage=>{
+        const pr = stageProgress(cr, stage);
+        const anyItems = stageItems(cr, stage);
+        return `<div class="card">
+          <div class="cal-head">
+            <div><strong>${esc(stage)}</strong>
+              <div class="helper">${esc(timing[stage].dates || 'dates not set')}${timing[stage].dates?` &middot; ${esc(timing[stage].label)}`:''}</div></div>
+            <span class="status-pill ${pr.complete?'status-resolved':(pr.done?'status-progress':'status-pending')}">${pr.done} of ${pr.total} applied</span>
+          </div>
+          ${anyItems.length ? `<table class="grid-table" style="margin-top:10px;">
+            <thead><tr><th style="width:74px;">Applied</th><th>Category</th><th>Product</th><th>Composition / target</th><th style="width:110px;">Dosage</th><th style="width:150px;">Method</th></tr></thead>
+            <tbody>${anyItems.map(x=>`<tr class="${x.entry.done?'row-done':''}">
+              <td>${x.entry.done ? `<span class="pg-tick" title="Applied ${esc(x.entry.doneOn||'')}">\u2713</span>` : '<span style="color:var(--muted);">—</span>'}</td>
+              <td>${esc(x.cat)}</td>
+              <td>${esc(x.entry.product)}</td>
+              <td>${esc(x.entry.target || x.entry.composition || '—')}</td>
+              <td>${esc(x.entry.dose||'—')} ${esc(x.entry.unit||'')}</td>
+              <td>${esc(x.entry.method||'—')}</td>
+            </tr>`).join('')}</tbody></table>`
+          : '<p class="helper" style="margin-top:8px;">Nothing recorded for this stage.</p>'}
+          <p class="helper" style="margin-top:10px;"><strong>Comment:</strong> ${esc(stageComment(cr, stage))}</p>
+        </div>`;
+      }).join('')}
+
+      ${generatedProgramme(m, cr, timing, {id:state.admCrop.id, crop:state.admCrop.i})}
+      ${completionPanel(cr, true)}`;
+    return;
+  }
+
+  // Association-wide view.
+  const totals = list.reduce((acc, x)=>{
+    const t = cropProgrammeTotals(x.cr);
+    acc.listed += t.listed; acc.applied += t.applied; acc.stagesDone += t.stagesDone;
+    acc.stages += CROP_STAGES.length;
+    if(t.listed) acc.withProgramme++;
+    return acc;
+  }, {listed:0, applied:0, stagesDone:0, stages:0, withProgramme:0});
+  const farms = new Set(list.map(x=>x.id)).size;
+  const usage = productUsage();
+
+  c.innerHTML = `
+    <h1 class="page-title">Crop calendars</h1>
+    <p class="page-sub">Every member farm's crop programme, stage by stage — as recorded on the farm's own side</p>
+
+    <div class="grid4">
+      <div class="metric"><div class="lbl">Farms with crops</div><div class="val" data-count="${farms}">0</div></div>
+      <div class="metric"><div class="lbl">Crop calendars</div><div class="val" data-count="${list.length}">0</div></div>
+      <div class="metric"><div class="lbl">Stages accomplished</div><div class="val" style="color:var(--leaf-green);">${totals.stagesDone}<span style="font-size:14px;color:var(--muted);"> / ${totals.stages}</span></div></div>
+      <div class="metric"><div class="lbl">Products applied</div><div class="val" style="color:var(--gold);">${totals.applied}<span style="font-size:14px;color:var(--muted);"> / ${totals.listed}</span></div></div>
+    </div>
+
+    <div class="section-label">All crop calendars</div>
+    <div class="card" style="overflow-x:auto;">
+      <table class="grid-table">
+        <thead><tr><th>Farm</th><th>Crop</th><th>Variety</th><th>Current stage</th><th>Transplanted</th><th>Expected harvest</th><th>Products applied</th><th>Stages</th><th></th></tr></thead>
+        <tbody>${list.map(({id, member, cr, i})=>{
+          const t = cropProgrammeTotals(cr);
+          const pct = t.listed ? Math.round(t.applied/t.listed*100) : 0;
+          return `<tr>
+            <td>${farmCell(member)}</td>
+            <td>${esc(cr.crop)}</td>
+            <td>${esc(cr.variety||'—')}</td>
+            <td><span class="status-pill status-active">${esc(cr.stage||CROP_STAGES[0])}</span></td>
+            <td>${esc(cr.planted||'—')}</td>
+            <td>${esc(cr.expected||'—')}</td>
+            <td>${t.listed ? `${t.applied} of ${t.listed}
+                 <div class="ts-bar" style="margin-top:5px;"><div class="ts-fill" style="width:${pct}%"></div></div>`
+                 : '<span style="color:var(--muted);">nothing recorded</span>'}</td>
+            <td>${t.stagesDone}/${CROP_STAGES.length}</td>
+            <td><button class="btn small ghost" onclick="selectAdminCrop('${esc(id)}', ${i})">View calendar</button></td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn small gold" onclick="exportAllFarmProgrammes()">Export every farm's programme (CSV)</button>
+      </div>
+    </div>
+
+    <div class="section-label">Products in use across the association</div>
+    <div class="card" style="overflow-x:auto;">
+      ${usage.length ? `<table class="grid-table">
+        <thead><tr><th>Product</th><th>Category</th><th style="width:120px;">Farms using</th><th style="width:120px;">Times listed</th></tr></thead>
+        <tbody>${usage.slice(0,25).map(u=>`<tr>
+          <td>${esc(u.product)}</td><td>${esc(u.cat)}</td><td>${u.farmCount}</td><td>${u.uses}</td>
+        </tr>`).join('')}</tbody></table>
+        ${usage.length>25 ? `<p class="helper">Showing the 25 most widely used of ${usage.length} products. The full list is in the export above.</p>` : ''}`
+      : '<p class="helper">No products recorded yet.</p>'}
+    </div>`;
+}
+
+function exportAllFarmProgrammes(){
+  const rows = [PROGRAMME_HEADER];
+  allFarmCrops().forEach(({member, cr})=> programmeRows(member, cr).forEach(r=> rows.push(r)));
+  downloadCSV('TIPFA_all_crop_programmes.csv', rows);
+  logAction(`Operator ${state.adminName||''} exported every farm's crop programme.`);
+}
 
 function renderBulk(c){
   const ids = activeMembers();
