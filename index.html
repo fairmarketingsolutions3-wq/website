@@ -1321,7 +1321,7 @@ function profileFormFields(prefix, v, opts){
     <div><label class="f">Farm name</label><input id="${prefix}-name" value="${v.name||''}"></div>
     <div><label class="f">Owner / principal contact person</label><input id="${prefix}-contact" value="${v.contact||''}"></div>
     <div><label class="f">Mobile / WhatsApp</label><input id="${prefix}-phone" value="${v.phone||''}"></div>
-    <div><label class="f">Email address</label><input id="${prefix}-email" value="${v.email||''}"></div>
+    <div><label class="f">Email address (used to sign in)</label><input id="${prefix}-email" type="email" value="${v.email||''}" placeholder="you@example.com"></div>
     <div><label class="f">Farm location</label><input id="${prefix}-location" value="${v.location||''}"></div>
     ${catField}
     <div><label class="f">Total farm area</label>${unitField(`${prefix}-totalArea`, v.totalArea, v.totalAreaUnit, LAND_UNITS, '0.01')}</div>
@@ -1469,6 +1469,14 @@ function submitAdminSignup(){
   renderLogin();
 }
 
+/* Email is the account identity: it is what Firebase Authentication signs a
+   farm in with, and what a password-reset message is sent to. It is therefore
+   required and checked for shape, not merely stored if offered. */
+function looksLikeEmail(v){
+  const t = String(v||'').trim();
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t);
+}
+
 function submitSelfRegistration(){
   const vals = readProfileFields('reg');
   const pass = document.getElementById('reg-password').value;
@@ -1481,6 +1489,14 @@ function submitSelfRegistration(){
   }
   if(!vals.name || !vals.contact || !vals.phone){
     flagError(document.getElementById('reg-error'), 'Farm name, contact person, and phone number are required.');
+    return;
+  }
+  if(!vals.email){
+    flagError(document.getElementById('reg-error'), 'An email address is required — it is what you sign in with and where a password reset is sent.');
+    return;
+  }
+  if(!looksLikeEmail(vals.email)){
+    flagError(document.getElementById('reg-error'), 'That email address does not look right. Check it and try again.');
     return;
   }
   if(!pass || pass.length < 4){
@@ -1870,6 +1886,8 @@ function renderProfile(c){
     <h1 class="page-title">Farm profile</h1>
     <p class="page-sub">Your farm's record with the Association — yours to complete and keep up to date</p>
     ${m.status==='Pending' ? `<div class="msg-banner">${CHECK_ICON} Your registration is with the Secretariat for review. You can build out your full profile in the meantime.</div>` : ''}
+    ${!m.email || !looksLikeEmail(m.email) ? `<div class="msg-banner" style="background:#FBEECC;border-left-color:var(--harvest-orange);color:#8A6412;">
+      Add an email address below and save. Sign-in is moving to email, and a password reset can only be sent to one.</div>` : ''}
     ${farmHeader(m)}
     <div class="card">
       ${logoPicker('prof', m.avatar, m.name)}
@@ -1966,6 +1984,12 @@ function saveProfile(){
   if(!vals.name || !vals.contact || !vals.phone){
     document.getElementById('profile-msg').textContent = 'Farm name, contact person, and phone are required.';
     document.getElementById('profile-msg').style.color = 'var(--red)';
+    return;
+  }
+  if(!vals.email || !looksLikeEmail(vals.email)){
+    const el = document.getElementById('profile-msg');
+    el.style.color = 'var(--red)';
+    el.textContent = 'A valid email address is required — it is what you sign in with.';
     return;
   }
   const preservedCategory = MEMBERS[state.member].category;
@@ -3742,7 +3766,11 @@ function submitAdminRegistration(){
   const vals = readProfileFields('areg');
   const pass = document.getElementById('areg-password').value;
   if(!vals.name || !vals.contact || !vals.phone){
-    document.getElementById('areg-error').textContent = 'Farm name, contact person, and phone number are required.';
+    flagError(document.getElementById('areg-error'), 'Farm name, contact person, and phone number are required.');
+    return;
+  }
+  if(!vals.email || !looksLikeEmail(vals.email)){
+    flagError(document.getElementById('areg-error'), 'A valid email address is required — the farm signs in with it.');
     return;
   }
   if(!pass || pass.length < 4){
