@@ -20,19 +20,32 @@ In the [Firebase console](https://console.firebase.google.com):
 Stay on the free **Spark** plan. It allows 50,000 reads and 20,000 writes a
 day, far beyond what an association of this size will use, and needs no card.
 
-## Making the first operator
+## Creating the sign-up codes document
 
-Security rules deliberately refuse to let anyone grant themselves operator
-status, so the first one is created by hand, once:
+The rules check every registration against a codes document that no browser can
+read. It has to exist before anyone can register, and it is created by hand
+once, in the console:
 
-1. Sign up in the platform as an operator using the operator code. This creates
-   your Firebase Authentication user.
-2. In the console, **Build → Authentication → Users**, copy your **User UID**.
-3. **Build → Firestore Database → Data → Start collection** → collection id
-   `operators` → document id: paste your UID → add a field `name` (string) with
-   your name → **Save**.
+1. **Build → Firestore Database → Data → Start collection**
+2. Collection ID: `settings` → **Next**
+3. Document ID: `signup` (type it — do not use the auto-ID button)
+4. Add two fields, both of type **string**:
+   - `farmCode` — the code you give to farms
+   - `operatorCode` — the code you give to Secretariat staff
+5. **Save**
 
-From then on operators add each other from inside the platform.
+Choose your own values. Anyone holding a code can create that kind of account,
+so keep the two different and treat the operator one as a staff password.
+
+No client can read this document — only the security rules can, which is how a
+code is checked without ever being sent to a browser.
+
+## Operators
+
+Operators register themselves from the platform's Administrator tab using the
+operator code. The rules allow it only when the code matches and only against
+the operator's own user id, so operator status still cannot be self-granted
+without the code. No manual step is needed.
 
 ## The data
 

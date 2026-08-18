@@ -895,6 +895,146 @@ async function initCloud(){
 }
 
 /* ============================================================
+   Cloud accounts and sync
+   When the project is reachable, accounts are Firebase Authentication
+   users and records live in Firestore, so a farm that registers on one
+   phone is visible to the Secretariat everywhere. When it is not, every
+   one of these falls back to the browser-only behaviour the platform
+   has always had. No cloud failure is allowed to block a farm from
+   working.
+   ============================================================ */
+const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null };
+
+function cloudOn(){ return CLOUD.ready && CLOUD.db && CLOUD.auth; }
+
+// The parts of a farm record that belong in its own document. Harvest is kept
+// out of it — a season of weekly entries grows, and a document is capped.
+function farmDoc(m){
+  return JSON.parse(JSON.stringify({
+    name:m.name||'', contact:m.contact||'', phone:m.phone||'', email:m.email||'',
+    location:m.location||'', category:m.category||'', status:m.status||'Pending',
+    registered:m.registered||todayStr(),
+    totalArea:m.totalArea||0, totalAreaUnit:m.totalAreaUnit||'ha',
+    indoorSqm:m.indoorSqm||0, indoorSqmUnit:m.indoorSqmUnit||'m²',
+    indoorUnits:m.indoorUnits||0, outdoorArea:m.outdoorArea||0, outdoorAreaUnit:m.outdoorAreaUnit||'ha',
+    irrigation:m.irrigation||'', water:m.water||'', avatar:m.avatar||'',
+    crops:m.crops||[], marketStandards:m.marketStandards||[], marketPrices:m.marketPrices||[],
+    investments:m.investments||blankInvestments(), futurePlan:m.futurePlan||{year1:'',year2:'',year3:''},
+    archives:m.archives||[],
+    updatedAt: new Date().toISOString()
+  }));
+}
+
+async function cloudPushFarm(id){
+  if(!cloudOn() || !MEMBERS[id]) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'farms', id), farmDoc(MEMBERS[id]), {merge:true});
+    if(harvest[id]) await setDoc(doc(CLOUD.db, 'harvest', id),
+      JSON.parse(JSON.stringify({ plan:harvest[id].plan, actual:harvest[id].actual, updatedAt:new Date().toISOString() })), {merge:true});
+  }catch(e){ setCloudStatus('offline', 'Could not save to the shared database: ' + (e.message||e)); }
+}
+
+// Writes are batched: a farm typing into a table should not send a write per keystroke.
+function cloudPushSoon(id){
+  if(!cloudOn()) return;
+  clearTimeout(CLOUD_STATE.pushTimer);
+  CLOUD_STATE.pushTimer = setTimeout(()=> cloudPushFarm(id || CLOUD_STATE.uid), 1200);
+}
+
+async function cloudPullAll(){
+  if(!cloudOn()) return 0;
+  const { collection, getDocs, doc, getDoc } = CLOUD.fs;
+  let count = 0;
+  try{
+    if(CLOUD_STATE.role === 'operator'){
+      const farms = await getDocs(collection(CLOUD.db, 'farms'));
+      farms.forEach(d=>{ MEMBERS[d.id] = Object.assign(MEMBERS[d.id]||{}, d.data()); count++; });
+      const hv = await getDocs(collection(CLOUD.db, 'harvest'));
+      hv.forEach(d=>{ harvest[d.id] = { plan:d.data().plan||blankHarvestStore(), actual:d.data().actual||blankHarvestStore() }; });
+    } else if(CLOUD_STATE.uid){
+      const f = await getDoc(doc(CLOUD.db, 'farms', CLOUD_STATE.uid));
+      if(f.exists()){ MEMBERS[CLOUD_STATE.uid] = Object.assign(MEMBERS[CLOUD_STATE.uid]||{}, f.data()); count++; }
+      const h = await getDoc(doc(CLOUD.db, 'harvest', CLOUD_STATE.uid));
+      if(h.exists()) harvest[CLOUD_STATE.uid] = { plan:h.data().plan||blankHarvestStore(), actual:h.data().actual||blankHarvestStore() };
+    }
+    // Bring anything pulled up to the current record shape.
+    Object.keys(MEMBERS).forEach(id=>{
+      const m = MEMBERS[id];
+      if(!Array.isArray(m.crops)) m.crops = [];
+      m.crops.forEach(ensureProgramme);
+      if(!harvest[id] || !inputsData[id]) createBlankRecords(id);
+    });
+    saveMembers();
+  }catch(e){ setCloudStatus('offline', 'Could not read the shared database: ' + (e.message||e)); }
+  return count;
+}
+
+/* ---- Account creation and sign-in ---------------------------------- */
+
+async function cloudRegisterFarm(vals, password, code){
+  const { createUserWithEmailAndPassword } = CLOUD.authApi;
+  const { doc, setDoc, updateDoc, deleteField } = CLOUD.fs;
+  const cred = await createUserWithEmailAndPassword(CLOUD.auth, vals.email, password);
+  const uid = cred.user.uid;
+  const record = Object.assign(farmDoc(vals), {
+    status:'Pending', category:'Pending review', registered:todayStr(),
+    crops:[], signupCode:code                     // checked by the rules on create
+  });
+  await setDoc(doc(CLOUD.db, 'farms', uid), record);
+  await updateDoc(doc(CLOUD.db, 'farms', uid), { signupCode: deleteField() });  // not kept
+  await setDoc(doc(CLOUD.db, 'harvest', uid), { plan:blankHarvestStore(), actual:blankHarvestStore() });
+  return uid;
+}
+
+async function cloudRegisterOperator(name, email, password, code){
+  const { createUserWithEmailAndPassword } = CLOUD.authApi;
+  const { doc, setDoc, updateDoc, deleteField } = CLOUD.fs;
+  const cred = await createUserWithEmailAndPassword(CLOUD.auth, email, password);
+  const uid = cred.user.uid;
+  await setDoc(doc(CLOUD.db, 'operators', uid), { name, email, signupCode:code, since:todayStr() });
+  await updateDoc(doc(CLOUD.db, 'operators', uid), { signupCode: deleteField() });
+  return uid;
+}
+
+async function cloudSignIn(email, password){
+  const { signInWithEmailAndPassword } = CLOUD.authApi;
+  const { doc, getDoc } = CLOUD.fs;
+  const cred = await signInWithEmailAndPassword(CLOUD.auth, email, password);
+  const uid = cred.user.uid;
+  const op = await getDoc(doc(CLOUD.db, 'operators', uid));
+  CLOUD_STATE.uid = uid;
+  CLOUD_STATE.email = email;
+  CLOUD_STATE.role = op.exists() ? 'operator' : 'farm';
+  return { uid, role:CLOUD_STATE.role, name: op.exists() ? (op.data().name||email) : null };
+}
+
+async function cloudSignOut(){
+  if(!cloudOn()) return;
+  try{ await CLOUD.authApi.signOut(CLOUD.auth); }catch(e){ /* already out */ }
+  CLOUD_STATE.uid = null; CLOUD_STATE.role = null; CLOUD_STATE.email = null;
+}
+
+async function cloudResetEmail(email){
+  if(!cloudOn()) throw new Error('offline');
+  await CLOUD.authApi.sendPasswordResetEmail(CLOUD.auth, email);
+}
+
+// Firebase's own wording is not written for farmers; say what went wrong.
+function cloudErrorText(e){
+  const code = (e && e.code) || '';
+  if(code.includes('email-already-in-use')) return 'An account already uses that email address. Try signing in, or use Forgotten your password.';
+  if(code.includes('invalid-email')) return 'That email address does not look right.';
+  if(code.includes('weak-password')) return 'Choose a longer password — at least six characters.';
+  if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'That email and password do not match an account.';
+  if(code.includes('user-not-found')) return 'No account uses that email address.';
+  if(code.includes('too-many-requests')) return 'Too many attempts. Wait a few minutes and try again.';
+  if(code.includes('network')) return 'No connection to the database. Check the network and try again.';
+  if(code.includes('permission-denied')) return 'The database refused that. Check the sign-up code with the Secretariat.';
+  return (e && e.message) ? e.message : 'Something went wrong. Try again.';
+}
+
+/* ============================================================
    Storage
    Farms, their records and their submissions are kept in this
    browser so an account survives a reload. This is per-browser,
@@ -1196,12 +1336,19 @@ function blankInvestments(){ return { weekly:blankPeriod(INVEST_CATEGORIES,0), m
 let complaints = [];
 let nextComplaintId = 1;
 
+let cloudPushHook = null;      // set once the app has started; see logAction
 const auditLog = [];
 // Every logged action is a change worth keeping; the unload hook catches the
 // inline field edits that do not log.
 function logAction(text){
   auditLog.unshift({time:new Date().toLocaleString('en-GB',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'short'}), text});
   saveMembers();
+  // A farm's own changes go up to the shared database too, batched so a table
+  // of entries does not send a write per keystroke.
+  // The first log entry is written while the page is still starting, before
+  // `state` is initialised — and `typeof` does not protect a let binding in
+  // its dead zone. The hook is set once the app is up.
+  if(cloudPushHook) cloudPushHook();
 }
 window.addEventListener('beforeunload', saveMembers);
 logAction('System initialised — TIPFA Association Platform ready.');
@@ -1367,10 +1514,39 @@ function downloadCSV(filename, rows){
 
 function showLoginTab(tab){ state.loginTab = tab; state.forgot = null; state.forgotMsg = ''; renderLogin(); }
 
-function doMemberLogin(btn){
-  const identifier = norm(document.getElementById('login-id').value);
+async function doMemberLogin(btn){
+  const raw = document.getElementById('login-id').value.trim();
+  const identifier = norm(raw);
   const password = document.getElementById('login-password').value.trim();
   if(!identifier || !password){ flagError(document.getElementById('login-error'), 'Enter your phone number/email and password.'); return; }
+
+  // With the database reachable, the account lives there and works on any device.
+  if(cloudOn() && looksLikeEmail(raw)){
+    if(btn) btn.classList.add('is-busy');
+    try{
+      const who = await cloudSignIn(raw, password);
+      await cloudPullAll();
+      if(btn) btn.classList.remove('is-busy');
+      if(who.role === 'operator'){
+        flagError(document.getElementById('login-error'), 'That is an operator account — sign in on the Administrator tab.');
+        await cloudSignOut();
+        return;
+      }
+      curtainTransition(()=>{
+        state.loggedIn = true; state.role = 'member'; state.member = who.uid; state.tab = 'profile'; state.forgotMsg = '';
+        document.body.setAttribute('data-role','member');
+        logAction(`${(MEMBERS[who.uid]||{}).name || raw} signed in.`);
+        render();
+      });
+      return;
+    }catch(e){
+      if(btn) btn.classList.remove('is-busy');
+      // An account made before the database existed still signs in locally.
+      const localHit = Object.entries(MEMBERS).find(([id,m]) =>
+        m.status!=='Rejected' && m.password===password && (norm(m.phone)===identifier || norm(m.email)===identifier));
+      if(!localHit){ flagError(document.getElementById('login-error'), cloudErrorText(e)); return; }
+    }
+  }
   const match = Object.entries(MEMBERS).find(([id,m]) =>
     m.status!=='Rejected' && m.password===password && (norm(m.phone)===identifier || norm(m.email)===identifier));
   if(!match){
@@ -1399,10 +1575,37 @@ function signInTransition(btn, done){
     curtainTransition(done);
   }, REDUCED_MOTION ? 0 : 260);
 }
-function doAdminLogin(btn){
+async function doAdminLogin(btn){
   const identifier = norm(document.getElementById('login-user').value);
   const password = document.getElementById('login-pass').value.trim();
   if(!identifier || !password){ flagError(document.getElementById('login-error-admin'), 'Enter your operator ID and password.'); return; }
+  const raw = document.getElementById('login-user').value.trim();
+  if(cloudOn() && looksLikeEmail(raw)){
+    if(btn) btn.classList.add('is-busy');
+    try{
+      const who = await cloudSignIn(raw, password);
+      if(who.role !== 'operator'){
+        await cloudSignOut();
+        if(btn) btn.classList.remove('is-busy');
+        flagError(document.getElementById('login-error-admin'), 'That is a farm account — sign in on the Farm member tab.');
+        return;
+      }
+      await cloudPullAll();
+      if(btn) btn.classList.remove('is-busy');
+      curtainTransition(()=>{
+        state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = who.name || raw;
+        state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = '';
+        document.body.setAttribute('data-role','admin');
+        logAction(`Operator ${state.adminName} signed in to the administrator console.`);
+        render();
+      });
+      return;
+    }catch(e){
+      if(btn) btn.classList.remove('is-busy');
+      const localOk = ADMINS.some(a=>{ const u=norm(a.username); return (identifier===u||identifier===u.split('@')[0]) && a.password===password; });
+      if(!localOk){ flagError(document.getElementById('login-error-admin'), cloudErrorText(e)); return; }
+    }
+  }
   const match = ADMINS.find(a => {
     const u = norm(a.username), local = u.split('@')[0];
     return (identifier===u || identifier===local) && a.password===password;
@@ -1423,6 +1626,7 @@ function doAdminLogin(btn){
 }
 function logout(){
   logAction(`${state.role==='member' ? MEMBERS[state.member].name : (state.adminName||'Operator')} signed out.`);
+  cloudSignOut();
   curtainTransition(()=>{
     state.loggedIn = false; state.role = null;
     document.body.removeAttribute('data-role');
@@ -1459,6 +1663,18 @@ function submitAdminSignup(){
   }
   if(ADMINS.length >= MAX_ADMINS){
     flagError(err, `All ${MAX_ADMINS} administrator seats are taken — an existing operator must remove one first.`); return;
+  }
+  if(cloudOn() && looksLikeEmail(user)){
+    cloudRegisterOperator(name, user, pass, code)
+      .then(()=>{
+        logAction(`${name} created an administrator account as operator ${user}.`);
+        state.adminSignup = false;
+        state.adminSignupUser = user;
+        state.adminSignupMsg = 'Administrator account created — sign in below with your new operator ID and password.';
+        renderLogin();
+      })
+      .catch(e=> flagError(err, cloudErrorText(e)));
+    return;
   }
   ADMINS.push({name, username:user, password:pass});
   saveAdmins();
@@ -1511,6 +1727,22 @@ function submitSelfRegistration(){
     flagError(document.getElementById('reg-error'), 'A farm is already registered with that phone number or email.');
     return;
   }
+  if(cloudOn()){
+    const btnErr = document.getElementById('reg-error');
+    cloudRegisterFarm(vals, pass, codeEl ? codeEl.value.trim() : '')
+      .then(uid=>{
+        MEMBERS[uid] = Object.assign({}, vals, {
+          password: pass, category:'Pending review', registered: todayStr(), status:'Pending',
+          crops:[], avatar: state.regAvatar || ''
+        });
+        createBlankRecords(uid);
+        logAction(`${vals.name} registered on the platform — membership pending Secretariat review.`);
+        state.regAvatar = ''; state.showRegister = false; state.regSuccess = true;
+        renderLogin();
+      })
+      .catch(e=> flagError(btnErr, cloudErrorText(e)));
+    return;
+  }
   const id = slugify(vals.name);
   // The account is usable straight away, so a new farm can build out its own
   // profile at once. The Secretariat still reviews it — the membership stays
@@ -1553,6 +1785,18 @@ function submitMemberReset(){
   if(!phone || !email){ flagError(err, 'Enter both the phone number and the email on your farm record.'); return; }
   if(!pass || pass.length < 4){ flagError(err, 'Choose a new password of at least 4 characters.'); return; }
   if(pass !== pass2){ flagError(err, 'The two passwords do not match.'); return; }
+  if(cloudOn()){
+    const typed = document.getElementById('fp-email').value.trim();
+    cloudResetEmail(typed)
+      .then(()=>{
+        state.forgot = null; state.regSuccess = false;
+        state.forgotMsg = `A password reset link has been sent to ${typed}. Open it, choose a new password, then sign in.`;
+        logAction(`A password reset was requested for ${typed}.`);
+        renderLogin();
+      })
+      .catch(e=> flagError(err, cloudErrorText(e)));
+    return;
+  }
   const hit = Object.entries(MEMBERS).find(([id,m])=> norm(m.phone)===phone && norm(m.email)===email);
   if(!hit){ flagError(err, 'No farm record matches that phone number and email together. Contact the Secretariat on 0744 443 247.'); return; }
   const [id, m] = hit;
@@ -4709,6 +4953,10 @@ function removeAdmin(i){
 loadSettings();
 loadMembers();
 render();
+// Safe to touch `state` from here on.
+cloudPushHook = function(){
+  if(state.role === 'member' && state.member) cloudPushSoon(state.member);
+};
 initCloud();
 </script>
 </body>
