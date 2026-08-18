@@ -558,6 +558,45 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
 .ts-actions{display:flex;gap:7px;flex-wrap:wrap;}
 @media (max-width:760px){ .tally-grid{grid-template-columns:1fr;} }
 
+
+/* ---------- Generated programme: TIPFA document styling ---------- */
+.prog-head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.prog-logo{width:150px;height:auto;flex:none;}   /* primary lockup minimum, guidelines p09 */
+.prog-headtext{flex:1;min-width:220px;}
+.prog-rule{height:3px;background:linear-gradient(90deg,var(--tipfa-green) 0 42%,var(--leaf-green) 42% 72%,var(--harvest-orange) 72% 100%);
+  border-radius:2px;margin:12px 0 14px;}
+.prog-table thead th{background:var(--deep-green);}
+/* Stage bands use the association palette; the accent sits on the stage cell,
+   never as a field behind body copy (guidelines p14). */
+.prog-table tr.pg-transplanting td{background:#F3F5EC;}
+.prog-table tr.pg-vegetative td{background:#F6F8EE;}
+.prog-table tr.pg-flowering td{background:#FBF6EA;}
+.prog-table tr.pg-harvesting td{background:#F2F5EA;}
+.prog-table tr.pg-applied td{background:#EFF5E4;}
+.prog-table td.pg-stage{border-left:4px solid var(--tipfa-green);background:#E9EDDD !important;}
+.prog-table tr.pg-transplanting td.pg-stage{border-left-color:var(--deep-green);}
+.prog-table tr.pg-vegetative td.pg-stage{border-left-color:var(--leaf-green);}
+.prog-table tr.pg-flowering td.pg-stage{border-left-color:var(--harvest-orange);}
+.prog-table tr.pg-harvesting td.pg-stage{border-left-color:var(--tipfa-green);}
+.pg-edit{
+  border:none;background:none;color:var(--tipfa-green);font-family:'Poppins',sans-serif;font-size:10.5px;
+  font-weight:600;cursor:pointer;padding:1px 5px;border-radius:5px;margin-left:5px;opacity:0;
+  transition:opacity var(--dur-2) var(--ease-out), background var(--dur-1);
+}
+.prog-table tr:hover .pg-edit{opacity:1;}
+.pg-edit:hover{background:#E4E9D6;}
+tr.entry-edit td{background:#F4F6EA !important;padding:16px 18px;}
+tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:var(--deep-green);margin-bottom:12px;}
+
+/* ---------- Import your own programme ---------- */
+.import-card{border:1px dashed var(--line);background:#FAFAF4;}
+.import-opts{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0;}
+.import-result{
+  margin-top:10px;font-size:12.5px;padding:10px 12px;border-radius:var(--radius-sm);
+  background:#DFE7D2;color:var(--deep-green);
+}
+.import-result.bad{background:#F3DCD8;color:var(--red);}
+
 /* ---------- Print ---------- */
 @media print{
   .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"], .arcfield, .curtain{ display:none !important; }
@@ -565,6 +604,8 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
   .app{ max-width:100%; }
   .content{ padding:0; }
   .card{ break-inside:avoid; border:1px solid #999; box-shadow:none; }
+  .prog-table td, .prog-table th{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+  .pg-edit{ display:none !important; }
   body{ background:#fff; }
   *{animation:none !important;}
 }
@@ -715,6 +756,12 @@ function blankProgramme(){
 // Bring any crop record up to the current shape, whatever it was saved as.
 function ensureProgramme(cr){
   if(!cr.programme) cr.programme = blankProgramme();
+  // Comments are per stage. Older records kept a single note for the whole
+  // crop, so carry that onto the stage it was written against.
+  if(!cr.stageNotes){
+    cr.stageNotes = {};
+    if(cr.stageInputs) cr.stageNotes[cr.stage || CROP_STAGES[0]] = cr.stageInputs;
+  }
   CROP_STAGES.forEach(st=>{
     if(!cr.programme[st]) cr.programme[st] = {};
     CATEGORY_KEYS.forEach(k=>{ if(!Array.isArray(cr.programme[st][k])) cr.programme[st][k] = []; });
@@ -1013,7 +1060,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'' };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -1967,8 +2014,10 @@ function renderCropCalendar(c){
         <div><label class="f">Current stage</label><select onchange="setCropField(${state.calCrop},'stage',this.value)">
           ${CROP_STAGES.map(st=>`<option ${cr.stage===st?'selected':''}>${st}</option>`).join('')}
         </select></div>
-        <div><label class="f">General notes for this stage</label>
-          <input value="${esc(cr.stageInputs||'')}" onchange="setCropField(${state.calCrop},'stageInputs',this.value)" placeholder="e.g. staking, pruning, crates for picking"></div>
+        <div><label class="f">Programme comment for ${esc(state.calStage)}</label>
+          <input value="${esc((cr.stageNotes&&cr.stageNotes[state.calStage])||'')}"
+                 onchange="setStageNote('${esc(state.calStage)}', this.value)"
+                 placeholder="${esc(STAGE_NOTES[state.calStage]||'')}"></div>
       </div>
       <label class="f" style="margin-top:4px;">Supporting document (photo, farm plan, certificate)</label>
       <input type="file" onchange="uploadCropDoc(${state.calCrop}, this)">
@@ -1997,13 +2046,28 @@ function renderCropCalendar(c){
     </div>
 
     ${generatedProgramme(m, cr, timing)}
-    ${completionPanel(cr)}`;
+    ${completionPanel(cr)}
+    ${importPanel(cr)}`;
 }
 
 /* ---- Stage completion -------------------------------------------
    Every product recorded against a stage can be ticked off once it has
    actually been applied. A stage counts as accomplished when every
    product listed for it has been ticked. */
+// The comment carried on the programme for a stage: the farm's own words if
+// it has written any, otherwise the association's standard guidance.
+function stageComment(cr, stage){
+  const own = cr.stageNotes && cr.stageNotes[stage];
+  return (own && own.trim()) ? own.trim() : (STAGE_NOTES[stage] || '');
+}
+function setStageNote(stage, value){
+  const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
+  if(!cr.stageNotes) cr.stageNotes = {};
+  cr.stageNotes[stage] = value;
+  logAction(`${m.name} updated the ${stage} programme note for ${cr.crop}.`);
+  renderKeepingPlace();          // the generated programme below reads this
+}
+
 function stageItems(cr, stage){
   const p = ensureProgramme(cr), out = [];
   CATEGORY_KEYS.forEach(k => (p[stage][k]||[]).forEach((r, i) => out.push({cat:k, i, entry:r})));
@@ -2034,6 +2098,150 @@ function setStageApplied(stage, value){
 }
 
 // The tally panel that sits under the generated programme.
+/* ============================================================
+   Bringing in your own crop calendar
+   A farm that already keeps a programme elsewhere can load it in as a
+   CSV rather than retyping it. The template below is deliberately
+   simple: one row per product, with the stage and category named.
+   ============================================================ */
+const IMPORT_HEADER = ['Crop stage','Category','Product','Composition or target','Dosage','Unit','Method'];
+
+function downloadProgrammeTemplate(){
+  const rows = [IMPORT_HEADER,
+    ['Transplanting','Fertilizers','Triple Super Phosphate (TSP)','0-46-0 (46% P2O5)','32','kg','Basal'],
+    ['Transplanting','Fungicides','Ridomil Gold','Damping off','100','ml','Drench'],
+    ['Vegetative','Fertilizers','Yara Winner','Water-soluble NPK blend','22.5','kg','Fertigation'],
+    ['Vegetative','Insecticides','Mission','Leaf miner','200','ml','Foliar spray'],
+    ['Flowering','Fertilizers','Potassium Nitrate (KNO3)','13-0-46','12.5','kg','Fertigation'],
+    ['Harvesting','Fertilizers','Nitrabor','Calcium nitrate + boron','10','kg','Basal'],
+  ];
+  downloadCSV('TIPFA_crop_calendar_template.csv', rows);
+}
+
+// A small CSV reader that copes with quoted fields and embedded commas.
+function parseCSV(text){
+  const rows = [];
+  let row = [], field = '', inQuotes = false;
+  text = text.replace(/\r\n?/g, '\n');
+  for(let i=0; i<text.length; i++){
+    const c = text[i];
+    if(inQuotes){
+      if(c === '"'){
+        if(text[i+1] === '"'){ field += '"'; i++; }
+        else inQuotes = false;
+      } else field += c;
+    } else if(c === '"'){ inQuotes = true; }
+    else if(c === ','){ row.push(field); field = ''; }
+    else if(c === '\n'){ row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if(field.length || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim() !== ''));
+}
+
+function matchStage(v){
+  const t = String(v||'').trim().toLowerCase();
+  return CROP_STAGES.find(st => st.toLowerCase() === t)
+      || CROP_STAGES.find(st => t && st.toLowerCase().startsWith(t.slice(0,5)))
+      || null;
+}
+function matchCategory(v){
+  const t = String(v||'').trim().toLowerCase();
+  return CATEGORY_KEYS.find(k => k.toLowerCase() === t)
+      || CATEGORY_KEYS.find(k => t && k.toLowerCase().startsWith(t.replace(/s$/,'').slice(0,6)))
+      || null;
+}
+
+function importProgrammeFile(input){
+  const file = input.files && input.files[0];
+  const out = document.getElementById('import-result');
+  const show = (msg, bad)=>{ if(out){ out.className = 'import-result' + (bad?' bad':''); out.innerHTML = msg; } };
+  if(!file) return;
+  const mode = document.getElementById('import-mode').value;
+  const reader = new FileReader();
+  reader.onerror = ()=> show('That file could not be read.', true);
+  reader.onload = ()=>{
+    let rows;
+    try { rows = parseCSV(String(reader.result)); }
+    catch(e){ show('That file could not be read as CSV.', true); return; }
+    if(rows.length < 2){ show('That file has no rows under its heading.', true); return; }
+
+    // Locate the columns by name, so extra columns and reordering are fine.
+    const head = rows[0].map(h => String(h).trim().toLowerCase());
+    const col = names => { for(const n of names){ const i = head.indexOf(n); if(i !== -1) return i; } return -1; };
+    const iStage  = col(['crop stage','stage']);
+    const iCat    = col(['category','type','input category']);
+    const iProd   = col(['product','product name','required fertilizer','input']);
+    const iDetail = col(['composition or target','composition / type','composition','target','target pest / disease','pest / disease control']);
+    const iDose   = col(['dosage','dose','rate']);
+    const iUnit   = col(['unit','uom']);
+    const iMethod = col(['method','application method']);
+    if(iStage === -1 || iProd === -1){
+      show('The file needs at least a "Crop stage" and a "Product" column. Download the template below to see the expected headings.', true);
+      return;
+    }
+
+    const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
+    const p = ensureProgramme(cr);
+    if(mode === 'replace') cr.programme = blankProgramme();
+
+    let added = 0; const skipped = [];
+    rows.slice(1).forEach((r, n)=>{
+      const stage = matchStage(r[iStage]);
+      const product = String(r[iProd] || '').trim();
+      if(!stage){ skipped.push(`row ${n+2}: unknown stage "${String(r[iStage]||'').trim()}"`); return; }
+      if(!product){ skipped.push(`row ${n+2}: no product name`); return; }
+      const cat = (iCat !== -1 && matchCategory(r[iCat])) || 'Fertilizers';
+      const def = categoryDef(cat);
+      const entry = {
+        product,
+        dose: iDose !== -1 ? String(r[iDose]||'').trim() : '',
+        unit: iUnit !== -1 && String(r[iUnit]||'').trim() ? String(r[iUnit]).trim() : def.unit,
+        method: iMethod !== -1 && String(r[iMethod]||'').trim() ? String(r[iMethod]).trim() : def.methods[0],
+      };
+      const detail = iDetail !== -1 ? String(r[iDetail]||'').trim() : '';
+      if(def.targets) entry.target = detail; else entry.composition = detail;
+      ensureProgramme(cr)[stage][cat].push(entry);
+      added++;
+    });
+
+    input.value = '';
+    if(!added){
+      show('Nothing was imported. ' + (skipped.length ? skipped.slice(0,3).join('; ') : 'No usable rows found.'), true);
+      render();
+      return;
+    }
+    logAction(`${m.name} imported ${added} programme row${added===1?'':'s'} for ${cr.crop} from a file${mode==='replace'?' (replacing the existing programme)':''}.`);
+    state.importMsg = `${CHECK_ICON} Imported ${added} row${added===1?'':'s'} into ${esc(cr.crop)}.` +
+      (skipped.length ? ` ${skipped.length} row${skipped.length===1?'':'s'} skipped — ${esc(skipped.slice(0,3).join('; '))}${skipped.length>3?'…':''}` : '');
+    render();
+  };
+  reader.readAsText(file);
+}
+
+function importPanel(cr){
+  const msg = state.importMsg;
+  state.importMsg = '';
+  return `
+    <div class="section-label">Add your own crop calendar</div>
+    <div class="card import-card">
+      <p class="helper" style="margin:0;">Already keep a programme in a spreadsheet? Save it as CSV and load it straight into
+        <strong>${esc(cr.crop)}</strong> instead of retyping it. One row per product, with the stage and category named.
+        Download the template to see the headings the file needs.</p>
+      <div class="import-opts">
+        <select id="import-mode" style="width:auto;margin:0;">
+          <option value="append">Add to what is already recorded</option>
+          <option value="replace">Replace this crop's programme</option>
+        </select>
+        <input type="file" accept=".csv,text/csv" id="import-file" style="width:auto;margin:0;" onchange="importProgrammeFile(this)">
+        <button class="btn small ghost" onclick="downloadProgrammeTemplate()">Download template</button>
+      </div>
+      ${msg ? `<div class="import-result">${msg}</div>` : '<div id="import-result"></div>'}
+      <p class="helper">Stages must be ${CROP_STAGES.join(', ')}. Categories must be ${CATEGORY_KEYS.join(', ')} — anything unrecognised is
+        treated as a fertilizer, and rows with no stage or product are skipped and reported.</p>
+    </div>`;
+}
+
 function completionPanel(cr){
   const rows = CROP_STAGES.map(stage=>{
     const prog = stageProgress(cr, stage);
@@ -2089,8 +2297,8 @@ function stageEntryCount(cr, stage){
   const p = ensureProgramme(cr);
   return CATEGORY_KEYS.reduce((t,k)=> t + (p[stage][k]||[]).length, 0);
 }
-function selectCalCrop(i){ state.calCrop = i; state.justAdded = null; render(); }
-function selectCalStage(st){ state.calStage = st; state.justAdded = null; render(); }
+function selectCalCrop(i){ state.calCrop = i; state.justAdded = null; state.editEntry = null; render(); }
+function selectCalStage(st){ state.calStage = st; state.justAdded = null; state.editEntry = null; render(); }
 
 // One category of inputs for the selected crop and stage.
 function categoryBlock(cr, stage, cat){
@@ -2109,9 +2317,10 @@ function categoryBlock(cr, stage, cat){
           <th>${cat.targets ? 'Target pest / disease' : 'Composition / type'}</th>
           <th style="width:110px;">Dosage</th>
           <th style="width:150px;">Method</th>
-          <th style="width:78px;"></th>
+          <th style="width:132px;"></th>
         </tr></thead>
-        <tbody>${rows.length ? rows.map((r,ri)=>`<tr class="${r.done?'row-done':''}">
+        <tbody>${rows.length ? rows.map((r,ri)=>
+            isEditingEntry(stage, cat.key, ri) ? entryEditRow(cat, r, stage, ri) : `<tr class="${r.done?'row-done':''}">
             <td><input type="checkbox" class="tick" ${r.done?'checked':''}
                  onchange="toggleApplied('${esc(stage)}','${cat.key}',${ri},this.checked)"
                  aria-label="Mark ${esc(r.product)} as applied"></td>
@@ -2119,7 +2328,8 @@ function categoryBlock(cr, stage, cat){
             <td>${esc((cat.targets ? r.target : r.composition) || '—')}</td>
             <td>${esc(r.dose||'—')} ${esc(r.unit||'')}</td>
             <td>${esc(r.method||'—')}</td>
-            <td><button class="btn small ghost" onclick="removeInput('${cat.key}', ${ri})">Remove</button></td>
+            <td><button class="btn small ghost" onclick="editEntry('${esc(stage)}','${cat.key}',${ri})">Edit</button>
+                <button class="btn small ghost" onclick="removeInput('${cat.key}', ${ri})">Remove</button></td>
           </tr>`).join('')
           : `<tr><td colspan="6" style="color:var(--muted);">Nothing recorded for this stage yet. Add as many products as you use — they build up in this list.</td></tr>`}
         </tbody>
@@ -2149,6 +2359,71 @@ function productSuggestions(catKey){
     }));
   }));
   return seen.length ? `<datalist id="dl-${catKey}">${seen.sort().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>` : '';
+}
+
+/* ---- Editing a recorded product ------------------------------- */
+// Editing straight from the generated programme: open the stage that row
+// belongs to and put that entry into edit mode.
+function editFromProgramme(stage, catKey, i){
+  state.calStage = stage;
+  state.editEntry = {stage, cat:catKey, i};
+  render();
+  const el = document.querySelector('.entry-edit');
+  if(el) el.scrollIntoView({block:'center', behavior:'smooth'});
+}
+
+function isEditingEntry(stage, catKey, i){
+  const e = state.editEntry;
+  return !!e && e.stage===stage && e.cat===catKey && e.i===i;
+}
+function editEntry(stage, catKey, i){ state.editEntry = {stage, cat:catKey, i}; renderKeepingPlace(); }
+function cancelEntryEdit(){ state.editEntry = null; renderKeepingPlace(); }
+
+function entryEditRow(cat, r, stage, i){
+  const detail = (cat.targets ? r.target : r.composition) || '';
+  return `<tr class="entry-edit"><td colspan="6">
+    <div class="ee-head">Editing <strong>${esc(r.product)}</strong> &middot; ${esc(cat.label)} at ${esc(stage)}</div>
+    <div class="grid2">
+      <div><label class="f">Product name</label><input id="ee-product" value="${esc(r.product)}" list="dl-${cat.key}"></div>
+      <div><label class="f">${cat.targets ? 'Target pest or disease' : 'Composition / type'}</label>
+        <input id="ee-detail" value="${esc(detail)}"></div>
+      <div><label class="f">Dosage</label><input id="ee-dose" type="number" step="0.01" value="${esc(r.dose||'')}"></div>
+      <div><label class="f">Unit</label><select id="ee-unit">${cat.units.map(u=>`<option ${r.unit===u?'selected':''}>${u}</option>`).join('')}</select></div>
+      <div><label class="f">Method</label><select id="ee-method">${cat.methods.map(x=>`<option ${r.method===x?'selected':''}>${x}</option>`).join('')}</select></div>
+      <div><label class="f">Move to stage</label><select id="ee-stage">${CROP_STAGES.map(st=>`<option ${st===stage?'selected':''}>${st}</option>`).join('')}</select></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn small" onclick="saveEntryEdit()">Save changes</button>
+      <button class="btn small ghost" onclick="cancelEntryEdit()">Cancel</button>
+      <span class="helper" id="ee-msg" style="color:var(--red);"></span>
+    </div>
+  </td></tr>`;
+}
+
+function saveEntryEdit(){
+  const e = state.editEntry; if(!e) return;
+  const cat = categoryDef(e.cat);
+  const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
+  const p = ensureProgramme(cr);
+  const entry = p[e.stage][e.cat][e.i];
+  if(!entry) { state.editEntry = null; renderKeepingPlace(); return; }
+  const product = document.getElementById('ee-product').value.trim();
+  if(!product){ document.getElementById('ee-msg').textContent = 'Enter the product name.'; return; }
+  const detail = document.getElementById('ee-detail').value.trim();
+  entry.product = product;
+  entry.dose = document.getElementById('ee-dose').value.trim();
+  entry.unit = document.getElementById('ee-unit').value;
+  entry.method = document.getElementById('ee-method').value;
+  if(cat.targets){ entry.target = detail; delete entry.composition; }
+  else { entry.composition = detail; delete entry.target; }
+  const newStage = document.getElementById('ee-stage').value;
+  if(newStage !== e.stage){
+    p[e.stage][e.cat].splice(e.i, 1);
+    p[newStage][e.cat].push(entry);
+  }
+  logAction(`${m.name} edited ${e.cat.replace(/s$/,'').toLowerCase()} "${product}" for ${cr.crop} at ${newStage}.`);
+  state.editEntry = null;
+  renderKeepingPlace();
 }
 
 function addInput(catKey){
@@ -2207,19 +2482,23 @@ function generatedProgramme(m, cr, timing){
       : '<span style="color:var(--muted);">None recorded</span>';
     const uomCell = prot.length ? prot.map(x=>esc(x.uom)).join('<br>') : '\u2014';
     const rows = ferts.length ? ferts : [null];
+    const cls = 'pg-' + stage.toLowerCase();
     rows.forEach((f, i)=>{
-      body += '<tr>';
+      body += `<tr class="${cls}${f && f.done ? ' pg-applied' : ''}">`;
       if(i===0){
         body += `<td rowspan="${span}" class="pg-stage">${esc(stage)}</td>`;
         body += `<td rowspan="${span}">${esc(timing[stage].dates || '\u2014')}${timing[stage].dates ? `<br><span style="color:var(--muted);font-size:11px;">${esc(timing[stage].label)}</span>` : ''}</td>`;
       }
       body += f
-        ? `<td>${f.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(f.product)}</td><td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
+        ? `<td>${f.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(f.product)}
+             <button class="pg-edit" title="Edit this entry"
+               onclick="editFromProgramme('${esc(stage)}','Fertilizers',${i})">Edit</button></td>
+           <td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
         : `<td colspan="4" style="color:var(--muted);">No fertilizer recorded for this stage</td>`;
       if(i===0){
         body += `<td rowspan="${span}">${protCell}</td>`;
         body += `<td rowspan="${span}">${uomCell}</td>`;
-        body += `<td rowspan="${span}" class="pg-comment">${esc(STAGE_NOTES[stage]||'')}</td>`;
+        body += `<td rowspan="${span}" class="pg-comment">${esc(stageComment(cr, stage))}</td>`;
       }
       body += '</tr>';
     });
@@ -2227,8 +2506,16 @@ function generatedProgramme(m, cr, timing){
   return `
     <div class="section-label">Generated programme — ${esc(cr.crop)}</div>
     <div class="card prog-card">
-      <div class="prog-title">${esc(m.name).toUpperCase()} — FERTILIZER &amp; CROP PROTECTION PROGRAM, BY CROP STAGE</div>
-      <div class="prog-sub">${esc(cr.crop)}${cr.variety?` &middot; ${esc(cr.variety)}`:''}${cr.seedCompany?` &middot; seed from ${esc(cr.seedCompany)}`:''}${cr.area?` &middot; ${esc(cr.area)} ha`:''}</div>
+      <div class="prog-head">
+        <img class="prog-logo" src="assets/brand/tipfa-logo-primary.png"
+             alt="TIPFA — Tanzania Indoor &amp; Professional Farmers Association">
+        <div class="prog-headtext">
+          <div class="prog-title">${esc(m.name).toUpperCase()} — FERTILIZER &amp; CROP PROTECTION PROGRAM, BY CROP STAGE</div>
+          <div class="prog-sub">${esc(cr.crop)}${cr.variety?` &middot; ${esc(cr.variety)}`:''}${cr.seedCompany?` &middot; seed from ${esc(cr.seedCompany)}`:''}${cr.area?` &middot; ${esc(areaText(cr.area, cr.areaUnit, 'ha'))}`:''}</div>
+        </div>
+        ${farmLogo(m, 'lg')}
+      </div>
+      <div class="prog-rule"></div>
       <div style="overflow-x:auto;">
         <table class="grid-table prog-table">
           <thead><tr>
@@ -2244,7 +2531,7 @@ function generatedProgramme(m, cr, timing){
         <button class="btn small ghost" onclick="exportAllProgrammes()">Export all crops (CSV)</button>
         <button class="btn small ghost" onclick="window.print()">Print / save as PDF</button>
       </div>
-      <p class="helper" style="margin-top:10px;">The programme runs from the date you transplanted to your expected harvest date. Change either on the Profile tab — using Edit on the crop — and every stage window here moves with it.</p>
+      <p class="helper" style="margin-top:10px;">Every row here comes from what you recorded above — use Edit on a row, or the stage tables, to change it. The comment on each stage is yours to edit too. The programme runs from the date you transplanted to your expected harvest date. Change either on the Profile tab — using Edit on the crop — and every stage window here moves with it.</p>
     </div>`;
 }
 
@@ -2268,7 +2555,7 @@ function programmeRows(m, cr){
         f ? (f.done ? 'Yes' : 'No') : '', f ? (f.doneOn||'') : '',
         i===0 ? protText : '', i===0 ? protUom : '',
         i===0 ? `${prog.done} of ${prog.total} applied${prog.complete?' — accomplished':''}` : '',
-        i===0 ? (STAGE_NOTES[stage]||'') : ''
+        i===0 ? stageComment(cr, stage) : ''
       ]);
     });
   });
