@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="firebase-config.js"></script>
 <style>
 /* ============================================================
    TIPFA Association Platform
@@ -604,6 +605,17 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
 .all-stages input{width:15px;height:15px;margin:0;padding:0;accent-color:var(--tipfa-green);flex:none;cursor:pointer;}
 .archive-card{border-left:3px solid var(--leaf-green);}
 
+.cloud-badge{
+  display:inline-flex;align-items:center;gap:6px;margin-left:auto;padding:4px 11px;border-radius:99px;
+  font-size:11px;font-weight:600;font-family:'Poppins',sans-serif;border:1px solid var(--line);background:#fff;
+}
+.cloud-badge .cloud-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);flex:none;}
+.cloud-badge.ok{color:var(--deep-green);border-color:#C8D5B3;background:#F1F6E8;}
+.cloud-badge.ok .cloud-dot{background:var(--leaf-green);}
+.cloud-badge.wait{color:#8A6412;border-color:#EBD9A8;background:#FBF4E3;}
+.cloud-badge.wait .cloud-dot{background:var(--harvest-orange);animation:softPulse 1.6s var(--ease-in-out) infinite;}
+.cloud-badge.off{color:var(--muted);}
+
 /* ---------- Print ---------- */
 @media print{
   .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"], .arcfield, .curtain{ display:none !important; }
@@ -815,6 +827,72 @@ function adminCode(){ return SETTINGS.adminCode || ''; }
 function farmCode(){ return SETTINGS.farmCode || ''; }
 const ADMIN_STORE_KEY = 'tipfa.admins.v1';
 const MEMBER_STORE_KEY = 'tipfa.members.v1';
+
+/* ============================================================
+   Cloud connection
+   The platform works entirely offline against browser storage. When a
+   Firebase project is configured and reachable, it additionally keeps a
+   shared copy so records reach every device. Nothing here is allowed to
+   break the offline path: if the SDK cannot load, the project is not
+   configured, or the network is down, the app carries on exactly as it
+   did before and reports itself as offline.
+   ============================================================ */
+const CLOUD = {
+  status: 'connecting',     // connecting | ready | offline | unconfigured | error
+  detail: '',
+  app: null, db: null, auth: null,
+  ready: false
+};
+const CLOUD_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+
+function cloudStatusText(){
+  switch(CLOUD.status){
+    case 'ready': return 'Connected — records are shared with every device';
+    case 'connecting': return 'Connecting…';
+    case 'unconfigured': return 'Not configured — records stay on this device';
+    case 'offline': return 'Offline — records stay on this device until the connection returns';
+    default: return 'Unavailable — records stay on this device';
+  }
+}
+function setCloudStatus(status, detail){
+  CLOUD.status = status;
+  CLOUD.detail = detail || '';
+  CLOUD.ready = status === 'ready';
+  const el = document.getElementById('cloud-status');
+  if(el) el.outerHTML = cloudBadge();
+}
+function cloudBadge(){
+  const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
+  return `<span id="cloud-status" class="cloud-badge ${cls}" title="${esc(CLOUD.detail || cloudStatusText())}">
+    <span class="cloud-dot"></span>${CLOUD.status === 'ready' ? 'Cloud sync on' : (CLOUD.status === 'connecting' ? 'Connecting' : 'On this device only')}</span>`;
+}
+
+async function initCloud(){
+  const cfg = window.TIPFA_FIREBASE_CONFIG;
+  if(!cfg || !cfg.projectId){
+    setCloudStatus('unconfigured', 'No Firebase project is configured for this site.');
+    return;
+  }
+  try{
+    const [{ initializeApp }, firestore, auth] = await Promise.all([
+      import(CLOUD_SDK + 'firebase-app.js'),
+      import(CLOUD_SDK + 'firebase-firestore.js'),
+      import(CLOUD_SDK + 'firebase-auth.js')
+    ]);
+    CLOUD.app = initializeApp(cfg);
+    CLOUD.db = firestore.getFirestore(CLOUD.app);
+    CLOUD.auth = auth.getAuth(CLOUD.app);
+    CLOUD.fs = firestore;
+    CLOUD.authApi = auth;
+    // Keep working through a dropped connection, and pick up again after it.
+    try{ await firestore.enableIndexedDbPersistence(CLOUD.db); }catch(e){ /* several tabs open, or unsupported */ }
+    setCloudStatus('ready', `Connected to ${cfg.projectId}.`);
+    logAction(`Connected to the shared TIPFA database (${cfg.projectId}).`);
+  }catch(e){
+    // A blocked CDN, no network, or a project that is not reachable yet.
+    setCloudStatus('offline', 'Could not reach the shared database: ' + (e && e.message ? e.message : 'unknown error'));
+  }
+}
 
 /* ============================================================
    Storage
@@ -1692,10 +1770,12 @@ function renderSubbar(){
   if(state.role==='member'){
     const m = MEMBERS[state.member];
     bar.innerHTML = `<label>Signed in as</label>${farmLogo(m,'sm')}<span class="who-name">${esc(m.name)}</span>
-      <span class="helper" style="margin-left:8px;">${esc(m.location)} &middot; only your own farm's data is visible in this session.</span>`;
+      <span class="helper" style="margin-left:8px;">${esc(m.location)} &middot; only your own farm's data is visible in this session.</span>
+      ${cloudBadge()}`;
   } else {
     bar.innerHTML = `<label>Signed in as</label><span class="who-name">${esc(state.adminName||'TIPFA Secretariat operator')}</span>
-      <span class="helper" style="margin-left:8px;">Association-wide access — every entry here is logged.</span>`;
+      <span class="helper" style="margin-left:8px;">Association-wide access — every entry here is logged.</span>
+      ${cloudBadge()}`;
   }
 }
 
@@ -4601,6 +4681,7 @@ function removeAdmin(i){
 loadSettings();
 loadMembers();
 render();
+initCloud();
 </script>
 </body>
 </html>
