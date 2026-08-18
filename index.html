@@ -724,16 +724,13 @@ const CROP_STAGES = ['Transplanting','Vegetative','Flowering','Harvesting'];
    crop-protection categories carry the pest or disease they target. */
 const INPUT_CATEGORIES = [
   {key:'Fertilizers',  label:'Fertilizers',  targets:false, unit:'kg', units:['kg','L','g','ml'],
-   methods:['Basal','Fertigation','Foliar','Top-dressing','Drench'],
+   methods:['Basal','Broadcasting','Fertigation','Foliar','Top-dressing','Drench'],
    hint:'e.g. Triple Super Phosphate (TSP), Yara Winner, Potassium Nitrate'},
   {key:'Pesticides',   label:'Pesticides',   targets:true,  unit:'ml', units:['ml','g','L','kg'],
-   methods:['Foliar spray','Drench','Soil application'],
-   hint:'General crop-protection products'},
-  {key:'Insecticides', label:'Insecticides', targets:true,  unit:'ml', units:['ml','g','L','kg'],
-   methods:['Foliar spray','Drench','Soil application'],
+   methods:['Foliar spray','Drench','Soil application','Broadcasting'],
    hint:'e.g. Dudu Acemactin for Tuta absoluta, Mission for leaf miner'},
   {key:'Fungicides',   label:'Fungicides',   targets:true,  unit:'ml', units:['ml','g','L','kg'],
-   methods:['Foliar spray','Drench','Seed treatment'],
+   methods:['Foliar spray','Drench','Seed treatment','Broadcasting'],
    hint:'e.g. Ridomil Gold for damping off, Tuncopper for bacterial spot'},
 ];
 const CATEGORY_KEYS = INPUT_CATEGORIES.map(c=>c.key);
@@ -756,6 +753,16 @@ function blankProgramme(){
 // Bring any crop record up to the current shape, whatever it was saved as.
 function ensureProgramme(cr){
   if(!cr.programme) cr.programme = blankProgramme();
+  // Insecticides are no longer a separate category — anything recorded under
+  // it moves into Pesticides rather than disappearing.
+  CROP_STAGES.forEach(st=>{
+    const bucket = cr.programme[st];
+    if(bucket && Array.isArray(bucket['Insecticides'])){
+      if(!Array.isArray(bucket['Pesticides'])) bucket['Pesticides'] = [];
+      bucket['Insecticides'].forEach(e=> bucket['Pesticides'].push(e));
+      delete bucket['Insecticides'];
+    }
+  });
   // Comments are per stage. Older records kept a single note for the whole
   // crop, so carry that onto the stage it was written against.
   if(!cr.stageNotes){
@@ -2145,9 +2152,18 @@ function matchStage(v){
       || CROP_STAGES.find(st => t && st.toLowerCase().startsWith(t.slice(0,5)))
       || null;
 }
+// Spreadsheets in the wild still carry an Insecticides column, so it maps onto
+// Pesticides rather than falling through to the fertilizer default.
+const CATEGORY_ALIASES = {
+  'insecticides':'Pesticides', 'insecticide':'Pesticides',
+  'pesticide':'Pesticides', 'fungicide':'Fungicides', 'fertilizer':'Fertilizers',
+  'fertiliser':'Fertilizers', 'fertilisers':'Fertilizers',
+  'crop protection':'Pesticides', 'pest control':'Pesticides',
+};
 function matchCategory(v){
   const t = String(v||'').trim().toLowerCase();
   return CATEGORY_KEYS.find(k => k.toLowerCase() === t)
+      || CATEGORY_ALIASES[t]
       || CATEGORY_KEYS.find(k => t && k.toLowerCase().startsWith(t.replace(/s$/,'').slice(0,6)))
       || null;
 }
@@ -2237,7 +2253,7 @@ function importPanel(cr){
         <button class="btn small ghost" onclick="downloadProgrammeTemplate()">Download template</button>
       </div>
       ${msg ? `<div class="import-result">${msg}</div>` : '<div id="import-result"></div>'}
-      <p class="helper">Stages must be ${CROP_STAGES.join(', ')}. Categories must be ${CATEGORY_KEYS.join(', ')} — anything unrecognised is
+      <p class="helper">Stages must be ${CROP_STAGES.join(', ')}. Categories must be ${CATEGORY_KEYS.join(', ')} — a column marked Insecticides is read as Pesticides, and anything else unrecognised is
         treated as a fertilizer, and rows with no stage or product are skipped and reported.</p>
     </div>`;
 }
@@ -2459,28 +2475,33 @@ function removeInput(catKey, i){
    sheet: one row per fertilizer line item, with the stage, timing,
    crop-protection column and comment spanning that stage's rows.
    ============================================================ */
-function protectionLines(cr, stage){
-  const p = ensureProgramme(cr), out = [];
-  ['Pesticides','Insecticides','Fungicides'].forEach(k=>
-    (p[stage][k]||[]).forEach(r=> out.push({
-      text: (r.target ? r.target + ' \u2192 ' : '') + r.product,
-      uom: r.dose ? `${r.dose} ${r.unit||''}`.trim() : '\u2014',
-      done: !!r.done
-    })));
-  return out;
+// Lines for one crop-protection category, formatted as the template does:
+// "target -> product", with the dose in the matching UoM column.
+function categoryLines(cr, stage, key){
+  const p = ensureProgramme(cr);
+  return (p[stage][key]||[]).map(r=>({
+    text: (r.target ? r.target + ' \u2192 ' : '') + r.product,
+    uom: r.dose ? `${r.dose} ${r.unit||''}`.trim() : '\u2014',
+    done: !!r.done
+  }));
 }
+function protectionLines(cr, stage){ return categoryLines(cr, stage, 'Pesticides'); }
+function fungicideLines(cr, stage){ return categoryLines(cr, stage, 'Fungicides'); }
 function generatedProgramme(m, cr, timing){
   const p = ensureProgramme(cr);
   let fertCount = 0, body = '';
   CROP_STAGES.forEach(stage=>{
     const ferts = p[stage]['Fertilizers'] || [];
     const prot  = protectionLines(cr, stage);
+    const fung  = fungicideLines(cr, stage);
     const span  = Math.max(ferts.length, 1);
     fertCount += ferts.length;
-    const protCell = prot.length
-      ? prot.map(x=>`${x.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(x.text)}`).join('<br>')
+    const lineCell = list => list.length
+      ? list.map(x=>`${x.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(x.text)}`).join('<br>')
       : '<span style="color:var(--muted);">None recorded</span>';
-    const uomCell = prot.length ? prot.map(x=>esc(x.uom)).join('<br>') : '\u2014';
+    const uomCell  = list => list.length ? list.map(x=>esc(x.uom)).join('<br>') : '\u2014';
+    const protCell = lineCell(prot);
+    const fungCell = lineCell(fung);
     const rows = ferts.length ? ferts : [null];
     const cls = 'pg-' + stage.toLowerCase();
     rows.forEach((f, i)=>{
@@ -2497,7 +2518,9 @@ function generatedProgramme(m, cr, timing){
         : `<td colspan="4" style="color:var(--muted);">No fertilizer recorded for this stage</td>`;
       if(i===0){
         body += `<td rowspan="${span}">${protCell}</td>`;
-        body += `<td rowspan="${span}">${uomCell}</td>`;
+        body += `<td rowspan="${span}">${uomCell(prot)}</td>`;
+        body += `<td rowspan="${span}" class="pg-fung">${fungCell}</td>`;
+        body += `<td rowspan="${span}">${uomCell(fung)}</td>`;
         body += `<td rowspan="${span}" class="pg-comment">${esc(stageComment(cr, stage))}</td>`;
       }
       body += '</tr>';
@@ -2520,17 +2543,20 @@ function generatedProgramme(m, cr, timing){
         <table class="grid-table prog-table">
           <thead><tr>
             <th>Crop stage</th><th>Timing</th><th>Required fertilizer</th><th>Composition / type</th>
-            <th>Dosage</th><th>Method</th><th>Pest / disease control</th><th>Pest UoM</th><th>Comment</th>
+            <th>Dosage</th><th>Method</th><th>Pest / disease control</th><th>Pest UoM</th>
+            <th>Fungicides</th><th>Fungicide UoM</th><th>Comment</th>
           </tr></thead>
           <tbody>${body}</tbody>
         </table>
       </div>
       <div class="prog-foot">${esc(cr.crop)} — stage count: ${CROP_STAGES.length} &nbsp;|&nbsp; total fertilizer line items: ${fertCount}</div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn small" onclick="exportProgramme(${state.calCrop})">Export this programme (CSV)</button>
-        <button class="btn small ghost" onclick="exportAllProgrammes()">Export all crops (CSV)</button>
+        <button class="btn small" onclick="exportProgrammeDocument(${state.calCrop})">Download this programme (looks like this page)</button>
+        <button class="btn small ghost" onclick="exportProgramme(${state.calCrop})">Export as CSV (spreadsheet)</button>
+        <button class="btn small ghost" onclick="exportAllProgrammes()">All crops (CSV)</button>
         <button class="btn small ghost" onclick="window.print()">Print / save as PDF</button>
       </div>
+      <p class="helper" style="margin-top:6px;">The first download saves this programme exactly as it appears here — logo, stage colours and all — as a file you can open in any browser or print to PDF. The CSV is for spreadsheets, so it carries the data as columns without the layout.</p>
       <p class="helper" style="margin-top:10px;">Every row here comes from what you recorded above — use Edit on a row, or the stage tables, to change it. The comment on each stage is yours to edit too. The programme runs from the date you transplanted to your expected harvest date. Change either on the Profile tab — using Edit on the crop — and every stage window here moves with it.</p>
     </div>`;
 }
@@ -2541,27 +2567,198 @@ function programmeRows(m, cr){
   CROP_STAGES.forEach(stage=>{
     const ferts = p[stage]['Fertilizers'] || [];
     const prot  = protectionLines(cr, stage);
+    const fung  = fungicideLines(cr, stage);
     const prog  = stageProgress(cr, stage);
-    const protText = prot.map(x=> (x.done?'[applied] ':'') + x.text).join(' | ') || '';
-    const protUom  = prot.map(x=>x.uom).join(' | ') || '';
-    if(!ferts.length && !prot.length){
-      rows.push([m.name, cr.crop, cr.variety||'', stage, timing[stage].dates||'', timing[stage].label||'', '', '', '', '', '', '', STAGE_NOTES[stage]||'']);
+    const join  = list => list.map(x=> (x.done?'[applied] ':'') + x.text).join(' | ');
+    const joinU = list => list.map(x=>x.uom).join(' | ');
+    // Every row is built from the same column list, so a stage with nothing
+    // recorded still lines up with the heading.
+    const row = (over)=> Object.assign({
+      farm:m.name, crop:cr.crop, variety:cr.variety||'', stage,
+      dates:timing[stage].dates||'', timing:timing[stage].label||'',
+      product:'', composition:'', dose:'', unit:'', method:'', applied:'', appliedOn:'',
+      pest:'', pestUom:'', fung:'', fungUom:'', progress:'', comment:''
+    }, over);
+    const flat = r => [r.farm,r.crop,r.variety,r.stage,r.dates,r.timing,r.product,r.composition,
+                       r.dose,r.unit,r.method,r.applied,r.appliedOn,r.pest,r.pestUom,
+                       r.fung,r.fungUom,r.progress,r.comment];
+    const summary = {
+      pest: join(prot), pestUom: joinU(prot), fung: join(fung), fungUom: joinU(fung),
+      progress: `${prog.done} of ${prog.total} applied${prog.complete?' \u2014 accomplished':''}`,
+      comment: stageComment(cr, stage)
+    };
+    if(!ferts.length){
+      rows.push(flat(row(summary)));
       return;
     }
-    (ferts.length ? ferts : [null]).forEach((f,i)=>{
-      rows.push([
-        m.name, cr.crop, cr.variety||'', stage, timing[stage].dates||'', timing[stage].label||'',
-        f ? f.product : '', f ? (f.composition||'') : '', f ? (f.dose||'') : '', f ? (f.unit||'') : '', f ? (f.method||'') : '',
-        f ? (f.done ? 'Yes' : 'No') : '', f ? (f.doneOn||'') : '',
-        i===0 ? protText : '', i===0 ? protUom : '',
-        i===0 ? `${prog.done} of ${prog.total} applied${prog.complete?' — accomplished':''}` : '',
-        i===0 ? stageComment(cr, stage) : ''
-      ]);
+    ferts.forEach((f,i)=>{
+      rows.push(flat(row(Object.assign({
+        product:f.product, composition:f.composition||'', dose:f.dose||'', unit:f.unit||'',
+        method:f.method||'', applied:f.done?'Yes':'No', appliedOn:f.doneOn||''
+      }, i===0 ? summary : {}))));
     });
   });
   return rows;
 }
-const PROGRAMME_HEADER = ['Farm','Crop','Variety','Crop stage','Dates','Timing','Required fertilizer','Composition / type','Dosage','Unit','Method','Applied','Applied on','Pest / disease control','Pest UoM','Stage progress','Comment'];
+const PROGRAMME_HEADER = ['Farm','Crop','Variety','Crop stage','Dates','Timing','Required fertilizer','Composition / type','Dosage','Unit','Method','Applied','Applied on','Pest / disease control','Pest UoM','Fungicides','Fungicide UoM','Stage progress','Comment'];
+/* ============================================================
+   Download the programme as it appears on screen
+   A CSV is a data file — it cannot carry the layout, the stage
+   colours or the logo. This writes a self-contained HTML document
+   instead: the same table, the same branding, opens in any browser
+   and prints straight to PDF.
+   ============================================================ */
+function logoDataUrl(src){
+  // Inlined so the saved file works with no network and no missing images.
+  return new Promise(resolve=>{
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = ()=>{
+      try{
+        const cv = document.createElement('canvas');
+        cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+        cv.getContext('2d').drawImage(img, 0, 0);
+        resolve(cv.toDataURL('image/png'));
+      }catch(e){ resolve(''); }         // tainted canvas on file:// — carry on without it
+    };
+    img.onerror = ()=> resolve('');
+    img.src = src;
+  });
+}
+
+function programmeDocumentCSS(){
+  return `
+    :root{--tipfa-green:#405E35;--harvest-orange:#E8A734;--field-cream:#EFEDE2;
+          --leaf-green:#7E9B3F;--deep-green:#2C4423;--soil-ink:#23281F;--line:#DFDCCB;}
+    *{box-sizing:border-box;}
+    body{margin:0;padding:28px;background:var(--field-cream);color:var(--soil-ink);
+         font-family:'Inter',-apple-system,Segoe UI,Roboto,sans-serif;font-size:13px;}
+    .sheet{max-width:1180px;margin:0 auto;background:#fff;border:1px solid var(--line);
+           border-radius:14px;padding:24px 26px;}
+    .head{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+    .head img{width:150px;height:auto;}
+    .title{font-family:'Poppins',Segoe UI,sans-serif;font-weight:700;font-size:14px;color:var(--deep-green);}
+    .sub{font-size:12px;color:#6E7466;margin-top:3px;}
+    .rule{height:3px;border-radius:2px;margin:12px 0 16px;
+          background:linear-gradient(90deg,var(--tipfa-green) 0 42%,var(--leaf-green) 42% 72%,var(--harvest-orange) 72% 100%);}
+    .scroll{overflow-x:auto;}
+    table{width:100%;border-collapse:collapse;font-size:11.5px;min-width:1060px;}
+    th{background:var(--deep-green);color:var(--field-cream);text-align:left;padding:9px 10px;
+       font-family:'Poppins',Segoe UI,sans-serif;font-size:9.5px;text-transform:uppercase;
+       letter-spacing:.14em;font-weight:600;white-space:nowrap;}
+    td{padding:8px 10px;border-bottom:1px solid #EAE7DA;vertical-align:top;}
+    td.stage{font-family:'Poppins',Segoe UI,sans-serif;font-weight:600;color:var(--deep-green);
+             background:#E9EDDD;border-left:4px solid var(--tipfa-green);}
+    tr.transplanting td{background:#F3F5EC;} tr.transplanting td.stage{border-left-color:var(--deep-green);}
+    tr.vegetative td{background:#F6F8EE;}    tr.vegetative td.stage{border-left-color:var(--leaf-green);}
+    tr.flowering td{background:#FBF6EA;}     tr.flowering td.stage{border-left-color:var(--harvest-orange);}
+    tr.harvesting td{background:#F2F5EA;}    tr.harvesting td.stage{border-left-color:var(--tipfa-green);}
+    tr.applied td{background:#EFF5E4;}
+    .tick{color:var(--leaf-green);font-weight:700;}
+    .muted{color:#6E7466;}
+    .week{color:#6E7466;font-size:10.5px;}
+    .comment{font-size:10.5px;color:#6E7466;width:200px;}
+    .foot{margin-top:12px;padding-top:10px;border-top:1px solid #EAE7DA;font-size:11px;color:#6E7466;
+          font-family:'Poppins',Segoe UI,sans-serif;}
+    .tally{margin-top:20px;}
+    .tally h2{font-family:'Poppins',Segoe UI,sans-serif;font-size:11px;text-transform:uppercase;
+              letter-spacing:.18em;color:var(--tipfa-green);margin:0 0 10px;}
+    .tally-row{display:flex;justify-content:space-between;gap:12px;padding:7px 10px;border-radius:8px;
+               background:#FAFAF4;margin-bottom:5px;font-size:12px;}
+    .tally-row.done{background:#F1F6E8;}
+    .tally-row b{font-family:'Poppins',Segoe UI,sans-serif;color:var(--deep-green);}
+    @media print{ body{background:#fff;padding:0;} .sheet{border:none;border-radius:0;}
+                  @page{size:A4 landscape;margin:12mm;} table{min-width:0;}
+                  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
+  `;
+}
+
+function programmeDocumentBody(m, cr, logo, farmLogoUrl){
+  const timing = stageWindows(cr);
+  const p = ensureProgramme(cr);
+  let fertCount = 0, body = '';
+  CROP_STAGES.forEach(stage=>{
+    const ferts = p[stage]['Fertilizers'] || [];
+    const prot = protectionLines(cr, stage), fung = fungicideLines(cr, stage);
+    const span = Math.max(ferts.length, 1);
+    fertCount += ferts.length;
+    const cell = list => list.length
+      ? list.map(x=>`${x.done?'<span class="tick">\u2713</span> ':''}${esc(x.text)}`).join('<br>')
+      : '<span class="muted">None recorded</span>';
+    const uom = list => list.length ? list.map(x=>esc(x.uom)).join('<br>') : '\u2014';
+    (ferts.length ? ferts : [null]).forEach((f,i)=>{
+      body += `<tr class="${stage.toLowerCase()}${f && f.done ? ' applied' : ''}">`;
+      if(i===0){
+        body += `<td rowspan="${span}" class="stage">${esc(stage)}</td>`;
+        body += `<td rowspan="${span}">${esc(timing[stage].dates||'\u2014')}<br><span class="week">${esc(timing[stage].label)}</span></td>`;
+      }
+      body += f
+        ? `<td>${f.done?'<span class="tick">\u2713</span> ':''}${esc(f.product)}</td><td>${esc(f.composition||'\u2014')}</td>
+           <td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
+        : `<td colspan="4" class="muted">No fertilizer recorded for this stage</td>`;
+      if(i===0){
+        body += `<td rowspan="${span}">${cell(prot)}</td><td rowspan="${span}">${uom(prot)}</td>`;
+        body += `<td rowspan="${span}">${cell(fung)}</td><td rowspan="${span}">${uom(fung)}</td>`;
+        body += `<td rowspan="${span}" class="comment">${esc(stageComment(cr, stage))}</td>`;
+      }
+      body += '</tr>';
+    });
+  });
+
+  const tally = CROP_STAGES.map(stage=>{
+    const pr = stageProgress(cr, stage);
+    const status = !pr.total ? 'Nothing listed' : pr.complete ? 'Accomplished'
+                 : pr.done ? 'In progress' : 'Not started';
+    return `<div class="tally-row ${pr.complete?'done':''}"><b>${esc(stage)}</b>
+      <span>${pr.done} of ${pr.total} applied &middot; ${status}</span></div>`;
+  }).join('');
+
+  return `<div class="sheet">
+    <div class="head">
+      ${logo ? `<img src="${logo}" alt="TIPFA">` : `<div class="title">TIPFA</div>`}
+      <div style="flex:1;min-width:220px;">
+        <div class="title">${esc(m.name).toUpperCase()} &mdash; FERTILIZER &amp; CROP PROTECTION PROGRAM, BY CROP STAGE</div>
+        <div class="sub">${esc(cr.crop)}${cr.variety?` &middot; ${esc(cr.variety)}`:''}${cr.seedCompany?` &middot; seed from ${esc(cr.seedCompany)}`:''}${cr.area?` &middot; ${esc(areaText(cr.area, cr.areaUnit,'ha'))}`:''}</div>
+        <div class="sub">Transplanted ${esc(cr.planted||'\u2014')} &middot; expected harvest ${esc(cr.expected||'\u2014')}</div>
+      </div>
+      ${farmLogoUrl ? `<img src="${farmLogoUrl}" alt="${esc(m.name)}" style="width:64px;height:64px;object-fit:contain;">` : ''}
+    </div>
+    <div class="rule"></div>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th>Crop stage</th><th>Timing</th><th>Required fertilizer</th><th>Composition / type</th>
+        <th>Dosage</th><th>Method</th><th>Pest / disease control</th><th>Pest UoM</th>
+        <th>Fungicides</th><th>Fungicide UoM</th><th>Comment</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table></div>
+    <div class="foot">${esc(cr.crop)} &mdash; stage count: ${CROP_STAGES.length} &nbsp;|&nbsp; total fertilizer line items: ${fertCount}
+      &nbsp;|&nbsp; generated ${todayStr()}</div>
+    <div class="tally"><h2>Stage completion</h2>${tally}</div>
+  </div>`;
+}
+
+async function exportProgrammeDocument(i){
+  const m = MEMBERS[state.member], cr = m.crops[i];
+  const logo = await logoDataUrl('assets/brand/tipfa-logo-primary.png');
+  const farmSrc = farmLogoSrc(m);
+  const farmUrl = farmSrc && farmSrc.indexOf('data:') === 0 ? farmSrc : await logoDataUrl(farmSrc);
+  const doc = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>${esc(m.name)} — ${esc(cr.crop)} programme</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>${programmeDocumentCSS()}</style></head>
+<body>${programmeDocumentBody(m, cr, logo, farmUrl)}</body></html>`;
+  const blob = new Blob([doc], {type:'text/html'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${m.name.replace(/\s+/g,'_')}_${String(cr.crop).replace(/\s+/g,'_')}_programme.html`;
+  a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  logAction(`${m.name} downloaded the ${cr.crop} programme as a document.`);
+}
+
 function exportProgramme(i){
   const m = MEMBERS[state.member], cr = m.crops[i];
   downloadCSV(`${m.name.replace(/\s+/g,'_')}_${String(cr.crop).replace(/\s+/g,'_')}_programme.csv`,
