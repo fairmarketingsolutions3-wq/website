@@ -794,7 +794,25 @@ const DEFAULT_ADMINS = [];
 const MAX_ADMINS = 5;
 // Shared code an operator must quote to create their own administrator account
 // from the sign-in screen. Set to '' to allow administrator sign-up without a code.
-const ADMIN_SIGNUP_CODE = 'TIPFA2026';
+/* Sign-up codes
+   Both farms and operators need a code from the Secretariat to create an
+   account. The codes are settings an operator can change from Governance,
+   not constants compiled into the page, and they are never printed on the
+   public sign-in screen — printing them would defeat the gate. */
+const SETTINGS_STORE_KEY = 'tipfa.settings.v1';
+const DEFAULT_SETTINGS = { adminCode:'TIPFA2026', farmCode:'TIPFAFARM2026' };
+let SETTINGS = Object.assign({}, DEFAULT_SETTINGS);
+function loadSettings(){
+  try{
+    const raw = localStorage.getItem(SETTINGS_STORE_KEY);
+    if(raw){ SETTINGS = Object.assign({}, DEFAULT_SETTINGS, JSON.parse(raw)); }
+  }catch(e){ /* unreadable — keep the defaults */ }
+}
+function saveSettings(){
+  try{ localStorage.setItem(SETTINGS_STORE_KEY, JSON.stringify(SETTINGS)); }catch(e){ /* not persisted */ }
+}
+function adminCode(){ return SETTINGS.adminCode || ''; }
+function farmCode(){ return SETTINGS.farmCode || ''; }
 const ADMIN_STORE_KEY = 'tipfa.admins.v1';
 const MEMBER_STORE_KEY = 'tipfa.members.v1';
 
@@ -1348,7 +1366,7 @@ function submitAdminSignup(){
   if(!name || !user || !pass){
     flagError(err, 'Enter your full name, the operator ID you want, and a password.'); return;
   }
-  if(ADMIN_SIGNUP_CODE && (codeEl.value.trim() !== ADMIN_SIGNUP_CODE)){
+  if(adminCode() && (!codeEl || codeEl.value.trim() !== adminCode())){
     flagError(err, 'That Secretariat sign-up code is not correct.'); return;
   }
   if(pass.length < 6){
@@ -1377,6 +1395,12 @@ function submitSelfRegistration(){
   const vals = readProfileFields('reg');
   const pass = document.getElementById('reg-password').value;
   const pass2 = document.getElementById('reg-password2').value;
+  const codeEl = document.getElementById('reg-code');
+  if(farmCode() && (!codeEl || codeEl.value.trim() !== farmCode())){
+    flagError(document.getElementById('reg-error'),
+      'That membership code is not correct. The Secretariat issues it — call 0744 443 247 if you do not have one.');
+    return;
+  }
   if(!vals.name || !vals.contact || !vals.phone){
     flagError(document.getElementById('reg-error'), 'Farm name, contact person, and phone number are required.');
     return;
@@ -1453,7 +1477,7 @@ function submitAdminReset(){
   const pass  = document.getElementById('fp-pass').value;
   const pass2 = document.getElementById('fp-pass2').value;
   if(!user){ flagError(err, 'Enter your operator ID.'); return; }
-  if(ADMIN_SIGNUP_CODE && code !== ADMIN_SIGNUP_CODE){ flagError(err, 'That Secretariat code is not correct.'); return; }
+  if(adminCode() && code !== adminCode()){ flagError(err, 'That Secretariat code is not correct.'); return; }
   if(!pass || pass.length < 6){ flagError(err, 'Choose a new password of at least 6 characters.'); return; }
   if(pass !== pass2){ flagError(err, 'The two passwords do not match.'); return; }
   const match = ADMINS.find(a=>{ const u = norm(a.username); return u===user || u.split('@')[0]===user; });
@@ -1487,10 +1511,10 @@ function memberResetForm(){
 function adminResetForm(){
   return `
     <div class="card">
-      <p class="helper" style="margin:0 0 12px;">Confirm your operator ID${ADMIN_SIGNUP_CODE ? ' and the Secretariat code' : ''}, then set a new password.</p>
+      <p class="helper" style="margin:0 0 12px;">Confirm your operator ID${adminCode() ? ' and the Secretariat code' : ''}, then set a new password.</p>
       <label class="f">Operator ID / email</label>
       <input id="fp-user" placeholder="e.g. amina.hassan@tipfa.co.tz">
-      ${ADMIN_SIGNUP_CODE ? `<label class="f">Secretariat code</label><input id="fp-code" placeholder="Code issued by TIPFA">` : ''}
+      ${adminCode() ? `<label class="f">Secretariat code</label><input id="fp-code" placeholder="Code issued by TIPFA">` : ''}
       <label class="f">New password</label>${pwdField('fp-pass','At least 6 characters')}
       <label class="f">Confirm new password</label>${pwdField('fp-pass2','Re-enter new password')}
       <button class="btn gold" style="width:100%;margin-top:6px;" onclick="submitAdminReset()">Set new password</button>
@@ -1551,11 +1575,13 @@ function renderLogin(){
           ${profileFormFields('reg', {}, {showCategory:false})}
           <label class="f">Set a password</label>${pwdField('reg-password','At least 4 characters')}
           <label class="f">Confirm password</label>${pwdField('reg-password2','Re-enter password')}
+          ${farmCode() ? `<label class="f">Membership code from the Secretariat</label>
+          <input id="reg-code" placeholder="Code issued by TIPFA">` : ''}
           <button class="btn" style="width:100%;" onclick="submitSelfRegistration()">Submit registration</button>
           <p class="helper" id="reg-error" style="color:var(--red);margin-top:8px;"></p>
         </div>
         <p class="login-note"><a href="#" onclick="toggleRegister(false);return false;">&larr; Back to sign-in</a></p>
-        <p class="login-note">Your registration is reviewed by the TIPFA Secretariat before your account is activated.</p>
+        <p class="login-note">Registration needs a membership code from the Secretariat — contact them on 0744 443 247 or tipfatz@gmail.com to be issued one. Your registration is then reviewed before your membership is approved.</p>
         ` : `
         ${state.regSuccess ? `<div class="msg-banner">${CHECK_ICON} Registration submitted — the Secretariat will review and approve your account.</div>` : ''}
         ${state.forgotMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.forgotMsg)}</div>` : ''}
@@ -1583,14 +1609,14 @@ function renderLogin(){
           </div>
           <label class="f">Choose a password</label>${pwdField('asignup-pass','At least 6 characters')}
           <label class="f">Confirm password</label>${pwdField('asignup-pass2','Re-enter password')}
-          ${ADMIN_SIGNUP_CODE ? `<label class="f">Secretariat sign-up code</label>
+          ${adminCode() ? `<label class="f">Secretariat sign-up code</label>
           <input id="asignup-code" placeholder="Code issued by TIPFA">` : ''}
           <button class="btn gold" style="width:100%;margin-top:6px;" onclick="submitAdminSignup()">Create administrator account</button>
           <p class="helper" id="asignup-error" style="color:var(--red);margin-top:8px;"></p>
         </div>
         <p class="login-note"><a href="#" onclick="toggleAdminSignup(false);return false;">&larr; Back to administrator sign-in</a></p>
         <p class="login-note">${ADMINS.length}/${MAX_ADMINS} administrator seats in use. Your account works immediately and is saved in this browser.</p>
-        ${ADMIN_SIGNUP_CODE ? `<div class="demo-note">Sign-up code for this prototype: <strong>${ADMIN_SIGNUP_CODE}</strong></div>` : ''}
+        <div class="demo-note">The Secretariat issues this code. If you have not been given one, contact them on 0744 443 247.</div>
         ` : `
         ${state.adminSignupMsg ? `<div class="msg-banner">${CHECK_ICON} ${state.adminSignupMsg}</div>` : ''}
         ${state.forgotMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.forgotMsg)}</div>` : ''}
@@ -4350,6 +4376,7 @@ function buildBackup(){
     takenAt: new Date().toISOString(),
     takenBy: state.adminName || 'operator',
     counts: { farms:Object.keys(MEMBERS).length, operators:ADMINS.length },
+    settings: SETTINGS,
     members: MEMBERS,
     harvest: harvest,
     inputs: inputsData,
@@ -4396,6 +4423,7 @@ function restoreBackup(input){
       complaints = Array.isArray(d.complaints) ? d.complaints : [];
       nextComplaintId = d.nextComplaintId || (complaints.length + 1);
       if(Array.isArray(d.admins) && d.admins.length) ADMINS = d.admins;
+      if(d.settings) { SETTINGS = Object.assign({}, DEFAULT_SETTINGS, d.settings); saveSettings(); }
       addedFarms = Object.keys(MEMBERS).length;
     } else {
       // Merge: a farm already here wins, so nothing recorded on this device
@@ -4436,6 +4464,51 @@ function restoreBackup(input){
     render();
   };
   reader.readAsText(file);
+}
+
+/* Operators hold the codes and hand them out, so they need to see and
+   change them without editing the page. */
+function setSignupCode(which){
+  const el = document.getElementById(which === 'farm' ? 'code-farm' : 'code-admin');
+  const value = el.value.trim();
+  const msg = document.getElementById('code-msg');
+  if(!value){
+    if(msg){ msg.textContent = 'A code cannot be blank — that would let anyone create an account.'; msg.style.color = 'var(--red)'; }
+    return;
+  }
+  if(which === 'farm') SETTINGS.farmCode = value; else SETTINGS.adminCode = value;
+  saveSettings();
+  logAction(`Operator ${state.adminName||''} changed the ${which === 'farm' ? 'farm membership' : 'operator'} sign-up code.`);
+  render();
+}
+
+function codesPanel(){
+  return `
+    <div class="section-label">Sign-up codes</div>
+    <div class="card">
+      <p class="helper" style="margin:0 0 12px;">Nobody can create an account without one of these. Give the membership code
+        to farms you have accepted, and the operator code only to Secretariat staff. Neither is shown anywhere on the public
+        sign-in screen — change one and anyone still holding the old code is locked out.</p>
+      ${SETTINGS.adminCode === DEFAULT_SETTINGS.adminCode || SETTINGS.farmCode === DEFAULT_SETTINGS.farmCode ? `
+      <div class="msg-banner" style="background:#FBEECC;border-left-color:var(--harvest-orange);color:#8A6412;">
+        Change both codes now. Until the platform runs against a server, the starting codes are part of the page itself, so
+        anyone who views its source can read them. A code you set here is stored on this device only and is not in the page.
+      </div>` : ''}
+      <div class="grid2">
+        <div>
+          <label class="f">Farm membership code</label>
+          <input id="code-farm" value="${esc(farmCode())}">
+          <button class="btn small" onclick="setSignupCode('farm')">Update membership code</button>
+        </div>
+        <div>
+          <label class="f">Operator sign-up code</label>
+          <input id="code-admin" value="${esc(adminCode())}">
+          <button class="btn small gold" onclick="setSignupCode('admin')">Update operator code</button>
+        </div>
+      </div>
+      <p class="helper" id="code-msg" style="margin-top:8px;"></p>
+      <p class="helper">Keep the two different. A farm holding the operator code could create itself an administrator account.</p>
+    </div>`;
 }
 
 function backupPanel(){
@@ -4485,8 +4558,9 @@ function renderGovernance(c){
         <button class="btn small" style="margin-top:6px;" onclick="addAdmin()">Add administrator</button>
         <p class="helper" id="newadmin-error" style="color:var(--red);margin-top:8px;"></p>
       ` : `<p class="helper" style="color:var(--soil);margin-top:10px;">Maximum of ${MAX_ADMINS} administrator accounts reached. Remove one above to free a seat.</p>`}
-      <p class="helper" style="margin-top:12px;">Operators can also create their own account from the Administrator tab of the sign-in screen${ADMIN_SIGNUP_CODE ? ` by quoting the Secretariat sign-up code (<strong>${ADMIN_SIGNUP_CODE}</strong>)` : ''}. Self sign-ups appear in this list and are recorded in the audit log below.</p>
+      <p class="helper" style="margin-top:12px;">Operators create their own account from the Administrator tab of the sign-in screen by quoting the operator sign-up code below. Self sign-ups appear in this list and are recorded in the audit log.</p>
     </div>
+    ${codesPanel()}
     ${backupPanel()}
     <div class="section-label">Audit log</div>
     <div class="card">${auditLog.slice(0,12).map((l,i)=>
@@ -4524,6 +4598,7 @@ function removeAdmin(i){
   render();
 }
 
+loadSettings();
 loadMembers();
 render();
 </script>
