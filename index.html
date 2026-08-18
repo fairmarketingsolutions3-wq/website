@@ -506,9 +506,62 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
   .stage-rail{grid-template-columns:1fr 1fr;}
 }
 
+
+/* ---------- Stage completion tally ---------- */
+.stage-step .ss-meta.ss-tally{font-size:10px;font-weight:600;color:var(--tipfa-green);opacity:1;margin-top:2px;}
+.stage-step.is-done{border-color:var(--leaf-green);background:#F7FAF1;}
+.stage-step.is-done .ss-num{background:var(--leaf-green);color:#fff;}
+.stage-step.is-done .ss-num svg{width:14px;height:14px;}
+tr.row-done td{background:#F2F7EA !important;}
+tr.row-done td:nth-child(2){font-weight:500;}
+input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);cursor:pointer;padding:0;}
+.added-flash{
+  display:inline-flex;align-items:center;gap:5px;color:var(--tipfa-green);font-weight:600;
+  animation:bannerIn var(--dur-3) var(--ease-spring) both;
+}
+.added-flash svg{width:13px;height:13px;}
+.pg-tick{color:var(--leaf-green);font-weight:700;}
+
+.tally-summary{display:flex;gap:26px;flex-wrap:wrap;margin-bottom:12px;}
+.tally-summary .tsum-num{
+  display:block;font-family:'Poppins',sans-serif;font-weight:700;font-size:23px;color:var(--deep-green);letter-spacing:-.02em;
+}
+.tally-summary .tsum-lbl{
+  display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.16em;color:var(--muted);font-weight:600;
+  font-family:'Poppins',sans-serif;margin-top:2px;
+}
+.tally-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.tally-stage{
+  border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 15px;background:#FCFCF7;
+  transition:border-color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out);
+}
+.tally-stage.is-complete{border-color:var(--leaf-green);background:#F6FAF0;}
+.ts-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:9px;}
+.ts-name{display:block;font-family:'Poppins',sans-serif;font-weight:600;font-size:13.5px;color:var(--deep-green);}
+.ts-count{display:block;font-size:11px;color:var(--muted);margin-top:1px;}
+.ts-bar{height:7px;background:#E4E2D4;border-radius:99px;overflow:hidden;margin-bottom:11px;}
+.ts-fill{
+  height:100%;background:var(--leaf-green);border-radius:99px;transform-origin:left center;
+  transition:width var(--dur-3) var(--ease-out);
+}
+.tally-stage.is-complete .ts-fill{background:var(--tipfa-green);}
+.ts-items{display:flex;flex-direction:column;gap:2px;margin-bottom:10px;}
+.ts-item{
+  display:flex;align-items:flex-start;gap:9px;padding:6px 7px;border-radius:8px;cursor:pointer;
+  transition:background var(--dur-1) var(--ease-out);
+}
+.ts-item:hover{background:#F1F2E7;}
+.ts-item input{width:16px;height:16px;margin:1px 0 0;accent-color:var(--tipfa-green);flex:none;padding:0;cursor:pointer;}
+.ts-item .ti-name{display:block;font-size:12.5px;color:var(--ink);}
+.ts-item .ti-meta{display:block;font-size:10.5px;color:var(--muted);margin-top:1px;}
+.ts-item.done .ti-name{text-decoration:line-through;color:var(--muted);}
+.ts-actions{display:flex;gap:7px;flex-wrap:wrap;}
+@media (max-width:760px){ .tally-grid{grid-template-columns:1fr;} }
+
 /* ---------- Print ---------- */
 @media print{
   .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"], .arcfield, .curtain{ display:none !important; }
+  .ts-actions{ display:none !important; }
   .app{ max-width:100%; }
   .content{ padding:0; }
   .card{ break-inside:avoid; border:1px solid #999; box-shadow:none; }
@@ -960,7 +1013,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -1534,6 +1587,22 @@ function render(){
 }
 
 // Entrance motion for whatever the active tab just rendered.
+/* A re-render rebuilds the whole tab, which otherwise throws the reader to a
+   different scroll position. Adding one item to a long form should leave the
+   page exactly where it was, with the cursor ready for the next entry. */
+function renderKeepingPlace(focusId){
+  const y = window.scrollY;
+  render();
+  if(focusId){
+    const el = document.getElementById(focusId);
+    if(el) el.focus({preventScroll:true});
+  }
+  // Restore after focusing, and once more on the next frame, so neither the
+  // focus call nor the entrance animations can shift the page.
+  window.scrollTo(0, y);
+  requestAnimationFrame(()=> window.scrollTo(0, y));
+}
+
 function afterRender(c){
   c.classList.remove('is-swapping');
   void c.offsetWidth;
@@ -1910,11 +1979,13 @@ function renderCropCalendar(c){
     <div class="section-label">Programme by stage</div>
     <div class="stage-rail">${CROP_STAGES.map((st,i)=>{
       const n = stageEntryCount(cr, st);
-      return `<button class="stage-step ${state.calStage===st?'active':''} ${cr.stage===st?'is-current':''}" onclick="selectCalStage('${st}')">
-        <span class="ss-num">${i+1}</span>
+      const pr = stageProgress(cr, st);
+      return `<button class="stage-step ${state.calStage===st?'active':''} ${cr.stage===st?'is-current':''} ${pr.complete?'is-done':''}" onclick="selectCalStage('${st}')">
+        <span class="ss-num">${pr.complete ? CHECK_ICON : (i+1)}</span>
         <span class="ss-body"><span class="ss-name">${st}</span>
           <span class="ss-meta">${timing[st].dates ? esc(timing[st].dates) : 'Dates not set'}</span>
-          <span class="ss-meta ss-week">${esc(timing[st].label)} &middot; ${n} item${n===1?'':'s'}</span></span>
+          <span class="ss-meta ss-week">${esc(timing[st].label)}</span>
+          <span class="ss-meta ss-tally">${n ? `${pr.done}/${n} applied` : 'no products yet'}</span></span>
       </button>`;
     }).join('')}</div>
 
@@ -1925,15 +1996,101 @@ function renderCropCalendar(c){
       ${INPUT_CATEGORIES.map(cat=> categoryBlock(cr, state.calStage, cat)).join('')}
     </div>
 
-    ${generatedProgramme(m, cr, timing)}`;
+    ${generatedProgramme(m, cr, timing)}
+    ${completionPanel(cr)}`;
+}
+
+/* ---- Stage completion -------------------------------------------
+   Every product recorded against a stage can be ticked off once it has
+   actually been applied. A stage counts as accomplished when every
+   product listed for it has been ticked. */
+function stageItems(cr, stage){
+  const p = ensureProgramme(cr), out = [];
+  CATEGORY_KEYS.forEach(k => (p[stage][k]||[]).forEach((r, i) => out.push({cat:k, i, entry:r})));
+  return out;
+}
+function stageProgress(cr, stage){
+  const items = stageItems(cr, stage);
+  const done = items.filter(x => x.entry.done).length;
+  return {done, total: items.length, complete: items.length > 0 && done === items.length};
+}
+function toggleApplied(stage, catKey, i, checked){
+  const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
+  const entry = ensureProgramme(cr)[stage][catKey][i];
+  if(!entry) return;
+  entry.done = !!checked;
+  entry.doneOn = checked ? todayStr() : '';
+  const p = stageProgress(cr, stage);
+  logAction(`${m.name} marked "${entry.product}" as ${checked?'applied':'not applied'} for ${cr.crop} at ${stage}${p.complete?' — stage complete':''}.`);
+  renderKeepingPlace();
+}
+function setStageApplied(stage, value){
+  const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
+  const items = stageItems(cr, stage);
+  if(!items.length) return;
+  items.forEach(x=>{ x.entry.done = value; x.entry.doneOn = value ? todayStr() : ''; });
+  logAction(`${m.name} marked the whole ${stage} stage as ${value?'applied':'not applied'} for ${cr.crop}.`);
+  renderKeepingPlace();
+}
+
+// The tally panel that sits under the generated programme.
+function completionPanel(cr){
+  const rows = CROP_STAGES.map(stage=>{
+    const prog = stageProgress(cr, stage);
+    const items = stageItems(cr, stage);
+    const pctDone = prog.total ? Math.round(prog.done / prog.total * 100) : 0;
+    const status = !prog.total ? '<span class="status-pill status-open">Nothing listed</span>'
+                 : prog.complete ? '<span class="status-pill status-resolved">Accomplished</span>'
+                 : prog.done ? '<span class="status-pill status-progress">In progress</span>'
+                 : '<span class="status-pill status-pending">Not started</span>';
+    return `<div class="tally-stage ${prog.complete?'is-complete':''}">
+      <div class="ts-head">
+        <div>
+          <span class="ts-name">${esc(stage)}</span>
+          <span class="ts-count">${prog.done} of ${prog.total} applied</span>
+        </div>
+        ${status}
+      </div>
+      <div class="ts-bar"><div class="ts-fill" style="width:${pctDone}%"></div></div>
+      ${items.length ? `<div class="ts-items">${items.map(x=>`
+        <label class="ts-item ${x.entry.done?'done':''}">
+          <input type="checkbox" ${x.entry.done?'checked':''}
+                 onchange="toggleApplied('${esc(stage)}','${x.cat}',${x.i},this.checked)">
+          <span class="ti-body">
+            <span class="ti-name">${esc(x.entry.product)}</span>
+            <span class="ti-meta">${esc(x.cat)}${x.entry.dose?` &middot; ${esc(x.entry.dose)} ${esc(x.entry.unit||'')}`:''}${x.entry.doneOn?` &middot; applied ${esc(x.entry.doneOn)}`:''}</span>
+          </span>
+        </label>`).join('')}</div>
+        <div class="ts-actions">
+          <button class="btn small ghost" onclick="setStageApplied('${esc(stage)}', true)">Mark all applied</button>
+          ${prog.done ? `<button class="btn small ghost" onclick="setStageApplied('${esc(stage)}', false)">Clear</button>` : ''}
+        </div>`
+      : `<p class="helper" style="margin:6px 0 0;">No products listed for this stage yet — add them above and they appear here to tick off.</p>`}
+    </div>`;
+  }).join('');
+
+  const all = CROP_STAGES.map(st=> stageProgress(cr, st));
+  const listed = all.reduce((t,x)=>t+x.total,0);
+  const applied = all.reduce((t,x)=>t+x.done,0);
+  const stagesDone = all.filter(x=>x.complete).length;
+  return `
+    <div class="section-label">Stage completion — ${esc(cr.crop)}</div>
+    <div class="card">
+      <div class="tally-summary">
+        <div><span class="tsum-num">${stagesDone}/${CROP_STAGES.length}</span><span class="tsum-lbl">Stages accomplished</span></div>
+        <div><span class="tsum-num">${applied}/${listed}</span><span class="tsum-lbl">Products applied</span></div>
+      </div>
+      <p class="helper" style="margin:0 0 14px;">Tick each product as you apply it. A stage counts as accomplished once every product listed for it has been used.</p>
+      <div class="tally-grid">${rows}</div>
+    </div>`;
 }
 
 function stageEntryCount(cr, stage){
   const p = ensureProgramme(cr);
   return CATEGORY_KEYS.reduce((t,k)=> t + (p[stage][k]||[]).length, 0);
 }
-function selectCalCrop(i){ state.calCrop = i; render(); }
-function selectCalStage(st){ state.calStage = st; render(); }
+function selectCalCrop(i){ state.calCrop = i; state.justAdded = null; render(); }
+function selectCalStage(st){ state.calStage = st; state.justAdded = null; render(); }
 
 // One category of inputs for the selected crop and stage.
 function categoryBlock(cr, stage, cat){
@@ -1947,20 +2104,24 @@ function categoryBlock(cr, stage, cat){
       </div>
       <table class="grid-table">
         <thead><tr>
+          <th style="width:74px;">Applied</th>
           <th>Product</th>
           <th>${cat.targets ? 'Target pest / disease' : 'Composition / type'}</th>
           <th style="width:110px;">Dosage</th>
           <th style="width:150px;">Method</th>
           <th style="width:78px;"></th>
         </tr></thead>
-        <tbody>${rows.length ? rows.map((r,ri)=>`<tr>
+        <tbody>${rows.length ? rows.map((r,ri)=>`<tr class="${r.done?'row-done':''}">
+            <td><input type="checkbox" class="tick" ${r.done?'checked':''}
+                 onchange="toggleApplied('${esc(stage)}','${cat.key}',${ri},this.checked)"
+                 aria-label="Mark ${esc(r.product)} as applied"></td>
             <td>${esc(r.product)}</td>
             <td>${esc((cat.targets ? r.target : r.composition) || '—')}</td>
             <td>${esc(r.dose||'—')} ${esc(r.unit||'')}</td>
             <td>${esc(r.method||'—')}</td>
             <td><button class="btn small ghost" onclick="removeInput('${cat.key}', ${ri})">Remove</button></td>
           </tr>`).join('')
-          : `<tr><td colspan="5" style="color:var(--muted);">Nothing recorded for this stage yet.</td></tr>`}
+          : `<tr><td colspan="6" style="color:var(--muted);">Nothing recorded for this stage yet. Add as many products as you use — they build up in this list.</td></tr>`}
         </tbody>
       </table>
       <div class="grid2" style="margin-top:12px;">
@@ -1973,6 +2134,7 @@ function categoryBlock(cr, stage, cat){
       </div>
       ${productSuggestions(cat.key)}
       <button class="btn small" onclick="addInput('${cat.key}')">+ Add ${cat.label.replace(/s$/,'').toLowerCase()}</button>
+      <span class="helper" style="margin-left:10px;">${state.justAdded===cat.key ? `<span class="added-flash">${CHECK_ICON} Added — enter the next one</span>` : 'Add as many as you use at this stage.'}</span>
     </div>`;
 }
 
@@ -2006,13 +2168,14 @@ function addInput(catKey){
   if(cat.targets) entry.target = detail; else entry.composition = detail;
   ensureProgramme(cr)[state.calStage][catKey].push(entry);
   logAction(`${m.name} recorded ${catKey.replace(/s$/,'').toLowerCase()} "${product}" for ${cr.crop} at ${state.calStage}.`);
-  render();
+  state.justAdded = catKey;
+  renderKeepingPlace(p+'-product');
 }
 function removeInput(catKey, i){
   const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
   const removed = ensureProgramme(cr)[state.calStage][catKey].splice(i,1)[0];
   logAction(`${m.name} removed ${catKey.replace(/s$/,'').toLowerCase()} "${removed && removed.product}" from ${cr.crop} at ${state.calStage}.`);
-  render();
+  renderKeepingPlace();
 }
 
 /* ============================================================
@@ -2026,7 +2189,8 @@ function protectionLines(cr, stage){
   ['Pesticides','Insecticides','Fungicides'].forEach(k=>
     (p[stage][k]||[]).forEach(r=> out.push({
       text: (r.target ? r.target + ' \u2192 ' : '') + r.product,
-      uom: r.dose ? `${r.dose} ${r.unit||''}`.trim() : '\u2014'
+      uom: r.dose ? `${r.dose} ${r.unit||''}`.trim() : '\u2014',
+      done: !!r.done
     })));
   return out;
 }
@@ -2039,7 +2203,7 @@ function generatedProgramme(m, cr, timing){
     const span  = Math.max(ferts.length, 1);
     fertCount += ferts.length;
     const protCell = prot.length
-      ? prot.map(x=>esc(x.text)).join('<br>')
+      ? prot.map(x=>`${x.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(x.text)}`).join('<br>')
       : '<span style="color:var(--muted);">None recorded</span>';
     const uomCell = prot.length ? prot.map(x=>esc(x.uom)).join('<br>') : '\u2014';
     const rows = ferts.length ? ferts : [null];
@@ -2050,7 +2214,7 @@ function generatedProgramme(m, cr, timing){
         body += `<td rowspan="${span}">${esc(timing[stage].dates || '\u2014')}${timing[stage].dates ? `<br><span style="color:var(--muted);font-size:11px;">${esc(timing[stage].label)}</span>` : ''}</td>`;
       }
       body += f
-        ? `<td>${esc(f.product)}</td><td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
+        ? `<td>${f.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(f.product)}</td><td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
         : `<td colspan="4" style="color:var(--muted);">No fertilizer recorded for this stage</td>`;
       if(i===0){
         body += `<td rowspan="${span}">${protCell}</td>`;
@@ -2090,7 +2254,8 @@ function programmeRows(m, cr){
   CROP_STAGES.forEach(stage=>{
     const ferts = p[stage]['Fertilizers'] || [];
     const prot  = protectionLines(cr, stage);
-    const protText = prot.map(x=>x.text).join(' | ') || '';
+    const prog  = stageProgress(cr, stage);
+    const protText = prot.map(x=> (x.done?'[applied] ':'') + x.text).join(' | ') || '';
     const protUom  = prot.map(x=>x.uom).join(' | ') || '';
     if(!ferts.length && !prot.length){
       rows.push([m.name, cr.crop, cr.variety||'', stage, timing[stage].dates||'', timing[stage].label||'', '', '', '', '', '', '', STAGE_NOTES[stage]||'']);
@@ -2100,14 +2265,16 @@ function programmeRows(m, cr){
       rows.push([
         m.name, cr.crop, cr.variety||'', stage, timing[stage].dates||'', timing[stage].label||'',
         f ? f.product : '', f ? (f.composition||'') : '', f ? (f.dose||'') : '', f ? (f.unit||'') : '', f ? (f.method||'') : '',
+        f ? (f.done ? 'Yes' : 'No') : '', f ? (f.doneOn||'') : '',
         i===0 ? protText : '', i===0 ? protUom : '',
+        i===0 ? `${prog.done} of ${prog.total} applied${prog.complete?' — accomplished':''}` : '',
         i===0 ? (STAGE_NOTES[stage]||'') : ''
       ]);
     });
   });
   return rows;
 }
-const PROGRAMME_HEADER = ['Farm','Crop','Variety','Crop stage','Dates','Timing','Required fertilizer','Composition / type','Dosage','Unit','Method','Pest / disease control','Pest UoM','Comment'];
+const PROGRAMME_HEADER = ['Farm','Crop','Variety','Crop stage','Dates','Timing','Required fertilizer','Composition / type','Dosage','Unit','Method','Applied','Applied on','Pest / disease control','Pest UoM','Stage progress','Comment'];
 function exportProgramme(i){
   const m = MEMBERS[state.member], cr = m.crops[i];
   downloadCSV(`${m.name.replace(/\s+/g,'_')}_${String(cr.crop).replace(/\s+/g,'_')}_programme.csv`,
