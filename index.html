@@ -252,6 +252,16 @@ input:focus, select:focus, textarea:focus{
 }
 input[type="file"]{padding:8px;background:#F6F5EE;}
 
+.unit-field{display:flex;gap:8px;align-items:stretch;}
+.unit-field input{flex:1;min-width:0;}
+.unit-field select{flex:none;width:96px;}
+
+tr.crop-edit td{background:#F4F6EA !important;padding:16px 18px;}
+tr.crop-edit .ce-head{
+  font-family:'Poppins',sans-serif;font-size:12.5px;color:var(--deep-green);margin-bottom:12px;
+}
+tr.crop-edit .grid2{margin-bottom:4px;}
+
 /* ---------- Buttons ---------- */
 .btn{
   padding:11px 20px;border:none;border-radius:999px;background:var(--role-accent);color:#fff;
@@ -461,6 +471,7 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
 .stage-step .ss-body{min-width:0;}
 .stage-step .ss-name{display:block;font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;color:var(--deep-green);}
 .stage-step .ss-meta{display:block;font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.35;}
+.stage-step .ss-meta.ss-week{font-size:10px;opacity:.8;margin-top:1px;}
 .stage-step.active{border-color:var(--tipfa-green);box-shadow:0 0 0 2px rgba(64,94,53,.14), var(--shadow-md);}
 .stage-step.active .ss-num{background:var(--tipfa-green);color:#fff;}
 .stage-step.is-current::after{
@@ -949,7 +960,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'' };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -1028,6 +1039,29 @@ function clearLogo(prefix){
   if(box) box.innerHTML = `<span class="farm-initials" style="display:block;">—</span>`;
 }
 
+/* Areas are a number plus a unit, so a farm can record 1.2 acres rather than
+   being forced into hectares. The unit travels with the value everywhere. */
+const LAND_UNITS = ['ha','acres'];
+const INDOOR_UNITS = ['m\u00b2','sq ft'];
+function areaText(value, unit, fallbackUnit){
+  const n = Number(value);
+  if(!n) return '\u2014';
+  return `${n} ${unit || fallbackUnit || 'ha'}`;
+}
+// A number input with its unit select attached.
+function unitField(id, value, unit, units, step){
+  return `<div class="unit-field">
+    <input id="${id}" type="number" step="${step||'0.01'}" value="${value||''}" placeholder="0">
+    <select id="${id}-unit" aria-label="Unit">
+      ${units.map(u=>`<option ${unit===u?'selected':''}>${u}</option>`).join('')}
+    </select>
+  </div>`;
+}
+function readUnit(id, units){
+  const el = document.getElementById(id+'-unit');
+  return el ? el.value : units[0];
+}
+
 function profileFormFields(prefix, v, opts){
   v = v || {}; opts = opts || {};
   const catField = opts.showCategory ? `<div><label class="f">Member category</label><select id="${prefix}-category">
@@ -1042,10 +1076,10 @@ function profileFormFields(prefix, v, opts){
     <div><label class="f">Email address</label><input id="${prefix}-email" value="${v.email||''}"></div>
     <div><label class="f">Farm location</label><input id="${prefix}-location" value="${v.location||''}"></div>
     ${catField}
-    <div><label class="f">Total farm area (ha)</label><input id="${prefix}-totalArea" type="number" step="0.1" value="${v.totalArea||''}"></div>
-    <div><label class="f">Indoor production (m²)</label><input id="${prefix}-indoorSqm" type="number" value="${v.indoorSqm||''}"></div>
+    <div><label class="f">Total farm area</label>${unitField(`${prefix}-totalArea`, v.totalArea, v.totalAreaUnit, LAND_UNITS, '0.01')}</div>
+    <div><label class="f">Indoor production area</label>${unitField(`${prefix}-indoorSqm`, v.indoorSqm, v.indoorSqmUnit, INDOOR_UNITS, '1')}</div>
     <div><label class="f">Number of indoor units</label><input id="${prefix}-indoorUnits" type="number" value="${v.indoorUnits||''}"></div>
-    <div><label class="f">Outdoor cultivated area (ha)</label><input id="${prefix}-outdoorArea" type="number" step="0.1" value="${v.outdoorArea||''}"></div>
+    <div><label class="f">Outdoor cultivated area</label>${unitField(`${prefix}-outdoorArea`, v.outdoorArea, v.outdoorAreaUnit, LAND_UNITS, '0.01')}</div>
     <div><label class="f">Irrigation system</label><input id="${prefix}-irrigation" value="${v.irrigation||''}"></div>
     <div><label class="f">Water source</label><input id="${prefix}-water" value="${v.water||''}"></div>
   </div>`;
@@ -1060,9 +1094,12 @@ function readProfileFields(prefix){
     location: document.getElementById(`${prefix}-location`).value.trim(),
     category: catEl ? catEl.value : undefined,
     totalArea: Number(document.getElementById(`${prefix}-totalArea`).value)||0,
+    totalAreaUnit: readUnit(`${prefix}-totalArea`, LAND_UNITS),
     indoorSqm: Number(document.getElementById(`${prefix}-indoorSqm`).value)||0,
+    indoorSqmUnit: readUnit(`${prefix}-indoorSqm`, INDOOR_UNITS),
     indoorUnits: Number(document.getElementById(`${prefix}-indoorUnits`).value)||0,
     outdoorArea: Number(document.getElementById(`${prefix}-outdoorArea`).value)||0,
+    outdoorAreaUnit: readUnit(`${prefix}-outdoorArea`, LAND_UNITS),
     irrigation: document.getElementById(`${prefix}-irrigation`).value.trim(),
     water: document.getElementById(`${prefix}-water`).value.trim(),
   };
@@ -1559,22 +1596,29 @@ function renderProfile(c){
     </div>
     <div class="section-label">Crop profile</div>
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area (ha)</th><th>Planted</th><th>Expected harvest</th><th></th></tr></thead>
-      <tbody>${m.crops.length ? m.crops.map((cr,i)=>`<tr><td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td><td>${cr.seedCompany ? esc(cr.seedCompany) : '<span style="color:var(--muted);">Not recorded</span>'}</td><td>${esc(cr.area)}</td><td>${esc(cr.planted)}</td><td>${esc(cr.expected)}</td><td><button class="btn small ghost" onclick="removeCrop(${i})">Remove</button></td></tr>`).join('') : '<tr><td colspan="7" style="color:var(--muted);">No crops recorded yet — add the crops you grow below.</td></tr>'}</tbody></table>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Transplanted</th><th>Expected harvest</th><th style="min-width:150px;"></th></tr></thead>
+      <tbody>${m.crops.length ? m.crops.map((cr,i)=> state.editCrop===i ? cropEditRow(cr,i) : `<tr>
+          <td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td>
+          <td>${cr.seedCompany ? esc(cr.seedCompany) : '<span style="color:var(--muted);">Not recorded</span>'}</td>
+          <td>${esc(areaText(cr.area, cr.areaUnit, 'ha'))}</td>
+          <td>${esc(cr.planted||'—')}</td><td>${esc(cr.expected||'—')}</td>
+          <td><button class="btn small ghost" onclick="editCrop(${i})">Edit</button>
+              <button class="btn small ghost" onclick="removeCrop(${i})">Remove</button></td></tr>`).join('')
+        : '<tr><td colspan="7" style="color:var(--muted);">No crops recorded yet — add the crops you grow below.</td></tr>'}</tbody></table>
       <div class="section-label" style="margin-top:16px;">Add a crop</div>
       <div class="grid2">
         <div><label class="f">Crop</label><input id="newcrop-crop" list="crop-suggestions" placeholder="Whatever you grow — type it in"></div>
         <div><label class="f">Variety</label><input id="newcrop-variety" placeholder="e.g. Anna F1"></div>
         <div><label class="f">Seed company</label><input id="newcrop-seed" list="seed-companies" placeholder="Who supplied the seed"></div>
-        <div><label class="f">Area covered (ha)</label><input id="newcrop-area" type="number" step="0.01"></div>
-        <div><label class="f">Planting date</label><input id="newcrop-planted" type="date"></div>
+        <div><label class="f">Area covered</label>${unitField('newcrop-area','', 'ha', LAND_UNITS, '0.01')}</div>
+        <div><label class="f">Transplanting date</label><input id="newcrop-planted" type="date"></div>
         <div><label class="f">Expected harvest date</label><input id="newcrop-expected" type="date"></div>
       </div>
       ${cropSuggestionList()}
       ${seedCompanyList()}
       <button class="btn small" onclick="addCrop()">+ Add crop</button>
       <p class="helper" id="crop-msg" style="margin-top:8px;"></p>
-      <p class="helper">Your crop names are your own — they carry through to your harvest plan, actual harvest and market prices.</p>
+      <p class="helper">Your crop names are your own — they carry through to your harvest plan, actual harvest and market prices. The transplanting and expected harvest dates set the start and end of this crop's calendar.</p>
     </div>
     ${seedCompanyPanel(m)}`;
 }
@@ -1651,22 +1695,101 @@ function saveProfile(){
   render();
 }
 
+/* ---- Editing a saved crop -------------------------------------
+   A crop's name is the key its harvest figures are stored under, so a
+   rename carries those figures across rather than orphaning them. */
+function editCrop(i){ state.editCrop = i; render(); }
+function cancelEditCrop(){ state.editCrop = null; render(); }
+
+function cropEditRow(cr, i){
+  // A full-width editing panel: seven columns of inputs is unreadable.
+  return `<tr class="crop-edit"><td colspan="7">
+    <div class="ce-head">Editing <strong>${esc(cr.crop)}</strong>${cr.variety?` — ${esc(cr.variety)}`:''}</div>
+    <div class="grid2">
+      <div><label class="f">Crop</label><input id="ec-crop" value="${esc(cr.crop)}" list="crop-suggestions"></div>
+      <div><label class="f">Variety</label><input id="ec-variety" value="${esc(cr.variety||'')}"></div>
+      <div><label class="f">Seed company</label><input id="ec-seed" value="${esc(cr.seedCompany||'')}" list="seed-companies"></div>
+      <div><label class="f">Area covered</label>${unitField('ec-area', cr.area, cr.areaUnit || 'ha', LAND_UNITS, '0.01')}</div>
+      <div><label class="f">Transplanting date</label><input id="ec-planted" type="date" value="${esc(cr.planted||'')}"></div>
+      <div><label class="f">Expected harvest date</label><input id="ec-expected" type="date" value="${esc(cr.expected||'')}"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn small" onclick="saveCropEdit(${i})">Save changes</button>
+      <button class="btn small ghost" onclick="cancelEditCrop()">Cancel</button>
+      <span class="helper" id="ec-msg" style="color:var(--red);"></span>
+    </div>
+    <p class="helper">Changing these dates moves this crop's whole calendar. Renaming the crop carries its harvest figures, buyer prices and market standards across.</p>
+  </td></tr>`;
+}
+
+function saveCropEdit(i){
+  const m = MEMBERS[state.member], cr = m.crops[i];
+  const msg = document.getElementById('ec-msg');
+  const crop = document.getElementById('ec-crop').value.trim();
+  const variety = document.getElementById('ec-variety').value.trim();
+  const seedCompany = document.getElementById('ec-seed').value.trim();
+  const area = Number(document.getElementById('ec-area').value)||0;
+  const areaUnit = readUnit('ec-area', LAND_UNITS);
+  const planted = document.getElementById('ec-planted').value;
+  const expected = document.getElementById('ec-expected').value;
+  const fail = t=>{ if(msg){ msg.textContent = t; } };
+  if(!crop){ fail('Enter the crop name.'); return; }
+  if(m.crops.some((x,xi)=> xi!==i && (x.crop||'').toLowerCase()===crop.toLowerCase()
+                                  && (x.variety||'').toLowerCase()===variety.toLowerCase())){
+    fail('Another entry already uses that crop and variety.'); return;
+  }
+  if(planted && expected && new Date(expected) <= new Date(planted)){
+    fail('The expected harvest date must come after the transplanting date.'); return;
+  }
+  const oldName = cr.crop;
+  Object.assign(cr, {crop, variety, seedCompany, area, areaUnit, planted, expected});
+  if(oldName !== crop) renameCropRecords(state.member, oldName, crop);
+  state.editCrop = null;
+  logAction(`${m.name} updated the crop profile entry for ${crop}${oldName!==crop ? ` (renamed from ${oldName})` : ''}.`);
+  render();
+}
+
+// Move harvest figures, buyer prices and market standards onto the new name.
+function renameCropRecords(id, from, to){
+  if(!from || from === to) return;
+  const stillUsed = (MEMBERS[id].crops||[]).some(c=> c.crop === from);
+  const h = harvest[id];
+  if(h){
+    ['plan','actual'].forEach(kind=>{
+      for(let mo=1; mo<=12; mo++){
+        for(let w=1; w<=4; w++){
+          const wk = h[kind][mo][w];
+          if(wk && wk[from] !== undefined){
+            wk[to] = (Number(wk[to])||0) + (Number(wk[from])||0);
+            if(!stillUsed) delete wk[from];
+          }
+        }
+      }
+    });
+  }
+  (MEMBERS[id].marketPrices||[]).forEach(p=>{ if(p.crop === from) p.crop = to; });
+  (MEMBERS[id].marketStandards||[]).forEach(x=>{ if(x.crop === from) x.crop = to; });
+  if(state.priceCrop === from) state.priceCrop = to;
+}
+
 function addCrop(){
   const msg = document.getElementById('crop-msg');
   const crop = document.getElementById('newcrop-crop').value.trim();
   const variety = document.getElementById('newcrop-variety').value.trim();
   const seedCompany = document.getElementById('newcrop-seed').value.trim();
   const area = Number(document.getElementById('newcrop-area').value)||0;
+  const areaUnit = readUnit('newcrop-area', LAND_UNITS);
   const planted = document.getElementById('newcrop-planted').value;
   const expected = document.getElementById('newcrop-expected').value;
   const fail = t=>{ msg.textContent = t; msg.style.color = 'var(--red)'; };
   if(!crop){ fail('Enter the name of the crop you grow.'); return; }
-  if(!variety || !planted || !expected){ fail('Enter variety, planting date, and expected harvest date.'); return; }
+  if(!variety || !planted || !expected){ fail('Enter variety, transplanting date, and expected harvest date.'); return; }
+  if(new Date(expected) <= new Date(planted)){ fail('The expected harvest date must come after the transplanting date.'); return; }
   const m = MEMBERS[state.member];
   if(m.crops.some(cr=> (cr.crop||'').toLowerCase()===crop.toLowerCase() && (cr.variety||'').toLowerCase()===variety.toLowerCase())){
     fail('That crop and variety are already in your crop profile.'); return;
   }
-  m.crops.push({crop, variety, seedCompany, area, planted, expected,
+  m.crops.push({crop, variety, seedCompany, area, areaUnit, planted, expected,
                 stage:CROP_STAGES[0], stageInputs:'', programme:blankProgramme()});
   logAction(`${m.name} added a crop profile entry: ${crop} (${variety})${seedCompany ? ' from '+seedCompany : ''}.`);
   render();
@@ -1693,8 +1816,15 @@ function parseDate(v){
   return isNaN(d.getTime()) ? null : d;
 }
 function pointLabel(d){ return `${MONTHS[d.getMonth()]} (Week ${weekOfMonth(d)})`; }
+function shortDate(d){ return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0,3)}`; }
+function dateRangeText(a, b){
+  if(!a || !b) return '';
+  const sameDay = a.getTime() === b.getTime();
+  const yr = a.getFullYear() === b.getFullYear() ? ` ${b.getFullYear()}` : '';
+  return sameDay ? `${shortDate(a)}${yr}` : `${shortDate(a)} \u2013 ${shortDate(b)}${yr}`;
+}
 function windowLabel(a, b){
-  if(!a || !b) return '—';
+  if(!a || !b) return '\u2014';
   if(a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth()){
     const wa = weekOfMonth(a), wb = weekOfMonth(b);
     return wa===wb ? `${MONTHS[a.getMonth()]} (Week ${wa})`
@@ -1703,24 +1833,32 @@ function windowLabel(a, b){
   return `${pointLabel(a)} \u2013 ${pointLabel(b)}`;
 }
 const DAY = 86400000;
-// Split the season between transplanting and harvest across the four stages.
+
+/* The calendar runs from the date the farm transplanted to the date it
+   expects to harvest — nothing is assumed from today's date. Transplanting
+   takes the first week, harvesting the last, and the two growing stages
+   divide the season in between. */
 function stageWindows(cr){
   const start = parseDate(cr.planted), end = parseDate(cr.expected);
   const out = {};
   if(!start || !end || end <= start){
-    CROP_STAGES.forEach(st=> out[st] = start ? pointLabel(start) : '—');
+    CROP_STAGES.forEach(st=> out[st] = {label:'\u2014', dates:'', from:null, to:null, unset:true});
     return out;
   }
-  const span = end - start;
-  // Transplanting occupies the planting week; harvesting the final week;
-  // the two growing stages divide what is left between them.
-  const tEnd = new Date(Math.min(+start + 6*DAY, +end));
+  const tEnd   = new Date(Math.min(+start + 6*DAY, +end));
   const hStart = new Date(Math.max(+end - 6*DAY, +tEnd + DAY));
-  const mid = new Date(+tEnd + (hStart - tEnd)/2);
-  out['Transplanting'] = windowLabel(start, tEnd);
-  out['Vegetative']    = windowLabel(new Date(+tEnd + DAY), mid);
-  out['Flowering']     = windowLabel(new Date(+mid + DAY), new Date(+hStart - DAY));
-  out['Harvesting']    = windowLabel(hStart, end);
+  const mid    = new Date(+tEnd + (hStart - tEnd)/2);
+  const spans = {
+    'Transplanting':[start, tEnd],
+    'Vegetative'   :[new Date(+tEnd + DAY), mid],
+    'Flowering'    :[new Date(+mid + DAY), new Date(+hStart - DAY)],
+    'Harvesting'   :[hStart, end],
+  };
+  CROP_STAGES.forEach(st=>{
+    let [a,b] = spans[st];
+    if(b < a) b = a;                       // very short seasons collapse cleanly
+    out[st] = {label:windowLabel(a,b), dates:dateRangeText(a,b), from:a, to:b};
+  });
   return out;
 }
 
@@ -1752,7 +1890,7 @@ function renderCropCalendar(c){
       <div class="cal-head">
         <div>
           <strong style="font-size:15px;">${esc(cr.crop)}${cr.variety?` — ${esc(cr.variety)}`:''}</strong>
-          <div class="helper">${cr.seedCompany?`Seed: ${esc(cr.seedCompany)} &middot; `:''}Planted ${esc(cr.planted||'—')} &middot; expected harvest ${esc(cr.expected||'—')}</div>
+          <div class="helper">${cr.seedCompany?`Seed: ${esc(cr.seedCompany)} &middot; `:''}Transplanted ${esc(cr.planted||'not set')} &middot; expected harvest ${esc(cr.expected||'not set')}</div>
         </div>
         <span class="status-pill status-active">Currently: ${esc(cr.stage||CROP_STAGES[0])}</span>
       </div>
@@ -1774,12 +1912,16 @@ function renderCropCalendar(c){
       const n = stageEntryCount(cr, st);
       return `<button class="stage-step ${state.calStage===st?'active':''} ${cr.stage===st?'is-current':''}" onclick="selectCalStage('${st}')">
         <span class="ss-num">${i+1}</span>
-        <span class="ss-body"><span class="ss-name">${st}</span><span class="ss-meta">${timing[st]||'—'} &middot; ${n} item${n===1?'':'s'}</span></span>
+        <span class="ss-body"><span class="ss-name">${st}</span>
+          <span class="ss-meta">${timing[st].dates ? esc(timing[st].dates) : 'Dates not set'}</span>
+          <span class="ss-meta ss-week">${esc(timing[st].label)} &middot; ${n} item${n===1?'':'s'}</span></span>
       </button>`;
     }).join('')}</div>
 
     <div class="card">
-      <p class="helper" style="margin:0 0 14px;"><strong>${esc(state.calStage)}</strong> &middot; ${esc(timing[state.calStage]||'—')} &mdash; ${esc(STAGE_NOTES[state.calStage]||'')}</p>
+      ${timing[state.calStage].unset ? `<div class="msg-banner" style="background:#FBEECC;border-left-color:var(--harvest-orange);color:#8A6412;">
+        This crop has no transplanting or expected harvest date yet, so its calendar has no dates to run between. Set them on the Profile tab.</div>` : ''}
+      <p class="helper" style="margin:0 0 14px;"><strong>${esc(state.calStage)}</strong>${timing[state.calStage].dates ? ` &middot; ${esc(timing[state.calStage].dates)} (${esc(timing[state.calStage].label)})` : ''} &mdash; ${esc(STAGE_NOTES[state.calStage]||'')}</p>
       ${INPUT_CATEGORIES.map(cat=> categoryBlock(cr, state.calStage, cat)).join('')}
     </div>
 
@@ -1905,7 +2047,7 @@ function generatedProgramme(m, cr, timing){
       body += '<tr>';
       if(i===0){
         body += `<td rowspan="${span}" class="pg-stage">${esc(stage)}</td>`;
-        body += `<td rowspan="${span}">${esc(timing[stage]||'\u2014')}</td>`;
+        body += `<td rowspan="${span}">${esc(timing[stage].dates || '\u2014')}${timing[stage].dates ? `<br><span style="color:var(--muted);font-size:11px;">${esc(timing[stage].label)}</span>` : ''}</td>`;
       }
       body += f
         ? `<td>${esc(f.product)}</td><td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
@@ -1938,7 +2080,7 @@ function generatedProgramme(m, cr, timing){
         <button class="btn small ghost" onclick="exportAllProgrammes()">Export all crops (CSV)</button>
         <button class="btn small ghost" onclick="window.print()">Print / save as PDF</button>
       </div>
-      <p class="helper" style="margin-top:10px;">Timing is worked out from this crop's planting and expected harvest dates. Update those on the Profile tab and the windows above follow.</p>
+      <p class="helper" style="margin-top:10px;">The programme runs from the date you transplanted to your expected harvest date. Change either on the Profile tab — using Edit on the crop — and every stage window here moves with it.</p>
     </div>`;
 }
 
@@ -1951,12 +2093,12 @@ function programmeRows(m, cr){
     const protText = prot.map(x=>x.text).join(' | ') || '';
     const protUom  = prot.map(x=>x.uom).join(' | ') || '';
     if(!ferts.length && !prot.length){
-      rows.push([m.name, cr.crop, cr.variety||'', stage, timing[stage]||'', '', '', '', '', '', '', STAGE_NOTES[stage]||'']);
+      rows.push([m.name, cr.crop, cr.variety||'', stage, timing[stage].dates||'', timing[stage].label||'', '', '', '', '', '', '', STAGE_NOTES[stage]||'']);
       return;
     }
     (ferts.length ? ferts : [null]).forEach((f,i)=>{
       rows.push([
-        m.name, cr.crop, cr.variety||'', stage, timing[stage]||'',
+        m.name, cr.crop, cr.variety||'', stage, timing[stage].dates||'', timing[stage].label||'',
         f ? f.product : '', f ? (f.composition||'') : '', f ? (f.dose||'') : '', f ? (f.unit||'') : '', f ? (f.method||'') : '',
         i===0 ? protText : '', i===0 ? protUom : '',
         i===0 ? (STAGE_NOTES[stage]||'') : ''
@@ -1965,7 +2107,7 @@ function programmeRows(m, cr){
   });
   return rows;
 }
-const PROGRAMME_HEADER = ['Farm','Crop','Variety','Crop stage','Timing','Required fertilizer','Composition / type','Dosage','Unit','Method','Pest / disease control','Pest UoM','Comment'];
+const PROGRAMME_HEADER = ['Farm','Crop','Variety','Crop stage','Dates','Timing','Required fertilizer','Composition / type','Dosage','Unit','Method','Pest / disease control','Pest UoM','Comment'];
 function exportProgramme(i){
   const m = MEMBERS[state.member], cr = m.crops[i];
   downloadCSV(`${m.name.replace(/\s+/g,'_')}_${String(cr.crop).replace(/\s+/g,'_')}_programme.csv`,
@@ -2379,10 +2521,10 @@ function renderMemberViewPanel(id){
         <div><label class="f">Email</label><input value="${m.email||''}" readonly></div>
         <div><label class="f">Location</label><input value="${m.location||''}" readonly></div>
         <div><label class="f">Category</label><input value="${m.category}" readonly></div>
-        <div><label class="f">Total farm area (ha)</label><input value="${m.totalArea||0}" readonly></div>
-        <div><label class="f">Indoor production (m²)</label><input value="${m.indoorSqm||0}" readonly></div>
+        <div><label class="f">Total farm area</label><input value="${esc(areaText(m.totalArea, m.totalAreaUnit,'ha'))}" readonly></div>
+        <div><label class="f">Indoor production area</label><input value="${esc(areaText(m.indoorSqm, m.indoorSqmUnit,'m\u00b2'))}" readonly></div>
         <div><label class="f">Number of indoor units</label><input value="${m.indoorUnits||0}" readonly></div>
-        <div><label class="f">Outdoor cultivated area (ha)</label><input value="${m.outdoorArea||0}" readonly></div>
+        <div><label class="f">Outdoor cultivated area</label><input value="${esc(areaText(m.outdoorArea, m.outdoorAreaUnit,'ha'))}" readonly></div>
         <div><label class="f">Irrigation system</label><input value="${m.irrigation||''}" readonly></div>
         <div><label class="f">Water source</label><input value="${m.water||''}" readonly></div>
       </div>
