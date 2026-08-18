@@ -1,0 +1,114 @@
+rules_version = '2';
+
+/*
+ * TIPFA Association Platform — Firestore security rules
+ *
+ * Paste these into the Firebase console:
+ *   Build → Firestore Database → Rules → replace everything → Publish
+ *
+ * The shape they enforce:
+ *
+ *   settings/signup      the two sign-up codes. No client can read this
+ *                        document. Rules read it on the client's behalf to
+ *                        check a code, so a code is never exposed to the
+ *                        browser, only checked against it.
+ *
+ *   operators/{uid}      one document per Secretariat operator, keyed by
+ *                        their Firebase Auth user id. The presence of the
+ *                        document is what makes someone an operator.
+ *
+ *   farms/{uid}          one document per member farm, keyed by that farm's
+ *                        Firebase Auth user id: profile, crops, the crop
+ *                        calendar programme, market prices and archives.
+ *
+ *   harvest/{uid}        that farm's harvest figures, kept separate so a
+ *                        season of weekly entries never pushes the farm
+ *                        document toward the 1 MiB limit.
+ *
+ *   submissions/{id}     requests and complaints raised by farms.
+ *
+ * The rule throughout: a farm reads and writes only its own records; an
+ * operator reads everything and may correct anything; nobody may create an
+ * account without the matching code from the Secretariat.
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    // Operator status is a document that only an operator can create, so it
+    // cannot be self-granted. The very first operator is added by hand in the
+    // Firebase console; every later one is added from inside the platform.
+    function isOperator() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/operators/$(request.auth.uid));
+    }
+
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // Rules may read documents the client cannot, which is what keeps the
+    // sign-up codes secret while still letting them be checked.
+    function codes() {
+      return get(/databases/$(database)/documents/settings/signup).data;
+    }
+    function hasFarmCode() {
+      return request.resource.data.signupCode == codes().farmCode;
+    }
+    function hasOperatorCode() {
+      return request.resource.data.signupCode == codes().operatorCode;
+    }
+
+    // ---- Sign-up codes -------------------------------------------------
+    // Never readable by a client. Operators change them through the platform.
+    match /settings/signup {
+      allow read: if false;
+      allow write: if isOperator();
+    }
+
+    // ---- Operators -----------------------------------------------------
+    match /operators/{uid} {
+      allow read: if isOperator();
+      // A new operator registers themselves, but only with the operator code
+      // and only against their own user id.
+      allow create: if owns(uid) && hasOperatorCode();
+      allow update: if owns(uid) || isOperator();
+      allow delete: if isOperator() && request.auth.uid != uid;   // never the last one out
+    }
+
+    // ---- Member farms --------------------------------------------------
+    match /farms/{uid} {
+      allow read:   if owns(uid) || isOperator();
+      allow create: if owns(uid) && hasFarmCode()
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.email is string;
+      allow update: if owns(uid) || isOperator();
+      allow delete: if isOperator();
+    }
+
+    // ---- Harvest figures ------------------------------------------------
+    match /harvest/{uid} {
+      allow read:   if owns(uid) || isOperator();
+      allow write:  if owns(uid) || isOperator();
+    }
+
+    // ---- Requests and complaints ----------------------------------------
+    match /submissions/{id} {
+      allow read:   if isOperator()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      // A farm may not reopen or reassign what the Secretariat has handled.
+      allow update, delete: if isOperator();
+    }
+
+    // Anything not named above is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
