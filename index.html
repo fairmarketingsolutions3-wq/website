@@ -438,6 +438,63 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
 .curtain.in{animation:wipeIn .42s var(--ease-in-out) forwards;}
 .curtain.out{transform-origin:top;animation:wipeOut .42s var(--ease-in-out) forwards;}
 
+
+/* ---------- Crop calendar: stage rail, categories, programme ---------- */
+.cal-head{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;}
+.stage-rail{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
+.stage-step{
+  display:flex;align-items:center;gap:11px;text-align:left;cursor:pointer;
+  background:var(--card);border:1px solid var(--line-soft);border-radius:var(--radius);
+  padding:12px 13px;font-family:'Inter',sans-serif;position:relative;overflow:hidden;
+  box-shadow:var(--shadow-sm);
+  transition:transform var(--dur-2) var(--ease-spring), box-shadow var(--dur-2) var(--ease-out), border-color var(--dur-2);
+  animation:riseIn var(--dur-3) var(--ease-out) both;
+}
+.stage-step:nth-child(1){animation-delay:.02s} .stage-step:nth-child(2){animation-delay:.07s}
+.stage-step:nth-child(3){animation-delay:.12s} .stage-step:nth-child(4){animation-delay:.17s}
+.stage-step:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);border-color:var(--leaf-green);}
+.stage-step .ss-num{
+  flex:none;width:26px;height:26px;border-radius:50%;background:#EDEFE3;color:var(--tipfa-green);
+  display:flex;align-items:center;justify-content:center;font-family:'Poppins',sans-serif;font-weight:600;font-size:12px;
+  transition:background var(--dur-2), color var(--dur-2);
+}
+.stage-step .ss-body{min-width:0;}
+.stage-step .ss-name{display:block;font-family:'Poppins',sans-serif;font-weight:600;font-size:13px;color:var(--deep-green);}
+.stage-step .ss-meta{display:block;font-size:10.5px;color:var(--muted);margin-top:2px;line-height:1.35;}
+.stage-step.active{border-color:var(--tipfa-green);box-shadow:0 0 0 2px rgba(64,94,53,.14), var(--shadow-md);}
+.stage-step.active .ss-num{background:var(--tipfa-green);color:#fff;}
+.stage-step.is-current::after{
+  content:'';position:absolute;right:9px;top:9px;width:7px;height:7px;border-radius:50%;
+  background:var(--harvest-orange);animation:softPulse 2.4s var(--ease-in-out) infinite;
+}
+.cat-block{
+  border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 15px;margin-bottom:14px;background:#FCFCF7;
+  animation:riseIn var(--dur-3) var(--ease-out) both;
+}
+.cat-block:nth-of-type(2){animation-delay:.05s} .cat-block:nth-of-type(3){animation-delay:.1s}
+.cat-block:nth-of-type(4){animation-delay:.15s}
+.cat-head{display:flex;align-items:center;gap:9px;margin-bottom:11px;}
+.cat-name{font-family:'Poppins',sans-serif;font-weight:600;font-size:13.5px;color:var(--deep-green);}
+.cat-count{
+  font-size:10.5px;font-weight:600;background:#E7EADC;color:var(--tipfa-green);
+  padding:2px 8px;border-radius:99px;font-family:'Poppins',sans-serif;
+}
+.prog-card{background:#fff;}
+.prog-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:13px;color:var(--deep-green);letter-spacing:.01em;}
+.prog-sub{font-size:12px;color:var(--muted);margin:3px 0 12px;}
+.prog-table{font-size:12px;min-width:940px;}   /* scrolls rather than squashing its nine columns */
+.prog-table td{vertical-align:top;}
+.prog-table .pg-stage{font-family:'Poppins',sans-serif;font-weight:600;color:var(--deep-green);background:#F4F5EC;}
+.prog-table .pg-comment{font-size:11px;color:var(--muted);width:210px;}
+.prog-table th{white-space:nowrap;}
+.prog-foot{
+  margin-top:10px;padding-top:10px;border-top:1px solid var(--line-soft);
+  font-size:11.5px;color:var(--muted);font-family:'Poppins',sans-serif;font-weight:500;
+}
+@media (max-width:760px){
+  .stage-rail{grid-template-columns:1fr 1fr;}
+}
+
 /* ---------- Print ---------- */
 @media print{
   .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"], .arcfield, .curtain{ display:none !important; }
@@ -553,7 +610,54 @@ function priceBaseFor(m, crop){
   return Math.round(logged.reduce((t,p)=>t+p.price,0) / logged.length);
 }
 const INVEST_CATEGORIES = ['Seeds','Labour','Infrastructure','Other'];
-const CROP_STAGES = ['Sowing','Transplanting','Flowering','Harvesting'];
+/* Crop stages run from transplanting through to harvest, matching the
+   association's Fertilizer & Crop Protection Program template. */
+const CROP_STAGES = ['Transplanting','Vegetative','Flowering','Harvesting'];
+
+/* The four input categories a farm records against each crop stage.
+   Fertilizers carry a composition and an application method; the three
+   crop-protection categories carry the pest or disease they target. */
+const INPUT_CATEGORIES = [
+  {key:'Fertilizers',  label:'Fertilizers',  targets:false, unit:'kg', units:['kg','L','g','ml'],
+   methods:['Basal','Fertigation','Foliar','Top-dressing','Drench'],
+   hint:'e.g. Triple Super Phosphate (TSP), Yara Winner, Potassium Nitrate'},
+  {key:'Pesticides',   label:'Pesticides',   targets:true,  unit:'ml', units:['ml','g','L','kg'],
+   methods:['Foliar spray','Drench','Soil application'],
+   hint:'General crop-protection products'},
+  {key:'Insecticides', label:'Insecticides', targets:true,  unit:'ml', units:['ml','g','L','kg'],
+   methods:['Foliar spray','Drench','Soil application'],
+   hint:'e.g. Dudu Acemactin for Tuta absoluta, Mission for leaf miner'},
+  {key:'Fungicides',   label:'Fungicides',   targets:true,  unit:'ml', units:['ml','g','L','kg'],
+   methods:['Foliar spray','Drench','Seed treatment'],
+   hint:'e.g. Ridomil Gold for damping off, Tuncopper for bacterial spot'},
+];
+const CATEGORY_KEYS = INPUT_CATEGORIES.map(c=>c.key);
+function categoryDef(key){ return INPUT_CATEGORIES.find(c=>c.key===key) || INPUT_CATEGORIES[0]; }
+
+// Stage guidance carried over from the association's own programme template.
+const STAGE_NOTES = {
+  'Transplanting':'Basal fertilizers incorporated at or just after transplanting; protectant fungicide drench for damping-off.',
+  'Vegetative':'Build canopy and root mass; rotate insecticide and fungicide actives to manage resistance.',
+  'Flowering':'Support flowering and fruit set; increase K relative to N; maintain weekly pest scouting.',
+  'Harvesting':'Sustain fruit fill and quality; observe the pre-harvest interval (PHI) on all sprays before picking.',
+};
+
+// An empty programme: every stage, every category.
+function blankProgramme(){
+  const p = {};
+  CROP_STAGES.forEach(st=>{ p[st] = {}; CATEGORY_KEYS.forEach(k=> p[st][k] = []); });
+  return p;
+}
+// Bring any crop record up to the current shape, whatever it was saved as.
+function ensureProgramme(cr){
+  if(!cr.programme) cr.programme = blankProgramme();
+  CROP_STAGES.forEach(st=>{
+    if(!cr.programme[st]) cr.programme[st] = {};
+    CATEGORY_KEYS.forEach(k=>{ if(!Array.isArray(cr.programme[st][k])) cr.programme[st][k] = []; });
+  });
+  if(!cr.stage || CROP_STAGES.indexOf(cr.stage) === -1) cr.stage = CROP_STAGES[0];
+  return cr.programme;
+}
 const MARKET_STANDARD_OPTIONS = ['GlobalG.A.P.','Organic','Fair Trade','Other'];
 
 // The membership register starts empty. Farms join by signing up on the
@@ -608,6 +712,10 @@ function loadMembers(){
     Object.keys(MEMBERS).forEach(id=>{
       const m = MEMBERS[id];
       if(!Array.isArray(m.crops)) m.crops = [];
+      m.crops.forEach(cr=>{
+        if(cr.stage === 'Sowing') cr.stage = 'Transplanting';   // stage list no longer starts at sowing
+        ensureProgramme(cr);
+      });
       if(!Array.isArray(m.marketStandards)) m.marketStandards = [];
       if(!Array.isArray(m.marketPrices)) m.marketPrices = [];
       if(!m.investments) m.investments = blankInvestments();
@@ -840,7 +948,8 @@ window.addEventListener('beforeunload', saveMembers);
 logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
-  adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'' };
+  adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'' };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -971,7 +1080,7 @@ function downloadCSV(filename, rows){
   URL.revokeObjectURL(url);
 }
 
-function showLoginTab(tab){ state.loginTab = tab; renderLogin(); }
+function showLoginTab(tab){ state.loginTab = tab; state.forgot = null; state.forgotMsg = ''; renderLogin(); }
 
 function doMemberLogin(btn){
   const identifier = norm(document.getElementById('login-id').value);
@@ -990,7 +1099,7 @@ function doMemberLogin(btn){
   }
   const [id] = match;
   signInTransition(btn, ()=>{
-    state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile';
+    state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile'; state.forgotMsg = '';
     document.body.setAttribute('data-role','member');
     logAction(`${MEMBERS[id].name} signed in.`);
     render();
@@ -1016,7 +1125,7 @@ function doAdminLogin(btn){
   if(!match){ flagError(document.getElementById('login-error-admin'), 'Invalid operator ID or password.'); return; }
   signInTransition(btn, ()=>{
     state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = match.name;
-    state.adminSignupMsg = ''; state.adminSignupUser = '';
+    state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = '';
     document.body.setAttribute('data-role','admin');
     logAction(`Operator ${match.name} signed in to the administrator console.`);
     render();
@@ -1031,9 +1140,9 @@ function logout(){
   });
 }
 
-function toggleRegister(v){ state.showRegister = v; state.regSuccess = false; delete pendingLogos.reg; state.regAvatar=''; renderLogin(); }
+function toggleRegister(v){ state.showRegister = v; state.regSuccess = false; state.forgot = null; delete pendingLogos.reg; state.regAvatar=''; renderLogin(); }
 
-function toggleAdminSignup(v){ state.adminSignup = v; state.adminSignupMsg = ''; renderLogin(); }
+function toggleAdminSignup(v){ state.adminSignup = v; state.adminSignupMsg = ''; state.forgot = null; renderLogin(); }
 
 function submitAdminSignup(){
   const err = document.getElementById('asignup-error');
@@ -1113,6 +1222,90 @@ function findMemberByLogin(identifier){
   return hit ? hit[0] : null;
 }
 
+/* ============================================================
+   Password reset
+   There is no mail server behind this prototype, so a reset is done
+   in the browser against details only the account holder should
+   know: a farm proves itself with both the phone number and the
+   email on its record, an operator with their ID and the Secretariat
+   sign-up code. Every reset is written to the audit log.
+   ============================================================ */
+function showForgot(which){ state.forgot = which; state.forgotMsg = ''; state.regSuccess = false; renderLogin(); }
+
+function submitMemberReset(){
+  const err = document.getElementById('fp-error');
+  const phone = norm(document.getElementById('fp-phone').value);
+  const email = norm(document.getElementById('fp-email').value);
+  const pass  = document.getElementById('fp-pass').value;
+  const pass2 = document.getElementById('fp-pass2').value;
+  if(!phone || !email){ flagError(err, 'Enter both the phone number and the email on your farm record.'); return; }
+  if(!pass || pass.length < 4){ flagError(err, 'Choose a new password of at least 4 characters.'); return; }
+  if(pass !== pass2){ flagError(err, 'The two passwords do not match.'); return; }
+  const hit = Object.entries(MEMBERS).find(([id,m])=> norm(m.phone)===phone && norm(m.email)===email);
+  if(!hit){ flagError(err, 'No farm record matches that phone number and email together. Contact the Secretariat on 0744 443 247.'); return; }
+  const [id, m] = hit;
+  if(m.status === 'Rejected'){ flagError(err, 'That registration was not approved, so its password cannot be reset.'); return; }
+  m.password = pass;
+  logAction(`${m.name} reset their own password from the sign-in screen.`);
+  state.forgot = null; state.regSuccess = false;
+  state.forgotMsg = 'Password updated. Sign in with your new password.';
+  renderLogin();
+}
+
+function submitAdminReset(){
+  const err = document.getElementById('fp-error');
+  const user  = norm(document.getElementById('fp-user').value);
+  const code  = document.getElementById('fp-code') ? document.getElementById('fp-code').value.trim() : '';
+  const pass  = document.getElementById('fp-pass').value;
+  const pass2 = document.getElementById('fp-pass2').value;
+  if(!user){ flagError(err, 'Enter your operator ID.'); return; }
+  if(ADMIN_SIGNUP_CODE && code !== ADMIN_SIGNUP_CODE){ flagError(err, 'That Secretariat code is not correct.'); return; }
+  if(!pass || pass.length < 6){ flagError(err, 'Choose a new password of at least 6 characters.'); return; }
+  if(pass !== pass2){ flagError(err, 'The two passwords do not match.'); return; }
+  const match = ADMINS.find(a=>{ const u = norm(a.username); return u===user || u.split('@')[0]===user; });
+  if(!match){ flagError(err, 'No administrator account uses that operator ID.'); return; }
+  match.password = pass;
+  saveAdmins();
+  logAction(`Administrator password reset from the sign-in screen for operator ${match.name}.`);
+  state.forgot = null;
+  state.adminSignupUser = match.username;
+  state.forgotMsg = 'Password updated. Sign in with your new password.';
+  renderLogin();
+}
+
+function memberResetForm(){
+  return `
+    <div class="card">
+      <p class="helper" style="margin:0 0 12px;">Confirm your farm with the phone number <em>and</em> the email address on your record, then set a new password.</p>
+      <label class="f">Phone number on your record</label>
+      <input id="fp-phone" placeholder="+255 7XX XXX XXX">
+      <label class="f">Email address on your record</label>
+      <input id="fp-email" placeholder="you@example.com">
+      <label class="f">New password</label>${pwdField('fp-pass','At least 4 characters')}
+      <label class="f">Confirm new password</label>${pwdField('fp-pass2','Re-enter new password')}
+      <button class="btn" style="width:100%;margin-top:6px;" onclick="submitMemberReset()">Set new password</button>
+      <p class="helper" id="fp-error" style="color:var(--red);margin-top:8px;"></p>
+    </div>
+    <p class="login-note"><a href="#" onclick="showForgot(null);return false;">&larr; Back to sign-in</a></p>
+    <p class="login-note">If you no longer have access to either the phone number or the email on your record, contact the Secretariat on 0744 443 247 and an operator will update your account.</p>`;
+}
+
+function adminResetForm(){
+  return `
+    <div class="card">
+      <p class="helper" style="margin:0 0 12px;">Confirm your operator ID${ADMIN_SIGNUP_CODE ? ' and the Secretariat code' : ''}, then set a new password.</p>
+      <label class="f">Operator ID / email</label>
+      <input id="fp-user" placeholder="e.g. amina.hassan@tipfa.co.tz">
+      ${ADMIN_SIGNUP_CODE ? `<label class="f">Secretariat code</label><input id="fp-code" placeholder="Code issued by TIPFA">` : ''}
+      <label class="f">New password</label>${pwdField('fp-pass','At least 6 characters')}
+      <label class="f">Confirm new password</label>${pwdField('fp-pass2','Re-enter new password')}
+      <button class="btn gold" style="width:100%;margin-top:6px;" onclick="submitAdminReset()">Set new password</button>
+      <p class="helper" id="fp-error" style="color:var(--red);margin-top:8px;"></p>
+    </div>
+    <p class="login-note"><a href="#" onclick="showForgot(null);return false;">&larr; Back to administrator sign-in</a></p>
+    <p class="login-note">Every password reset is recorded in the audit log with a timestamp.</p>`;
+}
+
 function renderLogin(){
   const box = document.getElementById('loginScreen');
   const isMember = state.loginTab==='member';
@@ -1157,6 +1350,7 @@ function renderLogin(){
             <button class="${!isMember?'active':''}" onclick="showLoginTab('admin')">Administrator</button>
           </div>
       ${isMember ? (
+        state.forgot === 'member' ? memberResetForm() :
         state.showRegister ? `
         <div class="card">
           ${logoPicker('reg', state.regAvatar, '')}
@@ -1170,6 +1364,7 @@ function renderLogin(){
         <p class="login-note">Your registration is reviewed by the TIPFA Secretariat before your account is activated.</p>
         ` : `
         ${state.regSuccess ? `<div class="msg-banner">${CHECK_ICON} Registration submitted — the Secretariat will review and approve your account.</div>` : ''}
+        ${state.forgotMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.forgotMsg)}</div>` : ''}
         <div class="card">
           <label class="f">Phone number or email</label>
           <input id="login-id" placeholder="+255 7XX XXX XXX or you@example.com">
@@ -1178,11 +1373,13 @@ function renderLogin(){
           <button class="btn" style="width:100%;margin-top:10px;" onclick="doMemberLogin(this)">Sign in to your farm</button>
           <p class="helper" id="login-error" style="color:var(--red);margin-top:8px;"></p>
         </div>
+        <p class="login-note"><a href="#" onclick="showForgot('member');return false;">Forgotten your password?</a></p>
         <p class="login-note">Each member signs in with their own phone or email. An account only ever shows its own farm's data.</p>
         <p class="login-note"><a href="#" onclick="toggleRegister(true);return false;">New farm? Register here &rarr;</a></p>
         <div class="demo-note">No account yet? Register your farm above — you can sign in and start filling in your profile straight away, while the Secretariat reviews your membership.</div>
         `
       ) : (
+        state.forgot === 'admin' ? adminResetForm() :
         state.adminSignup ? `
         <div class="card">
           <div class="grid2">
@@ -1201,6 +1398,7 @@ function renderLogin(){
         ${ADMIN_SIGNUP_CODE ? `<div class="demo-note">Sign-up code for this prototype: <strong>${ADMIN_SIGNUP_CODE}</strong></div>` : ''}
         ` : `
         ${state.adminSignupMsg ? `<div class="msg-banner">${CHECK_ICON} ${state.adminSignupMsg}</div>` : ''}
+        ${state.forgotMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.forgotMsg)}</div>` : ''}
         <div class="card">
           <label class="f">Operator ID / email</label>
           <input id="login-user" value="${state.adminSignupUser||''}" placeholder="e.g. amina.hassan@tipfa.co.tz">
@@ -1209,6 +1407,7 @@ function renderLogin(){
           <button class="btn gold" style="width:100%;margin-top:10px;" onclick="doAdminLogin(this)">Sign in to the console</button>
           <p class="helper" id="login-error-admin" style="color:var(--red);margin-top:8px;"></p>
         </div>
+        <p class="login-note"><a href="#" onclick="showForgot('admin');return false;">Forgotten your password?</a></p>
         <p class="login-note"><a href="#" onclick="toggleAdminSignup(true);return false;">New administrator? Create your own account &rarr;</a></p>
         <p class="login-note">Administrator access is limited to five authorised Secretariat operators. Every operator action is logged for accountability.</p>
       `)}
@@ -1467,7 +1666,8 @@ function addCrop(){
   if(m.crops.some(cr=> (cr.crop||'').toLowerCase()===crop.toLowerCase() && (cr.variety||'').toLowerCase()===variety.toLowerCase())){
     fail('That crop and variety are already in your crop profile.'); return;
   }
-  m.crops.push({crop, variety, seedCompany, area, planted, expected, stage:'Sowing', stageInputs:''});
+  m.crops.push({crop, variety, seedCompany, area, planted, expected,
+                stage:CROP_STAGES[0], stageInputs:'', programme:blankProgramme()});
   logAction(`${m.name} added a crop profile entry: ${crop} (${variety})${seedCompany ? ' from '+seedCompany : ''}.`);
   render();
 }
@@ -1479,33 +1679,312 @@ function removeCrop(i){
 }
 
 // ---- Crop calendar: stages, per-stage inputs, supporting documents ----
+/* ============================================================
+   Programme timing
+   The template expresses each stage as a month and week window
+   ("June (Week 3)", "July (Weeks 1-4)"). Those windows are derived
+   from the crop's own planting and expected harvest dates, so the
+   generated programme follows what the farm actually entered.
+   ============================================================ */
+function weekOfMonth(d){ return Math.min(4, Math.floor((d.getDate()-1)/7) + 1); }
+function parseDate(v){
+  if(!v) return null;
+  const d = new Date(v + 'T00:00:00');
+  return isNaN(d.getTime()) ? null : d;
+}
+function pointLabel(d){ return `${MONTHS[d.getMonth()]} (Week ${weekOfMonth(d)})`; }
+function windowLabel(a, b){
+  if(!a || !b) return '—';
+  if(a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth()){
+    const wa = weekOfMonth(a), wb = weekOfMonth(b);
+    return wa===wb ? `${MONTHS[a.getMonth()]} (Week ${wa})`
+                   : `${MONTHS[a.getMonth()]} (Weeks ${wa}\u2013${wb})`;
+  }
+  return `${pointLabel(a)} \u2013 ${pointLabel(b)}`;
+}
+const DAY = 86400000;
+// Split the season between transplanting and harvest across the four stages.
+function stageWindows(cr){
+  const start = parseDate(cr.planted), end = parseDate(cr.expected);
+  const out = {};
+  if(!start || !end || end <= start){
+    CROP_STAGES.forEach(st=> out[st] = start ? pointLabel(start) : '—');
+    return out;
+  }
+  const span = end - start;
+  // Transplanting occupies the planting week; harvesting the final week;
+  // the two growing stages divide what is left between them.
+  const tEnd = new Date(Math.min(+start + 6*DAY, +end));
+  const hStart = new Date(Math.max(+end - 6*DAY, +tEnd + DAY));
+  const mid = new Date(+tEnd + (hStart - tEnd)/2);
+  out['Transplanting'] = windowLabel(start, tEnd);
+  out['Vegetative']    = windowLabel(new Date(+tEnd + DAY), mid);
+  out['Flowering']     = windowLabel(new Date(+mid + DAY), new Date(+hStart - DAY));
+  out['Harvesting']    = windowLabel(hStart, end);
+  return out;
+}
+
 function renderCropCalendar(c){
   const m = MEMBERS[state.member];
-  const cards = m.crops.map((cr,i)=>`
-    <div class="card">
-      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
-        <strong>${cr.crop} — ${cr.variety}</strong>
-        <span class="status-pill status-active">${cr.stage||'Not set'}</span>
-      </div>
-      <div class="grid2" style="margin-top:10px;">
-        <div><label class="f">Current stage</label><select onchange="setCropField(${i},'stage',this.value)">
-          ${CROP_STAGES.map(s=>`<option ${cr.stage===s?'selected':''}>${s}</option>`).join('')}
-        </select></div>
-        <div><label class="f">Input requirements for this stage</label><input value="${cr.stageInputs||''}" onchange="setCropField(${i},'stageInputs',this.value)" placeholder="e.g. NPK top-dressing, staking, crates"></div>
-      </div>
-      <label class="f" style="margin-top:6px;">Supporting document (photo, farm plan, certificate)</label>
-      <input type="file" onchange="uploadCropDoc(${i}, this)">
-      ${cr.docUrl ? `<p class="helper">Uploaded: <a href="${cr.docUrl}" target="_blank" rel="noopener">${cr.docName}</a></p>` : '<p class="helper">No document uploaded yet.</p>'}
-    </div>`).join('');
+  m.crops.forEach(ensureProgramme);
+  if(!m.crops.length){
+    c.innerHTML = `
+      <h1 class="page-title">Crop calendar</h1>
+      <p class="page-sub">${esc(m.name)} · stage, inputs and crop protection for every crop you grow</p>
+      ${emptyState('No crops yet','Add the crops you grow on the Profile tab. Each one then gets its own stage-by-stage programme here.')}`;
+    return;
+  }
+  if(state.calCrop == null || state.calCrop >= m.crops.length) state.calCrop = 0;
+  if(!state.calStage || CROP_STAGES.indexOf(state.calStage) === -1) state.calStage = CROP_STAGES[0];
+
+  const cr = m.crops[state.calCrop];
+  const timing = stageWindows(cr);
+
   c.innerHTML = `
     <h1 class="page-title">Crop calendar</h1>
-    <p class="page-sub">${m.name} · track each crop's stage, stage-specific inputs, and supporting documents</p>
-    ${m.crops.length ? cards : '<div class="card"><p class="helper">No crops yet — add one from the Profile tab first.</p></div>'}`;
+    <p class="page-sub">${esc(m.name)} · record what you apply at each stage, and generate your fertilizer and crop protection programme</p>
+
+    <div class="chips">${m.crops.map((x,i)=>
+      `<span class="chip ${state.calCrop===i?'active':''}" onclick="selectCalCrop(${i})">${esc(x.crop)}${x.variety?` &middot; ${esc(x.variety)}`:''}</span>`
+    ).join('')}</div>
+
+    <div class="card">
+      <div class="cal-head">
+        <div>
+          <strong style="font-size:15px;">${esc(cr.crop)}${cr.variety?` — ${esc(cr.variety)}`:''}</strong>
+          <div class="helper">${cr.seedCompany?`Seed: ${esc(cr.seedCompany)} &middot; `:''}Planted ${esc(cr.planted||'—')} &middot; expected harvest ${esc(cr.expected||'—')}</div>
+        </div>
+        <span class="status-pill status-active">Currently: ${esc(cr.stage||CROP_STAGES[0])}</span>
+      </div>
+      <div class="grid2" style="margin-top:12px;">
+        <div><label class="f">Current stage</label><select onchange="setCropField(${state.calCrop},'stage',this.value)">
+          ${CROP_STAGES.map(st=>`<option ${cr.stage===st?'selected':''}>${st}</option>`).join('')}
+        </select></div>
+        <div><label class="f">General notes for this stage</label>
+          <input value="${esc(cr.stageInputs||'')}" onchange="setCropField(${state.calCrop},'stageInputs',this.value)" placeholder="e.g. staking, pruning, crates for picking"></div>
+      </div>
+      <label class="f" style="margin-top:4px;">Supporting document (photo, farm plan, certificate)</label>
+      <input type="file" onchange="uploadCropDoc(${state.calCrop}, this)">
+      ${cr.docUrl ? `<p class="helper">Uploaded: <a href="${esc(cr.docUrl)}" target="_blank" rel="noopener">${esc(cr.docName)}</a></p>`
+                  : '<p class="helper">No document uploaded yet.</p>'}
+    </div>
+
+    <div class="section-label">Programme by stage</div>
+    <div class="stage-rail">${CROP_STAGES.map((st,i)=>{
+      const n = stageEntryCount(cr, st);
+      return `<button class="stage-step ${state.calStage===st?'active':''} ${cr.stage===st?'is-current':''}" onclick="selectCalStage('${st}')">
+        <span class="ss-num">${i+1}</span>
+        <span class="ss-body"><span class="ss-name">${st}</span><span class="ss-meta">${timing[st]||'—'} &middot; ${n} item${n===1?'':'s'}</span></span>
+      </button>`;
+    }).join('')}</div>
+
+    <div class="card">
+      <p class="helper" style="margin:0 0 14px;"><strong>${esc(state.calStage)}</strong> &middot; ${esc(timing[state.calStage]||'—')} &mdash; ${esc(STAGE_NOTES[state.calStage]||'')}</p>
+      ${INPUT_CATEGORIES.map(cat=> categoryBlock(cr, state.calStage, cat)).join('')}
+    </div>
+
+    ${generatedProgramme(m, cr, timing)}`;
 }
+
+function stageEntryCount(cr, stage){
+  const p = ensureProgramme(cr);
+  return CATEGORY_KEYS.reduce((t,k)=> t + (p[stage][k]||[]).length, 0);
+}
+function selectCalCrop(i){ state.calCrop = i; render(); }
+function selectCalStage(st){ state.calStage = st; render(); }
+
+// One category of inputs for the selected crop and stage.
+function categoryBlock(cr, stage, cat){
+  const rows = ensureProgramme(cr)[stage][cat.key] || [];
+  const p = 'inp-' + cat.key;
+  return `
+    <div class="cat-block">
+      <div class="cat-head">
+        <span class="cat-name">${cat.label}</span>
+        <span class="cat-count">${rows.length}</span>
+      </div>
+      <table class="grid-table">
+        <thead><tr>
+          <th>Product</th>
+          <th>${cat.targets ? 'Target pest / disease' : 'Composition / type'}</th>
+          <th style="width:110px;">Dosage</th>
+          <th style="width:150px;">Method</th>
+          <th style="width:78px;"></th>
+        </tr></thead>
+        <tbody>${rows.length ? rows.map((r,ri)=>`<tr>
+            <td>${esc(r.product)}</td>
+            <td>${esc((cat.targets ? r.target : r.composition) || '—')}</td>
+            <td>${esc(r.dose||'—')} ${esc(r.unit||'')}</td>
+            <td>${esc(r.method||'—')}</td>
+            <td><button class="btn small ghost" onclick="removeInput('${cat.key}', ${ri})">Remove</button></td>
+          </tr>`).join('')
+          : `<tr><td colspan="5" style="color:var(--muted);">Nothing recorded for this stage yet.</td></tr>`}
+        </tbody>
+      </table>
+      <div class="grid2" style="margin-top:12px;">
+        <div><label class="f">Product name</label><input id="${p}-product" list="dl-${cat.key}" placeholder="${esc(cat.hint)}"></div>
+        <div><label class="f">${cat.targets ? 'Target pest or disease' : 'Composition / type'}</label>
+          <input id="${p}-detail" placeholder="${cat.targets ? 'e.g. Damping off, Tuta absoluta' : 'e.g. 0-46-0 (46% P2O5)'}"></div>
+        <div><label class="f">Dosage</label><input id="${p}-dose" type="number" step="0.01" placeholder="0"></div>
+        <div><label class="f">Unit</label><select id="${p}-unit">${cat.units.map(u=>`<option>${u}</option>`).join('')}</select></div>
+        <div><label class="f">Method</label><select id="${p}-method">${cat.methods.map(x=>`<option>${x}</option>`).join('')}</select></div>
+      </div>
+      ${productSuggestions(cat.key)}
+      <button class="btn small" onclick="addInput('${cat.key}')">+ Add ${cat.label.replace(/s$/,'').toLowerCase()}</button>
+    </div>`;
+}
+
+// Products already recorded anywhere on the register, offered as suggestions.
+function productSuggestions(catKey){
+  const seen = [];
+  Object.keys(MEMBERS).forEach(id=> (MEMBERS[id].crops||[]).forEach(cr=>{
+    const p = cr.programme; if(!p) return;
+    CROP_STAGES.forEach(st=> ((p[st]||{})[catKey]||[]).forEach(r=>{
+      const n = (r.product||'').trim();
+      if(n && seen.indexOf(n)===-1) seen.push(n);
+    }));
+  }));
+  return seen.length ? `<datalist id="dl-${catKey}">${seen.sort().map(n=>`<option value="${esc(n)}">`).join('')}</datalist>` : '';
+}
+
+function addInput(catKey){
+  const cat = categoryDef(catKey), p = 'inp-' + catKey;
+  const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
+  const product = document.getElementById(p+'-product').value.trim();
+  const detail  = document.getElementById(p+'-detail').value.trim();
+  const dose    = document.getElementById(p+'-dose').value.trim();
+  const unit    = document.getElementById(p+'-unit').value;
+  const method  = document.getElementById(p+'-method').value;
+  if(!product){
+    const el = document.getElementById(p+'-product');
+    el.focus(); el.style.borderColor = 'var(--red)';
+    return;
+  }
+  const entry = {product, dose, unit, method};
+  if(cat.targets) entry.target = detail; else entry.composition = detail;
+  ensureProgramme(cr)[state.calStage][catKey].push(entry);
+  logAction(`${m.name} recorded ${catKey.replace(/s$/,'').toLowerCase()} "${product}" for ${cr.crop} at ${state.calStage}.`);
+  render();
+}
+function removeInput(catKey, i){
+  const m = MEMBERS[state.member], cr = m.crops[state.calCrop];
+  const removed = ensureProgramme(cr)[state.calStage][catKey].splice(i,1)[0];
+  logAction(`${m.name} removed ${catKey.replace(/s$/,'').toLowerCase()} "${removed && removed.product}" from ${cr.crop} at ${state.calStage}.`);
+  render();
+}
+
+/* ============================================================
+   Generated programme
+   Mirrors the association's Fertilizer & Crop Protection Program
+   sheet: one row per fertilizer line item, with the stage, timing,
+   crop-protection column and comment spanning that stage's rows.
+   ============================================================ */
+function protectionLines(cr, stage){
+  const p = ensureProgramme(cr), out = [];
+  ['Pesticides','Insecticides','Fungicides'].forEach(k=>
+    (p[stage][k]||[]).forEach(r=> out.push({
+      text: (r.target ? r.target + ' \u2192 ' : '') + r.product,
+      uom: r.dose ? `${r.dose} ${r.unit||''}`.trim() : '\u2014'
+    })));
+  return out;
+}
+function generatedProgramme(m, cr, timing){
+  const p = ensureProgramme(cr);
+  let fertCount = 0, body = '';
+  CROP_STAGES.forEach(stage=>{
+    const ferts = p[stage]['Fertilizers'] || [];
+    const prot  = protectionLines(cr, stage);
+    const span  = Math.max(ferts.length, 1);
+    fertCount += ferts.length;
+    const protCell = prot.length
+      ? prot.map(x=>esc(x.text)).join('<br>')
+      : '<span style="color:var(--muted);">None recorded</span>';
+    const uomCell = prot.length ? prot.map(x=>esc(x.uom)).join('<br>') : '\u2014';
+    const rows = ferts.length ? ferts : [null];
+    rows.forEach((f, i)=>{
+      body += '<tr>';
+      if(i===0){
+        body += `<td rowspan="${span}" class="pg-stage">${esc(stage)}</td>`;
+        body += `<td rowspan="${span}">${esc(timing[stage]||'\u2014')}</td>`;
+      }
+      body += f
+        ? `<td>${esc(f.product)}</td><td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
+        : `<td colspan="4" style="color:var(--muted);">No fertilizer recorded for this stage</td>`;
+      if(i===0){
+        body += `<td rowspan="${span}">${protCell}</td>`;
+        body += `<td rowspan="${span}">${uomCell}</td>`;
+        body += `<td rowspan="${span}" class="pg-comment">${esc(STAGE_NOTES[stage]||'')}</td>`;
+      }
+      body += '</tr>';
+    });
+  });
+  return `
+    <div class="section-label">Generated programme — ${esc(cr.crop)}</div>
+    <div class="card prog-card">
+      <div class="prog-title">${esc(m.name).toUpperCase()} — FERTILIZER &amp; CROP PROTECTION PROGRAM, BY CROP STAGE</div>
+      <div class="prog-sub">${esc(cr.crop)}${cr.variety?` &middot; ${esc(cr.variety)}`:''}${cr.seedCompany?` &middot; seed from ${esc(cr.seedCompany)}`:''}${cr.area?` &middot; ${esc(cr.area)} ha`:''}</div>
+      <div style="overflow-x:auto;">
+        <table class="grid-table prog-table">
+          <thead><tr>
+            <th>Crop stage</th><th>Timing</th><th>Required fertilizer</th><th>Composition / type</th>
+            <th>Dosage</th><th>Method</th><th>Pest / disease control</th><th>Pest UoM</th><th>Comment</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+      <div class="prog-foot">${esc(cr.crop)} — stage count: ${CROP_STAGES.length} &nbsp;|&nbsp; total fertilizer line items: ${fertCount}</div>
+      <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn small" onclick="exportProgramme(${state.calCrop})">Export this programme (CSV)</button>
+        <button class="btn small ghost" onclick="exportAllProgrammes()">Export all crops (CSV)</button>
+        <button class="btn small ghost" onclick="window.print()">Print / save as PDF</button>
+      </div>
+      <p class="helper" style="margin-top:10px;">Timing is worked out from this crop's planting and expected harvest dates. Update those on the Profile tab and the windows above follow.</p>
+    </div>`;
+}
+
+function programmeRows(m, cr){
+  const p = ensureProgramme(cr), timing = stageWindows(cr);
+  const rows = [];
+  CROP_STAGES.forEach(stage=>{
+    const ferts = p[stage]['Fertilizers'] || [];
+    const prot  = protectionLines(cr, stage);
+    const protText = prot.map(x=>x.text).join(' | ') || '';
+    const protUom  = prot.map(x=>x.uom).join(' | ') || '';
+    if(!ferts.length && !prot.length){
+      rows.push([m.name, cr.crop, cr.variety||'', stage, timing[stage]||'', '', '', '', '', '', '', STAGE_NOTES[stage]||'']);
+      return;
+    }
+    (ferts.length ? ferts : [null]).forEach((f,i)=>{
+      rows.push([
+        m.name, cr.crop, cr.variety||'', stage, timing[stage]||'',
+        f ? f.product : '', f ? (f.composition||'') : '', f ? (f.dose||'') : '', f ? (f.unit||'') : '', f ? (f.method||'') : '',
+        i===0 ? protText : '', i===0 ? protUom : '',
+        i===0 ? (STAGE_NOTES[stage]||'') : ''
+      ]);
+    });
+  });
+  return rows;
+}
+const PROGRAMME_HEADER = ['Farm','Crop','Variety','Crop stage','Timing','Required fertilizer','Composition / type','Dosage','Unit','Method','Pest / disease control','Pest UoM','Comment'];
+function exportProgramme(i){
+  const m = MEMBERS[state.member], cr = m.crops[i];
+  downloadCSV(`${m.name.replace(/\s+/g,'_')}_${String(cr.crop).replace(/\s+/g,'_')}_programme.csv`,
+              [PROGRAMME_HEADER].concat(programmeRows(m, cr)));
+  logAction(`${m.name} exported the crop programme for ${cr.crop}.`);
+}
+function exportAllProgrammes(){
+  const m = MEMBERS[state.member];
+  const rows = [PROGRAMME_HEADER];
+  m.crops.forEach(cr=> programmeRows(m, cr).forEach(r=> rows.push(r)));
+  downloadCSV(`${m.name.replace(/\s+/g,'_')}_crop_programme.csv`, rows);
+  logAction(`${m.name} exported the full crop programme.`);
+}
+
 function setCropField(i, field, value){
   const m = MEMBERS[state.member];
   m.crops[i][field] = value;
-  logAction(`${m.name} updated ${field==='stage'?'crop stage':'stage input notes'} for ${m.crops[i].crop}.`);
+  logAction(`${m.name} updated ${field==='stage'?'the crop stage':'stage notes'} for ${m.crops[i].crop}.`);
+  if(field==='stage') render();
 }
 function uploadCropDoc(i, input){
   const file = input.files && input.files[0];
