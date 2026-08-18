@@ -785,11 +785,12 @@ const MARKET_STANDARD_OPTIONS = ['GlobalG.A.P.','Organic','Fair Trade','Other'];
 // and every farm owns and edits its own profile from there.
 let MEMBERS = {};
 
-const DEFAULT_ADMINS = [
-  {name:'Samson Abel Mwaikenda', username:'samsonabel627@gmail.com', password:'sam2026'},
-  {name:'Amina Hassan', username:'amina.hassan@tipfa.co.tz', password:'Secretariat#1'},
-  {name:'Joseph Mwakalinga', username:'joseph.mwakalinga@tipfa.co.tz', password:'Secretariat#2'},
-];
+/* A device that has never been used starts with no operators at all. The first
+   person to arrive creates their own account with the Secretariat sign-up code.
+   Seeding named accounts here meant every fresh device silently held operators
+   with passwords nobody had chosen, which is why a real password could be
+   rejected on a second device while the reset flow still recognised the ID. */
+const DEFAULT_ADMINS = [];
 const MAX_ADMINS = 5;
 // Shared code an operator must quote to create their own administrator account
 // from the sign-in screen. Set to '' to allow administrator sign-up without a code.
@@ -874,9 +875,9 @@ function loadAdmins(){
     const raw = localStorage.getItem(ADMIN_STORE_KEY);
     if(raw){
       const parsed = JSON.parse(raw);
-      if(Array.isArray(parsed) && parsed.length) return parsed;
+      if(Array.isArray(parsed)) return parsed;
     }
-  }catch(e){ /* storage unavailable — fall through to defaults */ }
+  }catch(e){ /* storage unavailable — fall through to an empty register */ }
   return DEFAULT_ADMINS.map(a=>Object.assign({}, a));
 }
 function saveAdmins(){
@@ -1111,7 +1112,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, archiveMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -1310,7 +1311,12 @@ function doAdminLogin(btn){
     const u = norm(a.username), local = u.split('@')[0];
     return (identifier===u || identifier===local) && a.password===password;
   });
-  if(!match){ flagError(document.getElementById('login-error-admin'), 'Invalid operator ID or password.'); return; }
+  if(!match){
+    flagError(document.getElementById('login-error-admin'),
+      ADMINS.length ? 'Invalid operator ID or password.'
+                    : 'No administrator account exists in this browser yet. Create one below, or restore a backup from the device that has your records.');
+    return;
+  }
   signInTransition(btn, ()=>{
     state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = match.name;
     state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = '';
@@ -1418,7 +1424,7 @@ function findMemberByLogin(identifier){
    email on its record, an operator with their ID and the Secretariat
    sign-up code. Every reset is written to the audit log.
    ============================================================ */
-function showForgot(which){ state.forgot = which; state.forgotMsg = ''; state.regSuccess = false; renderLogin(); }
+function showForgot(which){ state.forgot = which; state.forgotMsg = ''; state.regSuccess = false; state.adminSignupMsg = ''; renderLogin(); }
 
 function submitMemberReset(){
   const err = document.getElementById('fp-error');
@@ -1455,7 +1461,7 @@ function submitAdminReset(){
   match.password = pass;
   saveAdmins();
   logAction(`Administrator password reset from the sign-in screen for operator ${match.name}.`);
-  state.forgot = null;
+  state.forgot = null; state.adminSignupMsg = '';
   state.adminSignupUser = match.username;
   state.forgotMsg = 'Password updated. Sign in with your new password.';
   renderLogin();
@@ -1565,6 +1571,7 @@ function renderLogin(){
         <p class="login-note">Each member signs in with their own phone or email. An account only ever shows its own farm's data.</p>
         <p class="login-note"><a href="#" onclick="toggleRegister(true);return false;">New farm? Register here &rarr;</a></p>
         <div class="demo-note">No account yet? Register your farm above — you can sign in and start filling in your profile straight away, while the Secretariat reviews your membership.</div>
+        <div class="demo-note" style="background:#FBEECC;color:#8A6412;">Records are held in this browser on this device. Sign in from the same browser to see your farm's data. An operator can move records between devices from Governance.</div>
         `
       ) : (
         state.forgot === 'admin' ? adminResetForm() :
@@ -1598,6 +1605,7 @@ function renderLogin(){
         <p class="login-note"><a href="#" onclick="showForgot('admin');return false;">Forgotten your password?</a></p>
         <p class="login-note"><a href="#" onclick="toggleAdminSignup(true);return false;">New administrator? Create your own account &rarr;</a></p>
         <p class="login-note">Administrator access is limited to five authorised Secretariat operators. Every operator action is logged for accountability.</p>
+        <div class="demo-note" style="background:#FBEECC;color:#8A6412;">Operator accounts and all records are held in this browser on this device. An account created on another device will not sign in here until its backup is restored from Governance.</div>
       `)}
         </div>
       </div>
@@ -3653,8 +3661,8 @@ function renderMembers(c){
   c.innerHTML = `
     <h1 class="page-title">Member management</h1>
     <p class="page-sub">Approve registrations, register new farms, and view, edit, or remove any profile</p>
-    ${noMembersYet() ? emptyState('No farms have registered yet',
-        'Farms appear here as soon as they sign up on the sign-in screen. You can also register one directly using the button below.') : `
+    ${noMembersYet() ? emptyState('No farms have registered on this device',
+        'Farms appear here as soon as they sign up in this browser. A farm that registered on a different device or browser will not show until its backup is restored from Governance.') : `
     <div class="card" style="overflow-x:auto;">
       <table class="grid-table"><thead><tr><th>Farm</th><th>Category</th><th>Location</th><th>Status</th><th style="min-width:230px;"></th></tr></thead>
       <tbody>${Object.entries(MEMBERS).map(([id,m])=>`<tr><td>${farmCell(m)}</td><td>${m.category}</td><td>${m.location}</td>
@@ -3680,7 +3688,8 @@ function renderMembers(c){
         <button class="btn" onclick="submitAdminRegistration()">Register member</button>
         <p class="helper" id="areg-error" style="color:var(--red);margin-top:8px;"></p>
       </div>` : ''}
-    <p class="helper">Approving a pending member (or registering one directly here) makes their farm selectable at member login and in the bulk entry console.</p>`;
+    <p class="helper">Approving a pending member (or registering one directly here) makes their farm selectable at member login and in the bulk entry console.</p>
+    <p class="helper">This list covers farms registered in this browser. Records do not travel between devices on their own — use <strong>Governance &rarr; Moving records between devices</strong> to bring in farms that registered elsewhere.</p>`;
 }
 
 function renderMemberViewPanel(id){
@@ -4325,6 +4334,136 @@ function exportIssues(){
   downloadCSV(`TIPFA_issue_resolution.csv`, rows); logAction('Operator exported issue resolution report.');
 }
 
+/* ============================================================
+   Backup and restore
+   This platform keeps everything in the browser it is used in, so a
+   farm registered on one phone is not visible on another. Until it
+   runs against a server, a backup file is how records move between
+   devices: export here, open the file on the other device, restore.
+   ============================================================ */
+const BACKUP_VERSION = 1;
+
+function buildBackup(){
+  return {
+    tipfa: 'association-platform-backup',
+    version: BACKUP_VERSION,
+    takenAt: new Date().toISOString(),
+    takenBy: state.adminName || 'operator',
+    counts: { farms:Object.keys(MEMBERS).length, operators:ADMINS.length },
+    members: MEMBERS,
+    harvest: harvest,
+    inputs: inputsData,
+    complaints: complaints,
+    nextComplaintId: nextComplaintId,
+    admins: ADMINS
+  };
+}
+
+function exportBackup(){
+  const data = buildBackup();
+  const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `TIPFA_backup_${todayStr()}.json`;
+  a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 1000);
+  logAction(`Operator ${state.adminName||''} exported a full backup (${data.counts.farms} farms, ${data.counts.operators} operators).`);
+}
+
+function restoreBackup(input){
+  const file = input.files && input.files[0];
+  const out = document.getElementById('restore-result');
+  const show = (msg, bad)=>{ if(out){ out.className = 'import-result' + (bad?' bad':''); out.innerHTML = msg; } };
+  if(!file) return;
+  const mode = document.getElementById('restore-mode').value;
+  const reader = new FileReader();
+  reader.onerror = ()=> show('That file could not be read.', true);
+  reader.onload = ()=>{
+    let d;
+    try { d = JSON.parse(String(reader.result)); }
+    catch(e){ show('That file is not a TIPFA backup — it could not be read as JSON.', true); return; }
+    if(!d || d.tipfa !== 'association-platform-backup' || !d.members){
+      show('That file is not a TIPFA backup. Export one from the other device using the button above.', true);
+      return;
+    }
+
+    let addedFarms = 0, keptFarms = 0, addedOps = 0;
+    if(mode === 'replace'){
+      MEMBERS = d.members || {};
+      harvest = d.harvest || {};
+      inputsData = d.inputs || {};
+      complaints = Array.isArray(d.complaints) ? d.complaints : [];
+      nextComplaintId = d.nextComplaintId || (complaints.length + 1);
+      if(Array.isArray(d.admins) && d.admins.length) ADMINS = d.admins;
+      addedFarms = Object.keys(MEMBERS).length;
+    } else {
+      // Merge: a farm already here wins, so nothing recorded on this device
+      // is overwritten by an older file.
+      Object.keys(d.members || {}).forEach(id=>{
+        const incoming = d.members[id];
+        const clash = findMemberByLogin(incoming.phone) || (incoming.email && findMemberByLogin(incoming.email));
+        if(MEMBERS[id] || clash){ keptFarms++; return; }
+        MEMBERS[id] = incoming;
+        if(d.harvest && d.harvest[id]) harvest[id] = d.harvest[id];
+        if(d.inputs && d.inputs[id]) inputsData[id] = d.inputs[id];
+        if(!harvest[id] || !inputsData[id]) createBlankRecords(id);
+        addedFarms++;
+      });
+      (d.complaints || []).forEach(x=>{
+        if(!complaints.some(y=> y.member===x.member && y.text===x.text && y.type===x.type)){
+          complaints.push(Object.assign({}, x, {id: nextComplaintId++}));
+        }
+      });
+      (d.admins || []).forEach(a=>{
+        if(!ADMINS.some(x=> norm(x.username) === norm(a.username))){ ADMINS.push(a); addedOps++; }
+      });
+    }
+
+    // Bring everything restored up to the current record shape.
+    Object.keys(MEMBERS).forEach(id=>{
+      const m = MEMBERS[id];
+      if(!Array.isArray(m.crops)) m.crops = [];
+      m.crops.forEach(ensureProgramme);
+      if(!harvest[id] || !inputsData[id]) createBlankRecords(id);
+    });
+    saveAdmins(); saveMembers();
+    input.value = '';
+    logAction(`Operator ${state.adminName||''} restored a backup taken ${d.takenAt ? d.takenAt.slice(0,10) : 'earlier'} (${mode === 'replace' ? 'replacing this device' : 'merging'}).`);
+    state.restoreMsg = mode === 'replace'
+      ? `${CHECK_ICON} Restored ${Object.keys(MEMBERS).length} farm${Object.keys(MEMBERS).length===1?'':'s'} and ${ADMINS.length} operator account${ADMINS.length===1?'':'s'} from the backup. This device now matches the file.`
+      : `${CHECK_ICON} Merged: ${addedFarms} farm${addedFarms===1?'':'s'} added, ${keptFarms} already here and left untouched, ${addedOps} operator account${addedOps===1?'':'s'} added.`;
+    render();
+  };
+  reader.readAsText(file);
+}
+
+function backupPanel(){
+  const msg = state.restoreMsg; state.restoreMsg = '';
+  return `
+    <div class="section-label">Moving records between devices</div>
+    <div class="card import-card">
+      <p class="helper" style="margin:0 0 4px;"><strong>This platform stores its records in the browser it is used in.</strong>
+        A farm that registers on one phone is not visible on another device, and an operator account created here does not exist
+        elsewhere. Until the platform runs against a shared server, this is how records travel.</p>
+      <div class="import-opts">
+        <button class="btn small gold" onclick="exportBackup()">Download a backup of everything</button>
+      </div>
+      <p class="helper" style="margin:2px 0 8px;">Then, on the other device, sign in as an operator and restore that file here:</p>
+      <div class="import-opts">
+        <select id="restore-mode" style="width:auto;margin:0;">
+          <option value="merge">Merge — add what is missing, keep what is here</option>
+          <option value="replace">Replace — make this device match the file exactly</option>
+        </select>
+        <input type="file" accept=".json,application/json" id="restore-file" style="width:auto;margin:0;" onchange="restoreBackup(this)">
+      </div>
+      ${msg ? `<div class="import-result">${msg}</div>` : '<div id="restore-result"></div>'}
+      <p class="helper">The backup carries every farm, crop calendar, harvest figure, price, archive and operator account.
+        Merging never overwrites a farm already on this device. Replacing discards what is here, so take a backup of this
+        device first if it holds anything you need.</p>
+    </div>`;
+}
+
 function renderGovernance(c){
   c.innerHTML = `
     <h1 class="page-title">Governance</h1>
@@ -4348,6 +4487,7 @@ function renderGovernance(c){
       ` : `<p class="helper" style="color:var(--soil);margin-top:10px;">Maximum of ${MAX_ADMINS} administrator accounts reached. Remove one above to free a seat.</p>`}
       <p class="helper" style="margin-top:12px;">Operators can also create their own account from the Administrator tab of the sign-in screen${ADMIN_SIGNUP_CODE ? ` by quoting the Secretariat sign-up code (<strong>${ADMIN_SIGNUP_CODE}</strong>)` : ''}. Self sign-ups appear in this list and are recorded in the audit log below.</p>
     </div>
+    ${backupPanel()}
     <div class="section-label">Audit log</div>
     <div class="card">${auditLog.slice(0,12).map((l,i)=>
       `<div class="log-item" style="animation-delay:${Math.min(i,10)*40}ms"><span class="t">${l.time}</span><span>${esc(l.text)}</span></div>`
