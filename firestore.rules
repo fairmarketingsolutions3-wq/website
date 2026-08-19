@@ -72,7 +72,10 @@ service cloud.firestore {
 
     // ---- Operators -----------------------------------------------------
     match /operators/{uid} {
-      allow read: if isOperator();
+      // Everyone may read their own operator document — a farm signing in asks
+      // whether it has one, and must be told no rather than refused. Reading
+      // anyone else's is for operators.
+      allow read: if owns(uid) || isOperator();
       // A new operator registers themselves, but only with the operator code
       // and only against their own user id.
       allow create: if owns(uid) && hasOperatorCode();
