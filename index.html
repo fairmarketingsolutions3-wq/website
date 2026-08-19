@@ -972,19 +972,33 @@ async function cloudPullAll(){
 
 /* ---- Account creation and sign-in ---------------------------------- */
 
+/* Creating an account is two steps: the Authentication user, then the record
+   the rules check. If the second is refused, the first is undone — otherwise
+   the address is taken by a user with no record behind it, and every retry
+   reports that the email is already in use. */
+async function withRollback(cred, work){
+  try{ return await work(); }
+  catch(e){
+    try{ await cred.user.delete(); }catch(_){ /* leave it; sign-in will explain */ }
+    throw e;
+  }
+}
+
 async function cloudRegisterFarm(vals, password, code){
   const { createUserWithEmailAndPassword } = CLOUD.authApi;
   const { doc, setDoc, updateDoc, deleteField } = CLOUD.fs;
   const cred = await createUserWithEmailAndPassword(CLOUD.auth, vals.email, password);
   const uid = cred.user.uid;
-  const record = Object.assign(farmDoc(vals), {
-    status:'Pending', category:'Pending review', registered:todayStr(),
-    crops:[], signupCode:code                     // checked by the rules on create
+  return await withRollback(cred, async ()=>{
+    const record = Object.assign(farmDoc(vals), {
+      status:'Pending', category:'Pending review', registered:todayStr(),
+      crops:[], signupCode:code                   // checked by the rules on create
+    });
+    await setDoc(doc(CLOUD.db, 'farms', uid), record);
+    await updateDoc(doc(CLOUD.db, 'farms', uid), { signupCode: deleteField() });  // not kept
+    await setDoc(doc(CLOUD.db, 'harvest', uid), { plan:blankHarvestStore(), actual:blankHarvestStore() });
+    return uid;
   });
-  await setDoc(doc(CLOUD.db, 'farms', uid), record);
-  await updateDoc(doc(CLOUD.db, 'farms', uid), { signupCode: deleteField() });  // not kept
-  await setDoc(doc(CLOUD.db, 'harvest', uid), { plan:blankHarvestStore(), actual:blankHarvestStore() });
-  return uid;
 }
 
 async function cloudRegisterOperator(name, email, password, code){
@@ -992,9 +1006,11 @@ async function cloudRegisterOperator(name, email, password, code){
   const { doc, setDoc, updateDoc, deleteField } = CLOUD.fs;
   const cred = await createUserWithEmailAndPassword(CLOUD.auth, email, password);
   const uid = cred.user.uid;
-  await setDoc(doc(CLOUD.db, 'operators', uid), { name, email, signupCode:code, since:todayStr() });
-  await updateDoc(doc(CLOUD.db, 'operators', uid), { signupCode: deleteField() });
-  return uid;
+  return await withRollback(cred, async ()=>{
+    await setDoc(doc(CLOUD.db, 'operators', uid), { name, email, signupCode:code, since:todayStr() });
+    await updateDoc(doc(CLOUD.db, 'operators', uid), { signupCode: deleteField() });
+    return uid;
+  });
 }
 
 async function cloudSignIn(email, password){
@@ -1003,10 +1019,15 @@ async function cloudSignIn(email, password){
   const cred = await signInWithEmailAndPassword(CLOUD.auth, email, password);
   const uid = cred.user.uid;
   const op = await getDoc(doc(CLOUD.db, 'operators', uid));
+  let role = op.exists() ? 'operator' : null;
+  if(!role){
+    const farm = await getDoc(doc(CLOUD.db, 'farms', uid));
+    role = farm.exists() ? 'farm' : 'orphan';   // signed in, but nothing behind it
+  }
   CLOUD_STATE.uid = uid;
   CLOUD_STATE.email = email;
-  CLOUD_STATE.role = op.exists() ? 'operator' : 'farm';
-  return { uid, role:CLOUD_STATE.role, name: op.exists() ? (op.data().name||email) : null };
+  CLOUD_STATE.role = role;
+  return { uid, role, name: op.exists() ? (op.data().name||email) : null };
 }
 
 async function cloudSignOut(){
@@ -1030,7 +1051,9 @@ function cloudErrorText(e){
   if(code.includes('user-not-found')) return 'No account uses that email address.';
   if(code.includes('too-many-requests')) return 'Too many attempts. Wait a few minutes and try again.';
   if(code.includes('network')) return 'No connection to the database. Check the network and try again.';
-  if(code.includes('permission-denied')) return 'The database refused that. Check the sign-up code with the Secretariat.';
+  if(code.includes('permission-denied') || /insufficient permissions/i.test(String(e && e.message))){
+    return 'The database refused that. Either the sign-up code is wrong, or the settings/signup document holding the codes has not been created in the Firebase console yet.';
+  }
   return (e && e.message) ? e.message : 'Something went wrong. Try again.';
 }
 
@@ -1532,6 +1555,12 @@ async function doMemberLogin(btn){
         await cloudSignOut();
         return;
       }
+      if(who.role === 'orphan'){
+        await cloudSignOut();
+        flagError(document.getElementById('login-error'),
+          'That email and password are correct, but no farm record is attached to them — the registration did not finish. Register again, or ask the Secretariat to check.');
+        return;
+      }
       curtainTransition(()=>{
         state.loggedIn = true; state.role = 'member'; state.member = who.uid; state.tab = 'profile'; state.forgotMsg = '';
         document.body.setAttribute('data-role','member');
@@ -1587,7 +1616,9 @@ async function doAdminLogin(btn){
       if(who.role !== 'operator'){
         await cloudSignOut();
         if(btn) btn.classList.remove('is-busy');
-        flagError(document.getElementById('login-error-admin'), 'That is a farm account — sign in on the Farm member tab.');
+        flagError(document.getElementById('login-error-admin'), who.role === 'orphan'
+          ? 'That email and password are correct, but this account has no operator record — the sign-up did not finish. Create the account again with the operator code.'
+          : 'That is a farm account — sign in on the Farm member tab.');
         return;
       }
       await cloudPullAll();
@@ -4871,6 +4902,7 @@ function backupPanel(){
       <p class="helper" style="margin:0 0 4px;"><strong>This platform stores its records in the browser it is used in.</strong>
         A farm that registers on one phone is not visible on another device, and an operator account created here does not exist
         elsewhere. Until the platform runs against a shared server, this is how records travel.</p>
+      <p class="helper" style="margin:8px 0;"><strong>Shared database:</strong> ${esc(cloudStatusText())}${CLOUD.detail ? ` — ${esc(CLOUD.detail)}` : ''}</p>
       <div class="import-opts">
         <button class="btn small gold" onclick="exportBackup()">Download a backup of everything</button>
       </div>
