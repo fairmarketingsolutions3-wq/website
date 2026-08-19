@@ -1750,7 +1750,7 @@ function submitAdminSignup(){
     if(btn) btn.classList.add('is-busy');
     err.style.color = 'var(--muted)';
     err.textContent = 'Creating the account…';
-    withTimeout(cloudRegisterOperator(name, user, pass, code), 20000, 'Creating the account')
+    withTimeout(cloudRegisterOperator(name, user, pass, codeEl ? codeEl.value.trim() : ''), 20000, 'Creating the account')
       .then(()=>{
         logAction(`${name} created an administrator account as operator ${user}.`);
         state.adminSignup = false;
