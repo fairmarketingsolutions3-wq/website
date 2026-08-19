@@ -625,6 +625,15 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
 .diag-line.bad{background:#F8E4E0;} .diag-line.bad .diag-mark{background:var(--red);}
 .diag-line.note{background:#F6F5EE;} .diag-line.note .diag-mark{background:var(--muted);}
 
+.fatal-bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:120;background:var(--red);color:#fff;
+  padding:12px 16px;font-size:12.5px;line-height:1.5;display:flex;gap:12px;align-items:center;flex-wrap:wrap;
+}
+.fatal-bar button{
+  margin-left:auto;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.5);color:#fff;
+  border-radius:8px;padding:5px 12px;font-size:12px;cursor:pointer;font-family:'Poppins',sans-serif;
+}
+
 /* ---------- Print ---------- */
 @media print{
   .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"], .arcfield, .curtain{ display:none !important; }
@@ -913,6 +922,35 @@ async function initCloud(){
    working.
    ============================================================ */
 const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null };
+
+/* A button that appears to do nothing is the worst failure to diagnose,
+   especially on a phone with no console. Anything thrown or rejected and not
+   handled is shown on screen instead of vanishing. */
+function showFatal(msg){
+  let bar = document.getElementById('fatal-bar');
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'fatal-bar';
+    bar.className = 'fatal-bar';
+    document.body.appendChild(bar);
+  }
+  bar.innerHTML = `<strong>Something went wrong.</strong> ${esc(String(msg).slice(0,300))}
+    <button onclick="this.parentNode.remove()">Dismiss</button>`;
+}
+window.addEventListener('error', e=> showFatal((e.error && e.error.message) || e.message || 'unknown error'));
+window.addEventListener('unhandledrejection', e=>{
+  const r = e.reason;
+  showFatal((r && (r.code ? r.code + ' — ' : '') + (r.message || r)) || 'unknown error');
+});
+
+// Never let a network call hang with no feedback.
+function withTimeout(promise, ms, what){
+  return Promise.race([
+    promise,
+    new Promise((_, reject)=> setTimeout(()=> reject(new Error(`${what} timed out after ${ms/1000} seconds — the connection may have dropped.`)), ms))
+  ]);
+}
+
 
 function cloudOn(){ return CLOUD.ready && CLOUD.db && CLOUD.auth; }
 
@@ -1688,7 +1726,10 @@ function submitAdminSignup(){
   if(!name || !user || !pass){
     flagError(err, 'Enter your full name, the operator ID you want, and a password.'); return;
   }
-  if(adminCode() && (!codeEl || codeEl.value.trim() !== adminCode())){
+  // Offline, the code is checked against this device's stored setting. Online,
+  // the security rules check it against the database — checking here as well
+  // would reject a valid code whenever the two are not identical.
+  if(!cloudOn() && adminCode() && (!codeEl || codeEl.value.trim() !== adminCode())){
     flagError(err, 'That Secretariat sign-up code is not correct.'); return;
   }
   if(pass.length < 6){
@@ -1705,7 +1746,11 @@ function submitAdminSignup(){
     flagError(err, `All ${MAX_ADMINS} administrator seats are taken — an existing operator must remove one first.`); return;
   }
   if(cloudOn() && looksLikeEmail(user)){
-    cloudRegisterOperator(name, user, pass, code)
+    const btn = document.querySelector('button.gold[onclick*="submitAdminSignup"]');
+    if(btn) btn.classList.add('is-busy');
+    err.style.color = 'var(--muted)';
+    err.textContent = 'Creating the account…';
+    withTimeout(cloudRegisterOperator(name, user, pass, code), 20000, 'Creating the account')
       .then(()=>{
         logAction(`${name} created an administrator account as operator ${user}.`);
         state.adminSignup = false;
@@ -1713,7 +1758,11 @@ function submitAdminSignup(){
         state.adminSignupMsg = 'Administrator account created — sign in below with your new operator ID and password.';
         renderLogin();
       })
-      .catch(e=> flagError(err, cloudErrorText(e)));
+      .catch(e=>{
+        if(btn) btn.classList.remove('is-busy');
+        // The code as well as the wording, so a fault can be reported exactly.
+        flagError(err, cloudErrorText(e) + (e && e.code ? ` [${e.code}]` : ''));
+      });
     return;
   }
   ADMINS.push({name, username:user, password:pass});
@@ -1738,7 +1787,8 @@ function submitSelfRegistration(){
   const pass = document.getElementById('reg-password').value;
   const pass2 = document.getElementById('reg-password2').value;
   const codeEl = document.getElementById('reg-code');
-  if(farmCode() && (!codeEl || codeEl.value.trim() !== farmCode())){
+  // Same here: online the rules are the authority on the code.
+  if(!cloudOn() && farmCode() && (!codeEl || codeEl.value.trim() !== farmCode())){
     flagError(document.getElementById('reg-error'),
       'That membership code is not correct. The Secretariat issues it — call 0744 443 247 if you do not have one.');
     return;
@@ -1769,7 +1819,9 @@ function submitSelfRegistration(){
   }
   if(cloudOn()){
     const btnErr = document.getElementById('reg-error');
-    cloudRegisterFarm(vals, pass, codeEl ? codeEl.value.trim() : '')
+    btnErr.style.color = 'var(--muted)';
+    btnErr.textContent = 'Registering your farm…';
+    withTimeout(cloudRegisterFarm(vals, pass, codeEl ? codeEl.value.trim() : ''), 20000, 'Registering your farm')
       .then(uid=>{
         MEMBERS[uid] = Object.assign({}, vals, {
           password: pass, category:'Pending review', registered: todayStr(), status:'Pending',
@@ -1780,7 +1832,7 @@ function submitSelfRegistration(){
         state.regAvatar = ''; state.showRegister = false; state.regSuccess = true;
         renderLogin();
       })
-      .catch(e=> flagError(btnErr, cloudErrorText(e)));
+      .catch(e=> flagError(btnErr, cloudErrorText(e) + (e && e.code ? ` [${e.code}]` : '')));
     return;
   }
   const id = slugify(vals.name);
