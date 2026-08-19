@@ -927,7 +927,7 @@ async function initCloud(){
 // own sign-up code, which an operator does not have. Pushing only what is
 // known to be there keeps one local record from reporting the whole app
 // offline.
-const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null, cloudIds:new Set() };
+const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null, pendingId:null, cloudIds:new Set() };
 
 /* A button that appears to do nothing is the worst failure to diagnose,
    especially on a phone with no console. Anything thrown or rejected and not
@@ -1012,7 +1012,12 @@ async function cloudDeleteFarm(id){
 function cloudPushSoon(id){
   if(!cloudOn()) return;
   clearTimeout(CLOUD_STATE.pushTimer);
-  CLOUD_STATE.pushTimer = setTimeout(()=> cloudPushFarm(id || CLOUD_STATE.uid), 1200);
+  CLOUD_STATE.pendingId = id || CLOUD_STATE.uid;
+  CLOUD_STATE.pushTimer = setTimeout(()=>{
+    const pending = CLOUD_STATE.pendingId;
+    CLOUD_STATE.pendingId = null;
+    cloudPushFarm(pending);
+  }, 1200);
 }
 
 async function cloudPullAll(){
@@ -1092,20 +1097,32 @@ async function cloudSignIn(email, password){
   const { doc, getDoc } = CLOUD.fs;
   const cred = await signInWithEmailAndPassword(CLOUD.auth, email, password);
   const uid = cred.user.uid;
-  const op = await getDoc(doc(CLOUD.db, 'operators', uid));
-  let role = op.exists() ? 'operator' : null;
+  // The farm record first, and only then the operator one. Anyone signed in may
+  // read their own farm document, but the operator collection is readable by
+  // operators alone — so asking that question first refuses every farm at its
+  // own sign-in, before the farm record is ever looked at.
+  const farm = await getDoc(doc(CLOUD.db, 'farms', uid));
+  let role = farm.exists() ? 'farm' : null;
+  let op = null;
   if(!role){
-    const farm = await getDoc(doc(CLOUD.db, 'farms', uid));
-    role = farm.exists() ? 'farm' : 'orphan';   // signed in, but nothing behind it
+    op = await getDoc(doc(CLOUD.db, 'operators', uid));
+    role = op.exists() ? 'operator' : 'orphan';   // signed in, but nothing behind it
   }
   CLOUD_STATE.uid = uid;
   CLOUD_STATE.email = email;
   CLOUD_STATE.role = role;
-  return { uid, role, name: op.exists() ? (op.data().name||email) : null };
+  return { uid, role, name: (op && op.exists()) ? (op.data().name||email) : null };
 }
 
 async function cloudSignOut(){
   if(!cloudOn()) return;
+  // A batched write still waiting when the session ends would be sent with
+  // nobody signed in. The rules refuse that, so the last edits of the session
+  // are lost and the app reports itself offline on the way out. Send it first.
+  clearTimeout(CLOUD_STATE.pushTimer);
+  const pending = CLOUD_STATE.pendingId;
+  CLOUD_STATE.pendingId = null;
+  if(pending) await cloudPushFarm(pending);
   try{ await CLOUD.authApi.signOut(CLOUD.auth); }catch(e){ /* already out */ }
   CLOUD_STATE.uid = null; CLOUD_STATE.role = null; CLOUD_STATE.email = null;
 }
@@ -1159,7 +1176,9 @@ function cloudErrorText(e){
   if(code.includes('too-many-requests')) return 'Too many attempts. Wait a few minutes and try again.';
   if(code.includes('network')) return 'No connection to the database. Check the network and try again.';
   if(code.includes('permission-denied') || /insufficient permissions/i.test(String(e && e.message))){
-    return 'The database refused that. Either the sign-up code is wrong, or the settings/signup document holding the codes has not been created in the Firebase console yet.';
+    // The sign-up forms replace this with the identified cause; everywhere else
+    // the honest answer is to run the check, which names what is wrong.
+    return 'The database refused that request. Run the connection check on the sign-in screen — it names exactly what is wrong.';
   }
   return (e && e.message) ? e.message : 'Something went wrong. Try again.';
 }
