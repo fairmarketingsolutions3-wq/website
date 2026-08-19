@@ -616,6 +616,15 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
 .cloud-badge.wait .cloud-dot{background:var(--harvest-orange);animation:softPulse 1.6s var(--ease-in-out) infinite;}
 .cloud-badge.off{color:var(--muted);}
 
+.diag-line{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border-radius:9px;margin-bottom:6px;font-size:12.5px;}
+.diag-line .diag-mark{
+  flex:none;width:19px;height:19px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:#fff;font-family:'Poppins',sans-serif;
+}
+.diag-line.ok{background:#F1F6E8;} .diag-line.ok .diag-mark{background:var(--leaf-green);}
+.diag-line.bad{background:#F8E4E0;} .diag-line.bad .diag-mark{background:var(--red);}
+.diag-line.note{background:#F6F5EE;} .diag-line.note .diag-mark{background:var(--muted);}
+
 /* ---------- Print ---------- */
 @media print{
   .topbar, .subbar, .sidebar, .btn, .chips, input[type="file"], .arcfield, .curtain{ display:none !important; }
@@ -1377,7 +1386,7 @@ window.addEventListener('beforeunload', saveMembers);
 logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
-  adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
+  diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
   calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
@@ -1535,7 +1544,7 @@ function downloadCSV(filename, rows){
   URL.revokeObjectURL(url);
 }
 
-function showLoginTab(tab){ state.loginTab = tab; state.forgot = null; state.forgotMsg = ''; renderLogin(); }
+function showLoginTab(tab){ state.loginTab = tab; state.diagnostics = false; state.forgot = null; state.forgotMsg = ''; renderLogin(); }
 
 async function doMemberLogin(btn){
   const raw = document.getElementById('login-id').value.trim();
@@ -1893,6 +1902,97 @@ function adminResetForm(){
     <p class="login-note">Every password reset is recorded in the audit log with a timestamp.</p>`;
 }
 
+/* ============================================================
+   Connection check
+   Reachable from the sign-in screen, because the most likely time to
+   need it is when nobody can sign in. Each step reports what actually
+   happened, including the raw error, so a problem can be described
+   rather than guessed at.
+   ============================================================ */
+function showDiagnostics(v){ state.diagnostics = v; state.diagLines = state.diagLines || []; renderLogin(); }
+
+async function runConnectionCheck(){
+  const out = [];
+  const push = (label, ok, detail)=>{
+    out.push({label, ok, detail: detail||''});
+    state.diagLines = out;
+    renderLogin();
+  };
+
+  const cfg = window.TIPFA_FIREBASE_CONFIG;
+  push('Project settings loaded', !!(cfg && cfg.projectId), cfg && cfg.projectId ? `project ${cfg.projectId}` : 'firebase-config.js did not load — the page may be a cached older copy. Hard-refresh with Ctrl+Shift+R.');
+  if(!cfg || !cfg.projectId) return;
+
+  let sdk = null;
+  try{
+    sdk = await import(CLOUD_SDK + 'firebase-app.js');
+    push('Firebase software downloaded', true, 'loaded from Google');
+  }catch(e){
+    push('Firebase software downloaded', false, 'Could not download it: ' + (e.message||e) + '. Usually no internet, or a network that blocks Google.');
+    return;
+  }
+
+  let db = null, auth = null;
+  try{
+    const fs = await import(CLOUD_SDK + 'firebase-firestore.js');
+    const au = await import(CLOUD_SDK + 'firebase-auth.js');
+    const app = sdk.initializeApp(cfg, 'diagnostic-' + Date.now());
+    db = fs.getFirestore(app);
+    auth = au.getAuth(app);
+    push('Connected to the project', true, cfg.projectId);
+    try{
+      // Rules refuse this read when nobody is signed in. Being refused is the
+      // good answer: it proves the database exists and the rules are live.
+      await fs.getDoc(fs.doc(db, 'farms', '__connection_check__'));
+      push('Database answering', true, 'reachable, and it allowed the check');
+    }catch(e){
+      const msg = String(e && (e.code || e.message) || e);
+      if(/permission|insufficient/i.test(msg)){
+        push('Database answering', true, 'reachable — it refused an unauthenticated read, which is correct and means the rules are published');
+      } else if(/not-found|does not exist|Firestore.*database/i.test(msg)){
+        push('Database answering', false, 'The project has no Firestore database yet. Create it: Build → Firestore Database → Create database.');
+      } else {
+        push('Database answering', false, msg);
+      }
+    }
+    try{
+      const methods = await au.fetchSignInMethodsForEmail(auth, 'connection-check@example.com');
+      push('Email sign-in switched on', true, 'Authentication answered' + (methods ? '' : ''));
+    }catch(e){
+      const msg = String(e && (e.code || e.message) || e);
+      if(/operation-not-allowed|configuration-not-found/i.test(msg)){
+        push('Email sign-in switched on', false, 'Email/Password is not enabled. Build → Authentication → Sign-in method → Email/Password → Enable.');
+      } else if(/invalid-email/i.test(msg)){
+        push('Email sign-in switched on', true, 'Authentication answered');
+      } else {
+        push('Email sign-in switched on', false, msg);
+      }
+    }
+  }catch(e){
+    push('Connected to the project', false, (e.message||String(e)));
+  }
+}
+
+function diagnosticsPanel(){
+  const lines = state.diagLines || [];
+  return `
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">This checks, step by step, whether the site can reach the shared database.
+        Nothing here signs you in or changes any record.</p>
+      <button class="btn small" onclick="runConnectionCheck()">Run the check</button>
+      ${lines.length ? `<div style="margin-top:14px;">${lines.concat([{
+        label:'Codes document', ok:null,
+        detail:'Cannot be checked from a browser by design — no client may read it. If sign-up is refused with a permissions error, check it in the console: Firestore → Data → settings → signup, holding farmCode and operatorCode.'
+      }]).map(l=>`
+        <div class="diag-line ${l.ok===true?'ok':(l.ok===false?'bad':'note')}">
+          <span class="diag-mark">${l.ok===true?'\u2713':(l.ok===false?'\u2715':'i')}</span>
+          <span><strong>${esc(l.label)}</strong>${l.detail?`<br><span class="helper">${esc(l.detail)}</span>`:''}</span>
+        </div>`).join('')}</div>` : ''}
+    </div>
+    <p class="login-note"><a href="#" onclick="showDiagnostics(false);return false;">&larr; Back to sign-in</a></p>
+    <p class="login-note">Send these lines to whoever maintains the platform if anything is marked with a cross.</p>`;
+}
+
 function renderLogin(){
   const box = document.getElementById('loginScreen');
   const isMember = state.loginTab==='member';
@@ -1936,7 +2036,7 @@ function renderLogin(){
             <button class="${isMember?'active':''}" onclick="showLoginTab('member')">Farm member</button>
             <button class="${!isMember?'active':''}" onclick="showLoginTab('admin')">Administrator</button>
           </div>
-      ${isMember ? (
+      ${state.diagnostics ? diagnosticsPanel() : isMember ? (
         state.forgot === 'member' ? memberResetForm() :
         state.showRegister ? `
         <div class="card">
@@ -1962,7 +2062,8 @@ function renderLogin(){
           <button class="btn" style="width:100%;margin-top:10px;" onclick="doMemberLogin(this)">Sign in to your farm</button>
           <p class="helper" id="login-error" style="color:var(--red);margin-top:8px;"></p>
         </div>
-        <p class="login-note"><a href="#" onclick="showForgot('member');return false;">Forgotten your password?</a></p>
+        <p class="login-note"><a href="#" onclick="showForgot('member');return false;">Forgotten your password?</a>
+          &nbsp;&middot;&nbsp; <a href="#" onclick="showDiagnostics(true);return false;">Check connection</a></p>
         <p class="login-note">Each member signs in with their own phone or email. An account only ever shows its own farm's data.</p>
         <p class="login-note"><a href="#" onclick="toggleRegister(true);return false;">New farm? Register here &rarr;</a></p>
         <div class="demo-note">No account yet? Register your farm above — you can sign in and start filling in your profile straight away, while the Secretariat reviews your membership.</div>
@@ -1997,7 +2098,8 @@ function renderLogin(){
           <button class="btn gold" style="width:100%;margin-top:10px;" onclick="doAdminLogin(this)">Sign in to the console</button>
           <p class="helper" id="login-error-admin" style="color:var(--red);margin-top:8px;"></p>
         </div>
-        <p class="login-note"><a href="#" onclick="showForgot('admin');return false;">Forgotten your password?</a></p>
+        <p class="login-note"><a href="#" onclick="showForgot('admin');return false;">Forgotten your password?</a>
+          &nbsp;&middot;&nbsp; <a href="#" onclick="showDiagnostics(true);return false;">Check connection</a></p>
         <p class="login-note"><a href="#" onclick="toggleAdminSignup(true);return false;">New administrator? Create your own account &rarr;</a></p>
         <p class="login-note">Administrator access is limited to five authorised Secretariat operators. Every operator action is logged for accountability.</p>
         <div class="demo-note" style="background:#FBEECC;color:#8A6412;">Operator accounts and all records are held in this browser on this device. An account created on another device will not sign in here until its backup is restored from Governance.</div>
