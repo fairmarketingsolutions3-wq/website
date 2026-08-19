@@ -921,7 +921,13 @@ async function initCloud(){
    has always had. No cloud failure is allowed to block a farm from
    working.
    ============================================================ */
-const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null };
+// cloudIds holds the farms that actually exist in the shared database. A farm
+// registered before the database was reachable lives only in this browser, and
+// writing it would be refused by the rules — the create rule needs the farm's
+// own sign-up code, which an operator does not have. Pushing only what is
+// known to be there keeps one local record from reporting the whole app
+// offline.
+const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null, cloudIds:new Set() };
 
 /* A button that appears to do nothing is the worst failure to diagnose,
    especially on a phone with no console. Anything thrown or rejected and not
@@ -972,14 +978,34 @@ function farmDoc(m){
   }));
 }
 
+function isCloudFarm(id){ return CLOUD_STATE.cloudIds.has(id); }
+
 async function cloudPushFarm(id){
-  if(!cloudOn() || !MEMBERS[id]) return;
+  if(!cloudOn() || !MEMBERS[id] || !isCloudFarm(id)) return;
   try{
     const { doc, setDoc } = CLOUD.fs;
     await setDoc(doc(CLOUD.db, 'farms', id), farmDoc(MEMBERS[id]), {merge:true});
     if(harvest[id]) await setDoc(doc(CLOUD.db, 'harvest', id),
       JSON.parse(JSON.stringify({ plan:harvest[id].plan, actual:harvest[id].actual, updatedAt:new Date().toISOString() })), {merge:true});
   }catch(e){ setCloudStatus('offline', 'Could not save to the shared database: ' + (e.message||e)); }
+}
+
+/* An operator's decision has to reach the database, not only this browser.
+   Without this an approval is local for as long as the session lasts: the next
+   sign-in pulls the farm back from the database and it reads Pending again,
+   so the same registrations keep asking to be approved. */
+function operatorSync(id){
+  if(cloudOn() && CLOUD_STATE.role === 'operator') cloudPushFarm(id);
+}
+
+async function cloudDeleteFarm(id){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator' || !isCloudFarm(id)) return;
+  const { doc, deleteDoc } = CLOUD.fs;
+  try{
+    await deleteDoc(doc(CLOUD.db, 'farms', id));
+    await deleteDoc(doc(CLOUD.db, 'harvest', id));
+    CLOUD_STATE.cloudIds.delete(id);
+  }catch(e){ setCloudStatus('offline', 'Could not remove the farm from the shared database: ' + (e.message||e)); }
 }
 
 // Writes are batched: a farm typing into a table should not send a write per keystroke.
@@ -996,12 +1022,12 @@ async function cloudPullAll(){
   try{
     if(CLOUD_STATE.role === 'operator'){
       const farms = await getDocs(collection(CLOUD.db, 'farms'));
-      farms.forEach(d=>{ MEMBERS[d.id] = Object.assign(MEMBERS[d.id]||{}, d.data()); count++; });
+      farms.forEach(d=>{ MEMBERS[d.id] = Object.assign(MEMBERS[d.id]||{}, d.data()); CLOUD_STATE.cloudIds.add(d.id); count++; });
       const hv = await getDocs(collection(CLOUD.db, 'harvest'));
       hv.forEach(d=>{ harvest[d.id] = { plan:d.data().plan||blankHarvestStore(), actual:d.data().actual||blankHarvestStore() }; });
     } else if(CLOUD_STATE.uid){
       const f = await getDoc(doc(CLOUD.db, 'farms', CLOUD_STATE.uid));
-      if(f.exists()){ MEMBERS[CLOUD_STATE.uid] = Object.assign(MEMBERS[CLOUD_STATE.uid]||{}, f.data()); count++; }
+      if(f.exists()){ MEMBERS[CLOUD_STATE.uid] = Object.assign(MEMBERS[CLOUD_STATE.uid]||{}, f.data()); CLOUD_STATE.cloudIds.add(CLOUD_STATE.uid); count++; }
       const h = await getDoc(doc(CLOUD.db, 'harvest', CLOUD_STATE.uid));
       if(h.exists()) harvest[CLOUD_STATE.uid] = { plan:h.data().plan||blankHarvestStore(), actual:h.data().actual||blankHarvestStore() };
     }
@@ -1044,6 +1070,7 @@ async function cloudRegisterFarm(vals, password, code){
     await setDoc(doc(CLOUD.db, 'farms', uid), record);
     await updateDoc(doc(CLOUD.db, 'farms', uid), { signupCode: deleteField() });  // not kept
     await setDoc(doc(CLOUD.db, 'harvest', uid), { plan:blankHarvestStore(), actual:blankHarvestStore() });
+    CLOUD_STATE.cloudIds.add(uid);
     return uid;
   });
 }
@@ -1901,6 +1928,43 @@ function findMemberByLogin(identifier){
    ============================================================ */
 function showForgot(which){ state.forgot = which; state.forgotMsg = ''; state.regSuccess = false; state.adminSignupMsg = ''; renderLogin(); }
 
+/* With the database in use, a password belongs to Firebase Authentication and
+   nothing in this page can change it. Asking for a new one here and then
+   emailing a link as well gave two ways to reset that disagreed: the password
+   typed in never took effect. So there is one way — the emailed link. */
+function submitResetLink(btn){
+  const err = document.getElementById('fp-error');
+  const typed = document.getElementById('fp-link-email').value.trim();
+  if(!typed || !looksLikeEmail(typed)){ flagError(err, 'Enter the email address on your account.'); return; }
+  if(btn) btn.classList.add('is-busy');
+  err.style.color = 'var(--muted)';
+  err.textContent = 'Sending the link…';
+  withTimeout(cloudResetEmail(typed), 20000, 'Sending the reset link')
+    .then(()=>{
+      state.forgot = null; state.regSuccess = false; state.adminSignupMsg = '';
+      state.forgotMsg = `A reset link has been sent to ${typed}. Open it, set your new password there, then come back and sign in with it.`;
+      logAction(`A password reset link was sent to ${typed}.`);
+      renderLogin();
+    })
+    .catch(e=>{
+      if(btn) btn.classList.remove('is-busy');
+      flagError(err, cloudErrorText(e));
+    });
+}
+
+function resetLinkForm(where){
+  return `
+    <div class="card">
+      <p class="helper" style="margin:0 0 12px;">Enter the email address on your account. A reset link is sent to it — you choose the new password on that page, and it works on every device straight away.</p>
+      <label class="f">Email address</label>
+      <input id="fp-link-email" type="email" placeholder="you@example.com">
+      <button class="btn${where==='admin'?' gold':''}" style="width:100%;margin-top:6px;" onclick="submitResetLink(this)">Email me a reset link</button>
+      <p class="helper" id="fp-error" style="color:var(--red);margin-top:8px;"></p>
+    </div>
+    <p class="login-note"><a href="#" onclick="showForgot(null);return false;">&larr; Back to sign-in</a></p>
+    <p class="login-note">The link is only good for a short while. If it expires, ask for another one. Nothing here changes until you open the link and set a password.</p>`;
+}
+
 function submitMemberReset(){
   const err = document.getElementById('fp-error');
   const phone = norm(document.getElementById('fp-phone').value);
@@ -1910,18 +1974,6 @@ function submitMemberReset(){
   if(!phone || !email){ flagError(err, 'Enter both the phone number and the email on your farm record.'); return; }
   if(!pass || pass.length < 4){ flagError(err, 'Choose a new password of at least 4 characters.'); return; }
   if(pass !== pass2){ flagError(err, 'The two passwords do not match.'); return; }
-  if(cloudOn()){
-    const typed = document.getElementById('fp-email').value.trim();
-    cloudResetEmail(typed)
-      .then(()=>{
-        state.forgot = null; state.regSuccess = false;
-        state.forgotMsg = `A password reset link has been sent to ${typed}. Open it, choose a new password, then sign in.`;
-        logAction(`A password reset was requested for ${typed}.`);
-        renderLogin();
-      })
-      .catch(e=> flagError(err, cloudErrorText(e)));
-    return;
-  }
   const hit = Object.entries(MEMBERS).find(([id,m])=> norm(m.phone)===phone && norm(m.email)===email);
   if(!hit){ flagError(err, 'No farm record matches that phone number and email together. Contact the Secretariat on 0744 443 247.'); return; }
   const [id, m] = hit;
@@ -2140,7 +2192,7 @@ function renderLogin(){
             <button class="${!isMember?'active':''}" onclick="showLoginTab('admin')">Administrator</button>
           </div>
       ${state.diagnostics ? diagnosticsPanel() : isMember ? (
-        state.forgot === 'member' ? memberResetForm() :
+        state.forgot === 'member' ? (cloudOn() ? resetLinkForm('member') : memberResetForm()) :
         state.showRegister ? `
         <div class="card">
           ${logoPicker('reg', state.regAvatar, '')}
@@ -2173,7 +2225,7 @@ function renderLogin(){
         <div class="demo-note" style="background:#FBEECC;color:#8A6412;">Records are held in this browser on this device. Sign in from the same browser to see your farm's data. An operator can move records between devices from Governance.</div>
         `
       ) : (
-        state.forgot === 'admin' ? adminResetForm() :
+        state.forgot === 'admin' ? (cloudOn() ? resetLinkForm('admin') : adminResetForm()) :
         state.adminSignup ? `
         <div class="card">
           <div class="grid2">
@@ -4275,12 +4327,14 @@ function renderMembers(c){
   c.innerHTML = `
     <h1 class="page-title">Member management</h1>
     <p class="page-sub">Approve registrations, register new farms, and view, edit, or remove any profile</p>
-    ${noMembersYet() ? emptyState('No farms have registered on this device',
-        'Farms appear here as soon as they sign up in this browser. A farm that registered on a different device or browser will not show until its backup is restored from Governance.') : `
+    ${noMembersYet() ? emptyState('No farms have registered yet',
+        cloudOn() ? 'Every farm that signs up appears here, whichever device it used.'
+                  : 'Farms appear here as soon as they sign up in this browser. Without the shared database, a farm that registered on a different device will not show until its backup is restored from Governance.') : `
     <div class="card" style="overflow-x:auto;">
       <table class="grid-table"><thead><tr><th>Farm</th><th>Category</th><th>Location</th><th>Status</th><th style="min-width:230px;"></th></tr></thead>
       <tbody>${Object.entries(MEMBERS).map(([id,m])=>`<tr><td>${farmCell(m)}</td><td>${m.category}</td><td>${m.location}</td>
-        <td><span class="status-pill status-${m.status.toLowerCase()}">${m.status}</span></td>
+        <td><span class="status-pill status-${m.status.toLowerCase()}">${m.status}</span>${
+          cloudOn() && !isCloudFarm(id) ? `<br><span class="helper" style="font-size:11px;">this device only</span>` : ''}</td>
         <td>
           <button class="btn small ghost" onclick="openMemberView('${id}')">View</button>
           <button class="btn small ghost" onclick="openMemberEdit('${id}')">Edit</button>
@@ -4396,6 +4450,7 @@ function saveMemberEdit(id){
   }
   Object.assign(MEMBERS[id], vals);
   logAction(`Operator ${state.adminName||''} updated ${vals.name}'s profile.`);
+  operatorSync(id);
   state.memberPanel = null;
   render();
 }
@@ -4404,6 +4459,7 @@ function removeMember(id){
   const m = MEMBERS[id];
   const ok = (typeof confirm === 'function') ? confirm(`Remove ${m.name} from TIPFA? This deletes their profile, crop, harvest, and input records.`) : true;
   if(!ok) return;
+  cloudDeleteFarm(id);
   delete MEMBERS[id]; delete harvest[id]; delete inputsData[id];
   for(let i=complaints.length-1;i>=0;i--){ if(complaints[i].member===id) complaints.splice(i,1); }
   logAction(`Operator ${state.adminName||''} removed member: ${m.name}.`);
@@ -4411,8 +4467,8 @@ function removeMember(id){
   render();
 }
 
-function approveMember(id){ MEMBERS[id].status='Active'; logAction(`Operator approved ${MEMBERS[id].name}'s registration.`); render(); }
-function rejectMember(id){ MEMBERS[id].status='Rejected'; logAction(`Operator rejected ${MEMBERS[id].name}'s registration.`); render(); }
+function approveMember(id){ MEMBERS[id].status='Active'; logAction(`Operator approved ${MEMBERS[id].name}'s registration.`); operatorSync(id); render(); }
+function rejectMember(id){ MEMBERS[id].status='Rejected'; logAction(`Operator rejected ${MEMBERS[id].name}'s registration.`); operatorSync(id); render(); }
 
 function activeMembers(){ return Object.keys(MEMBERS).filter(id=>MEMBERS[id].status==='Active'); }
 
