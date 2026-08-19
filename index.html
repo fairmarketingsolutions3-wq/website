@@ -2059,7 +2059,7 @@ async function runConnectionCheck(){
       const haveCodes = await readable('codes-present');
       push('Sign-up codes document found', haveCodes, haveCodes
         ? 'settings/signup exists — its codes stay in the database and are never sent to this browser'
-        : 'No settings/signup document. In Firestore Database add a collection settings holding a document signup, with two text fields: operatorCode and farmCode.');
+        : 'No settings/signup document. In Firestore Database \u2192 Data, add a collection named settings holding a document whose ID is exactly signup, then add two string fields, operatorCode and farmCode, and press Save. A document with no fields does not count as existing \u2014 the console shows that kind in italics.');
     }
     try{
       const methods = await au.fetchSignInMethodsForEmail(auth, 'connection-check@example.com');
@@ -2086,10 +2086,7 @@ function diagnosticsPanel(){
       <p class="helper" style="margin:0 0 10px;">This checks, step by step, whether the site can reach the shared database.
         Nothing here signs you in or changes any record.</p>
       <button class="btn small" onclick="runConnectionCheck()">Run the check</button>
-      ${lines.length ? `<div style="margin-top:14px;">${lines.concat([{
-        label:'Codes document', ok:null,
-        detail:'Cannot be checked from a browser by design — no client may read it. If sign-up is refused with a permissions error, check it in the console: Firestore → Data → settings → signup, holding farmCode and operatorCode.'
-      }]).map(l=>`
+      ${lines.length ? `<div style="margin-top:14px;">${lines.map(l=>`
         <div class="diag-line ${l.ok===true?'ok':(l.ok===false?'bad':'note')}">
           <span class="diag-mark">${l.ok===true?'\u2713':(l.ok===false?'\u2715':'i')}</span>
           <span><strong>${esc(l.label)}</strong>${l.detail?`<br><span class="helper">${esc(l.detail)}</span>`:''}</span>
