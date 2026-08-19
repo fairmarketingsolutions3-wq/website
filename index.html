@@ -1088,6 +1088,39 @@ async function cloudResetEmail(email){
   await CLOUD.authApi.sendPasswordResetEmail(CLOUD.auth, email);
 }
 
+/* A refused write has three possible causes that Firestore reports
+   identically. Two documents in the rules exist only to be read here, so the
+   platform can name the real one instead of listing all three at the farmer.
+      diagnostics/rules-published  readable always -> the rules are published
+      diagnostics/codes-present    readable only when settings/signup exists
+   Neither document is ever created, and a read of a document that is not
+   there returns nothing, so this cannot expose a code. */
+async function cloudDiagnoseDenied(){
+  if(!cloudOn()) return null;
+  const { doc, getDoc } = CLOUD.fs;
+  const readable = async id => {
+    try{ await getDoc(doc(CLOUD.db, 'diagnostics', id)); return true; }
+    catch(_){ return false; }
+  };
+  if(!await readable('rules-published'))
+    return 'The database is still running Firebase\u2019s own default rules. Open Firestore Database \u2192 Rules in the console, replace everything with the contents of firestore.rules from the site\u2019s code, and press Publish.';
+  if(!await readable('codes-present'))
+    return 'The rules are published, but the document holding the sign-up codes is missing. In Firestore Database, add a collection named settings with a document named signup, and give it two text fields: operatorCode and farmCode.';
+  return 'The sign-up code does not match the one in the database. Check settings \u2192 signup in Firestore: the fields must be named exactly operatorCode and farmCode, and the value must match what you typed, including capital letters.';
+}
+
+/* Show the plain wording at once, then replace it with the diagnosed cause
+   as soon as the probes come back, so the form is never silent while it asks. */
+function reportCloudFailure(el, e){
+  if(!el) return;
+  const code = (e && e.code) || '';
+  flagError(el, cloudErrorText(e) + (code ? ` [${code}]` : ''));
+  if(!code.includes('permission-denied')) return;
+  cloudDiagnoseDenied()
+    .then(text=>{ if(text) flagError(el, text); })
+    .catch(()=>{ /* keep the plain wording */ });
+}
+
 // Firebase's own wording is not written for farmers; say what went wrong.
 function cloudErrorText(e){
   const code = (e && e.code) || '';
@@ -1761,7 +1794,7 @@ function submitAdminSignup(){
       .catch(e=>{
         if(btn) btn.classList.remove('is-busy');
         // The code as well as the wording, so a fault can be reported exactly.
-        flagError(err, cloudErrorText(e) + (e && e.code ? ` [${e.code}]` : ''));
+        reportCloudFailure(err, e);
       });
     return;
   }
@@ -1832,7 +1865,7 @@ function submitSelfRegistration(){
         state.regAvatar = ''; state.showRegister = false; state.regSuccess = true;
         renderLogin();
       })
-      .catch(e=> flagError(btnErr, cloudErrorText(e) + (e && e.code ? ` [${e.code}]` : '')));
+      .catch(e=> reportCloudFailure(btnErr, e));
     return;
   }
   const id = slugify(vals.name);
@@ -2010,6 +2043,23 @@ async function runConnectionCheck(){
       } else {
         push('Database answering', false, msg);
       }
+    }
+    // Both of these documents are deliberately never created. What is being
+    // checked is whether the rules let them be read, which answers two
+    // questions that a refused sign-up otherwise cannot tell apart.
+    const readable = async id => {
+      try{ await fs.getDoc(fs.doc(db, 'diagnostics', id)); return true; }
+      catch(_){ return false; }
+    };
+    const published = await readable('rules-published');
+    push('Sign-up rules published', published, published
+      ? 'the platform rules are live on this project'
+      : 'The project is still running Firebase\u2019s own default rules. Open Firestore Database \u2192 Rules, replace everything with firestore.rules from the site\u2019s code, and press Publish.');
+    if(published){
+      const haveCodes = await readable('codes-present');
+      push('Sign-up codes document found', haveCodes, haveCodes
+        ? 'settings/signup exists — its codes stay in the database and are never sent to this browser'
+        : 'No settings/signup document. In Firestore Database add a collection settings holding a document signup, with two text fields: operatorCode and farmCode.');
     }
     try{
       const methods = await au.fetchSignInMethodsForEmail(auth, 'connection-check@example.com');

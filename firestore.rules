@@ -106,6 +106,29 @@ service cloud.firestore {
       allow update, delete: if isOperator();
     }
 
+    // ---- Diagnostics ----------------------------------------------------
+    // Two documents that are never created. They exist only so the platform
+    // can read them and learn why a sign-up was refused, without a code ever
+    // reaching the browser:
+    //
+    //   rules-published  readable always. If reading it is refused, these
+    //                    rules were never published — the console is still
+    //                    running its own default rules.
+    //   codes-present    readable only when settings/signup exists. If
+    //                    reading it is refused, the codes document has not
+    //                    been created.
+    //
+    // Both are safe: a read of a document that does not exist returns
+    // nothing, so neither can leak a code or anyone's records.
+    match /diagnostics/rules-published {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /diagnostics/codes-present {
+      allow read: if exists(/databases/$(database)/documents/settings/signup);
+      allow write: if false;
+    }
+
     // Anything not named above is closed.
     match /{document=**} {
       allow read, write: if false;
