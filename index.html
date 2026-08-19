@@ -1943,7 +1943,9 @@ async function runConnectionCheck(){
     try{
       // Rules refuse this read when nobody is signed in. Being refused is the
       // good answer: it proves the database exists and the rules are live.
-      await fs.getDoc(fs.doc(db, 'farms', '__connection_check__'));
+      // The id must not match Firestore's reserved __...__ pattern, or the SDK
+      // rejects it locally with invalid-argument and never reaches the server.
+      await fs.getDoc(fs.doc(db, 'farms', 'connection-check'));
       push('Database answering', true, 'reachable, and it allowed the check');
     }catch(e){
       const msg = String(e && (e.code || e.message) || e);
@@ -1951,6 +1953,8 @@ async function runConnectionCheck(){
         push('Database answering', true, 'reachable — it refused an unauthenticated read, which is correct and means the rules are published');
       } else if(/not-found|does not exist|Firestore.*database/i.test(msg)){
         push('Database answering', false, 'The project has no Firestore database yet. Create it: Build → Firestore Database → Create database.');
+      } else if(/invalid-argument/i.test(msg)){
+        push('Database answering', false, 'The check itself sent something the database would not accept (' + msg + '). This is a fault in the check, not in your project — report it.');
       } else {
         push('Database answering', false, msg);
       }
