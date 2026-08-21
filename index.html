@@ -569,6 +569,9 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
 .prog-table thead th{background:var(--deep-green);}
 /* Stage bands use the association palette; the accent sits on the stage cell,
    never as a field behind body copy (guidelines p14). */
+.cat-facts{background:var(--field-cream);border-left:3px solid var(--gold);
+  padding:9px 12px;border-radius:0 8px 8px 0;margin-top:10px;line-height:1.6;}
+.cat-facts strong{color:var(--deep-green);}
 .prog-table tr.pg-transplanting td{background:#F3F5EC;}
 .prog-table tr.pg-vegetative td{background:#F6F8EE;}
 .prog-table tr.pg-flowering td{background:#FBF6EA;}
@@ -750,6 +753,100 @@ const INVEST_CATEGORIES = ['Seeds','Labour','Infrastructure','Other'];
 /* Crop stages run from transplanting through to harvest, matching the
    association's Fertilizer & Crop Protection Program template. */
 const CROP_STAGES = ['Transplanting','Vegetative','Flowering','Harvesting'];
+
+/* ============================================================
+   Crop catalogue
+   The Secretariat keeps one list of crops and their varieties for
+   the whole association. A variety carries two things a farm cannot
+   be expected to know: how many plants belong in a square metre, and
+   what one plant yields week by week once it starts bearing. A farm
+   picks its crop and variety and says how many seedlings it put in;
+   everything in its harvest plan follows from that.
+
+   The per-plant patterns come from the TIPFA harvest ledger:
+     continuous  bears every 7 days from its first harvest onwards
+     pulses      fruits in bursts a set number of weeks apart
+     single      one head, once, and nothing after it
+     mainside    one main head, then smaller weekly side shoots
+   ============================================================ */
+const YIELD_PATTERNS = {
+  continuous: { label:'Every 7 days once bearing',
+    fields:[['startWeek','Weeks from transplanting to first harvest',11],
+            ['weeklyG','Each harvest, per plant (g)',300]] },
+  pulses: { label:'In fruiting pulses',
+    fields:[['startWeek','Weeks from transplanting to first harvest',13],
+            ['pulseKg','Each pulse, per plant (kg)',1.5],
+            ['intervalWeeks','Weeks between pulses',3]] },
+  single: { label:'One head, once only',
+    fields:[['startWeek','Weeks from transplanting to harvest',11],
+            ['headKg','Head, per plant (kg)',1.15]] },
+  mainside: { label:'Main head, then side shoots',
+    fields:[['startWeek','Weeks from transplanting to the main head',11],
+            ['mainKg','Main head, per plant (kg)',0.75],
+            ['sideWeeks','Weeks of side shoots after it',4],
+            ['sideG','Side shoots, per plant per week (g)',250]] }
+};
+
+// Kilograms per plant for each week of a season this many weeks long.
+function weeklyYield(v, weeks){
+  const out = new Array(Math.max(0, weeks)).fill(0);
+  if(!v || !out.length) return out;
+  const p = v.pattern || 'continuous';
+  const at = (w, kg)=>{ if(w >= 1 && w <= out.length) out[w-1] += kg; };
+  const start = Math.max(1, Number(v.startWeek) || 1);
+  if(p === 'continuous'){
+    const kg = (Number(v.weeklyG)||0) / 1000;
+    for(let w = start; w <= out.length; w++) at(w, kg);
+  } else if(p === 'pulses'){
+    const step = Math.max(1, Number(v.intervalWeeks) || 1);
+    for(let w = start; w <= out.length; w += step) at(w, Number(v.pulseKg)||0);
+  } else if(p === 'single'){
+    at(start, Number(v.headKg)||0);
+  } else if(p === 'mainside'){
+    at(start, Number(v.mainKg)||0);
+    const n = Number(v.sideWeeks)||0, side = (Number(v.sideG)||0)/1000;
+    for(let i = 1; i <= n; i++) at(start + i, side);
+  }
+  return out;
+}
+
+/* The catalogue the platform starts with. An operator edits it from the
+   Crop catalogue tab and the edited list replaces this one everywhere. */
+function defaultCatalogue(){
+  const c = (name, pattern, extra, perSqm, notes)=> Object.assign({pattern, perSqm, notes:notes||''}, extra, {name});
+  return [
+    { name:'Cherry Tomatoes', varieties:[
+      c('Indoor cherry', 'continuous', {startWeek:11, weeklyG:300}, 2.5, 'Indoor, trellised.') ] },
+    { name:'Capsicum', varieties:[
+      c('Bell pepper', 'continuous', {startWeek:15, weeklyG:200}, 3, 'Indoor.') ] },
+    { name:'Paprika', varieties:[
+      c('Field paprika', 'continuous', {startWeek:19, weeklyG:400}, 2.5, 'Outdoor.') ] },
+    { name:'Habanero', varieties:[
+      c('Loleza', 'continuous', {startWeek:14, weeklyG:150}, 2.5, 'Outdoor.') ] },
+    { name:'Sweet Melon', varieties:[
+      c('Indoor melon', 'pulses', {startWeek:13, pulseKg:1.5, intervalWeeks:3}, 1, 'Indoor, fruits in pulses.') ] },
+    { name:'Broccoli', varieties:[
+      c('Standard', 'mainside', {startWeek:11, mainKg:0.75, sideWeeks:4, sideG:250}, 4, 'Outdoor.') ] },
+    { name:'Cauliflower', varieties:[
+      c('Standard', 'single', {startWeek:11, headKg:1.15}, 4, 'Outdoor, one cut.') ] },
+    { name:'Avocado', varieties:[
+      c('Bearing tree', 'continuous', {startWeek:1, weeklyG:1500}, 0.02, 'Assumes a tree already in bearing.') ] }
+  ];
+}
+
+let CATALOGUE = defaultCatalogue();
+
+function catalogueCrop(name){
+  const n = (name||'').trim().toLowerCase();
+  return CATALOGUE.find(c=> (c.name||'').trim().toLowerCase() === n) || null;
+}
+function catalogueVariety(cropName, varietyName){
+  const crop = catalogueCrop(cropName);
+  if(!crop) return null;
+  const v = (varietyName||'').trim().toLowerCase();
+  return (crop.varieties||[]).find(x=> (x.name||'').trim().toLowerCase() === v) || null;
+}
+
 
 /* The four input categories a farm records against each crop stage.
    Fertilizers carry a composition and an application method; the three
@@ -994,6 +1091,53 @@ async function cloudPushFarm(id){
    Without this an approval is local for as long as the session lasts: the next
    sign-in pulls the farm back from the database and it reads Pending again,
    so the same registrations keep asking to be approved. */
+/* ---- The catalogue -------------------------------------------------
+   One document the whole association shares. Operators write it, every
+   signed-in farm reads it. Until the rules allowing that are published
+   the read is refused, and the built-in list is used instead — so a
+   farm always has a catalogue, just not necessarily the edited one. */
+const CATALOGUE_KEY = 'tipfa.catalogue.v1';
+
+function saveCatalogue(){
+  try{ localStorage.setItem(CATALOGUE_KEY, JSON.stringify(CATALOGUE)); }catch(e){ /* storage full */ }
+  cloudPushCatalogue();
+}
+
+function loadCatalogue(){
+  try{
+    const raw = localStorage.getItem(CATALOGUE_KEY);
+    if(!raw) return;
+    const d = JSON.parse(raw);
+    if(Array.isArray(d) && d.length) CATALOGUE = d;
+  }catch(e){ /* keep the built-in list */ }
+}
+
+async function cloudPushCatalogue(){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator') return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'settings', 'catalogue'),
+      { crops: JSON.parse(JSON.stringify(CATALOGUE)), updatedAt: new Date().toISOString() });
+  }catch(e){
+    state.catMsg = '';
+    setCloudStatus('offline', 'Could not save the catalogue to the shared database: ' + (e.message||e));
+  }
+}
+
+async function cloudPullCatalogue(){
+  if(!cloudOn()) return false;
+  try{
+    const { doc, getDoc } = CLOUD.fs;
+    const d = await getDoc(doc(CLOUD.db, 'settings', 'catalogue'));
+    if(d.exists() && Array.isArray(d.data().crops) && d.data().crops.length){
+      CATALOGUE = d.data().crops;
+      try{ localStorage.setItem(CATALOGUE_KEY, JSON.stringify(CATALOGUE)); }catch(_){ }
+      return true;
+    }
+  }catch(e){ /* the rules for it are not published yet; the built-in list stands */ }
+  return false;
+}
+
 function operatorSync(id){
   if(cloudOn() && CLOUD_STATE.role === 'operator') cloudPushFarm(id);
 }
@@ -1504,7 +1648,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catDraft:null, archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -1585,7 +1729,9 @@ function clearLogo(prefix){
 
 /* Areas are a number plus a unit, so a farm can record 1.2 acres rather than
    being forced into hectares. The unit travels with the value everywhere. */
-const LAND_UNITS = ['ha','acres'];
+const LAND_UNITS = ['ha','acres','m²'];
+const SQM_PER = { 'ha':10000, 'acres':4046.86, 'm²':1, 'sq ft':0.092903 };
+function toSqm(value, unit){ return (Number(value)||0) * (SQM_PER[unit] || SQM_PER['ha']); }
 const INDOOR_UNITS = ['m\u00b2','sq ft'];
 function areaText(value, unit, fallbackUnit){
   const n = Number(value);
@@ -1593,10 +1739,11 @@ function areaText(value, unit, fallbackUnit){
   return `${n} ${unit || fallbackUnit || 'ha'}`;
 }
 // A number input with its unit select attached.
-function unitField(id, value, unit, units, step){
+function unitField(id, value, unit, units, step, onchange){
+  const hook = onchange ? ` oninput="${onchange}" onchange="${onchange}"` : '';
   return `<div class="unit-field">
-    <input id="${id}" type="number" step="${step||'0.01'}" value="${value||''}" placeholder="0">
-    <select id="${id}-unit" aria-label="Unit">
+    <input id="${id}" type="number" step="${step||'0.01'}" value="${value||''}" placeholder="0"${hook}>
+    <select id="${id}-unit" aria-label="Unit"${hook}>
       ${units.map(u=>`<option ${unit===u?'selected':''}>${u}</option>`).join('')}
     </select>
   </div>`;
@@ -1675,6 +1822,7 @@ async function doMemberLogin(btn){
     try{
       const who = await cloudSignIn(raw, password);
       await cloudPullAll();
+      await cloudPullCatalogue();
       if(btn) btn.classList.remove('is-busy');
       if(who.role === 'operator'){
         flagError(document.getElementById('login-error'), 'That is an operator account — sign in on the Administrator tab.');
@@ -1748,6 +1896,7 @@ async function doAdminLogin(btn){
         return;
       }
       await cloudPullAll();
+      await cloudPullCatalogue();
       if(btn) btn.classList.remove('is-busy');
       curtainTransition(()=>{
         state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = who.name || raw;
@@ -2309,7 +2458,7 @@ const MEMBER_TABS = [
   ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
 ];
 const ADMIN_TABS = [
-  ['members','Member management'], ['calendarsA','Crop calendars'], ['bulk','Bulk data entry'],
+  ['members','Member management'], ['catalogue','Crop catalogue'], ['calendarsA','Crop calendars'], ['bulk','Bulk data entry'],
   ['dashboard','Central dashboard'], ['growth','Growth planning'], ['reportsA','Reports'],
   ['commsA','Communication'], ['gov','Governance']
 ];
@@ -2407,6 +2556,7 @@ function renderTabContent(c){
     if(state.tab==='archive') return renderArchive(c);
   } else {
     if(state.tab==='members') return renderMembers(c);
+    if(state.tab==='catalogue') return renderCatalogue(c);
     if(state.tab==='calendarsA') return renderCalendarsAdmin(c);
     if(state.tab==='bulk') return renderBulk(c);
     if(state.tab==='dashboard') return renderDashboard(c);
@@ -2449,24 +2599,27 @@ function renderProfile(c){
     </div>
     <div class="section-label">Crop profile</div>
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Transplanted</th><th>Expected harvest</th><th style="min-width:150px;"></th></tr></thead>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Seedlings</th><th>Transplanted</th><th>Expected harvest</th><th style="min-width:150px;"></th></tr></thead>
       <tbody>${m.crops.length ? m.crops.map((cr,i)=> state.editCrop===i ? cropEditRow(cr,i) : `<tr>
           <td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td>
           <td>${cr.seedCompany ? esc(cr.seedCompany) : '<span style="color:var(--muted);">Not recorded</span>'}</td>
-          <td>${esc(areaText(cr.area, cr.areaUnit, 'ha'))}</td>
+          <td>${esc(areaText(cr.area, cr.areaUnit, 'm²'))}</td>
+          <td>${cr.seedlings ? fmt(cr.seedlings) : '<span style="color:var(--muted);">—</span>'}</td>
           <td>${esc(cr.planted||'—')}</td><td>${esc(cr.expected||'—')}</td>
           <td><button class="btn small ghost" onclick="editCrop(${i})">Edit</button>
               <button class="btn small ghost" onclick="removeCrop(${i})">Remove</button></td></tr>`).join('')
-        : '<tr><td colspan="7" style="color:var(--muted);">No crops recorded yet — add the crops you grow below.</td></tr>'}</tbody></table>
+        : '<tr><td colspan="8" style="color:var(--muted);">No crops recorded yet — add the crops you grow below.</td></tr>'}</tbody></table>
       <div class="section-label" style="margin-top:16px;">Add a crop</div>
       <div class="grid2">
-        <div><label class="f">Crop</label><input id="newcrop-crop" list="crop-suggestions" placeholder="Whatever you grow — type it in"></div>
-        <div><label class="f">Variety</label><input id="newcrop-variety" placeholder="e.g. Anna F1"></div>
+        <div><label class="f">Crop</label>${cropPicker('newcrop','')}</div>
+        <div><label class="f">Variety</label><div id="newcrop-variety-holder">${varietyPicker('newcrop','','')}</div></div>
         <div><label class="f">Seed company</label><input id="newcrop-seed" list="seed-companies" placeholder="Who supplied the seed"></div>
-        <div><label class="f">Area covered</label>${unitField('newcrop-area','', 'ha', LAND_UNITS, '0.01')}</div>
+        <div><label class="f">Area covered</label>${unitField('newcrop-area','', 'm²', LAND_UNITS, '0.01', "showVarietyFacts('newcrop')")}</div>
+        <div><label class="f">Number of seedlings</label><input id="newcrop-seedlings" type="number" min="0" step="1" placeholder="How many plants went in" oninput="showVarietyFacts('newcrop')"></div>
         <div><label class="f">Transplanting date</label><input id="newcrop-planted" type="date"></div>
         <div><label class="f">Expected harvest date</label><input id="newcrop-expected" type="date"></div>
       </div>
+      <p class="helper cat-facts" id="newcrop-facts" style="display:none;"></p>
       ${cropSuggestionList()}
       ${seedCompanyList()}
       <button class="btn small" onclick="addCrop()">+ Add crop</button>
@@ -2475,6 +2628,91 @@ function renderProfile(c){
       <p class="helper">Your crop names are your own — they carry through to your harvest plan, actual harvest and market prices. The transplanting and expected harvest dates set the start and end of this crop's calendar.</p>
     </div>
     ${seedCompanyPanel(m)}`;
+}
+
+
+/* Crop and variety come from the Secretariat's catalogue, which carries the
+   plant spacing and the per-plant yield a harvest plan is built from. A farm
+   that grows something not on the list can still type its own name — it just
+   has nothing to generate a plan from until the Secretariat adds it. */
+function cropPicker(prefix, current){
+  const known = CATALOGUE.map(c=>c.name);
+  const custom = current && !catalogueCrop(current);
+  return `<select id="${prefix}-crop" onchange="onCropPicked('${prefix}')">
+      <option value="">Choose a crop…</option>
+      ${known.map(n=>`<option value="${esc(n)}" ${current===n?'selected':''}>${esc(n)}</option>`).join('')}
+      <option value="__other" ${custom?'selected':''}>Something else — type it in</option>
+    </select>
+    <input id="${prefix}-crop-other" placeholder="Crop name" value="${custom?esc(current):''}"
+           style="margin-top:6px;${custom?'':'display:none;'}">`;
+}
+function varietyPicker(prefix, cropName, current){
+  const crop = catalogueCrop(cropName);
+  const list = crop ? (crop.varieties||[]) : [];
+  const custom = current && !catalogueVariety(cropName, current);
+  if(!list.length){
+    return `<input id="${prefix}-variety" value="${esc(current||'')}" placeholder="e.g. Anna F1">`;
+  }
+  return `<select id="${prefix}-variety" onchange="onVarietyPicked('${prefix}')">
+      <option value="">Choose a variety…</option>
+      ${list.map(v=>`<option value="${esc(v.name)}" ${current===v.name?'selected':''}>${esc(v.name)}</option>`).join('')}
+      <option value="__other" ${custom?'selected':''}>Something else — type it in</option>
+    </select>
+    <input id="${prefix}-variety-other" placeholder="Variety name" value="${custom?esc(current):''}"
+           style="margin-top:6px;${custom?'':'display:none;'}">`;
+}
+// The value a picker is really holding, whichever half of it is in use.
+function pickerValue(prefix, which){
+  const sel = document.getElementById(`${prefix}-${which}`);
+  if(!sel) return '';
+  if(sel.tagName !== 'SELECT') return sel.value.trim();
+  if(sel.value !== '__other') return sel.value.trim();
+  const other = document.getElementById(`${prefix}-${which}-other`);
+  return other ? other.value.trim() : '';
+}
+function onCropPicked(prefix){
+  const sel = document.getElementById(`${prefix}-crop`);
+  const other = document.getElementById(`${prefix}-crop-other`);
+  if(other) other.style.display = sel.value === '__other' ? '' : 'none';
+  const holder = document.getElementById(`${prefix}-variety-holder`);
+  if(holder) holder.innerHTML = varietyPicker(prefix, sel.value === '__other' ? '' : sel.value, '');
+  showVarietyFacts(prefix);
+}
+function onVarietyPicked(prefix){
+  const sel = document.getElementById(`${prefix}-variety`);
+  const other = document.getElementById(`${prefix}-variety-other`);
+  if(other) other.style.display = sel && sel.value === '__other' ? '' : 'none';
+  showVarietyFacts(prefix);
+}
+
+/* What the catalogue knows about the chosen variety, and what the seedling
+   count means against the area entered. Filled in as soon as both are known,
+   so nobody has to look any of it up. */
+function varietyFacts(cropName, varietyName, seedlings, area, unit){
+  const v = catalogueVariety(cropName, varietyName);
+  if(!v) return '';
+  const bits = [];
+  if(v.perSqm) bits.push(`Catalogue spacing: <strong>${v.perSqm} plants per m²</strong>`);
+  const sqm = toSqm(area, unit);
+  if(v.perSqm && sqm) bits.push(`that area holds about <strong>${fmt(Math.round(v.perSqm * sqm))}</strong> plants`);
+  const n = Number(seedlings)||0;
+  if(n && sqm) bits.push(`you have entered <strong>${fmt(n)}</strong>, or ${(n/sqm).toFixed(2)} per m²`);
+  const weeks = 24;
+  const perPlant = weeklyYield(v, weeks).reduce((a,b)=>a+b, 0);
+  if(perPlant) bits.push(`each plant yields about <strong>${perPlant.toFixed(2)} kg</strong> over ${weeks} weeks`);
+  if(n && perPlant) bits.push(`so ${fmt(n)} plants give roughly <strong>${fmt(Math.round(n*perPlant))} kg</strong>`);
+  return bits.join(' · ') + (v.notes ? `<br>${esc(v.notes)}` : '');
+}
+function showVarietyFacts(prefix){
+  const el = document.getElementById(`${prefix}-facts`);
+  if(!el) return;
+  const crop = pickerValue(prefix, 'crop'), variety = pickerValue(prefix, 'variety');
+  const seedEl = document.getElementById(`${prefix}-seedlings`);
+  const areaEl = document.getElementById(`${prefix}-area`);
+  const html = varietyFacts(crop, variety, seedEl?seedEl.value:0, areaEl?areaEl.value:0,
+                            readUnit(`${prefix}-area`, LAND_UNITS));
+  el.innerHTML = html;
+  el.style.display = html ? '' : 'none';
 }
 
 /* Crops and seed companies other farms have already entered are offered as
@@ -2563,16 +2801,18 @@ function cancelEditCrop(){ state.editCrop = null; render(); }
 
 function cropEditRow(cr, i){
   // A full-width editing panel: seven columns of inputs is unreadable.
-  return `<tr class="crop-edit"><td colspan="7">
+  return `<tr class="crop-edit"><td colspan="8">
     <div class="ce-head">Editing <strong>${esc(cr.crop)}</strong>${cr.variety?` — ${esc(cr.variety)}`:''}</div>
     <div class="grid2">
-      <div><label class="f">Crop</label><input id="ec-crop" value="${esc(cr.crop)}" list="crop-suggestions"></div>
-      <div><label class="f">Variety</label><input id="ec-variety" value="${esc(cr.variety||'')}"></div>
+      <div><label class="f">Crop</label>${cropPicker('ec', cr.crop)}</div>
+      <div><label class="f">Variety</label><div id="ec-variety-holder">${varietyPicker('ec', cr.crop, cr.variety||'')}</div></div>
       <div><label class="f">Seed company</label><input id="ec-seed" value="${esc(cr.seedCompany||'')}" list="seed-companies"></div>
-      <div><label class="f">Area covered</label>${unitField('ec-area', cr.area, cr.areaUnit || 'ha', LAND_UNITS, '0.01')}</div>
+      <div><label class="f">Area covered</label>${unitField('ec-area', cr.area, cr.areaUnit || 'm²', LAND_UNITS, '0.01', "showVarietyFacts('ec')")}</div>
+      <div><label class="f">Number of seedlings</label><input id="ec-seedlings" type="number" min="0" step="1" value="${cr.seedlings||''}" oninput="showVarietyFacts('ec')"></div>
       <div><label class="f">Transplanting date</label><input id="ec-planted" type="date" value="${esc(cr.planted||'')}"></div>
       <div><label class="f">Expected harvest date</label><input id="ec-expected" type="date" value="${esc(cr.expected||'')}"></div>
     </div>
+    <p class="helper cat-facts" id="ec-facts">${varietyFacts(cr.crop, cr.variety, cr.seedlings, cr.area, cr.areaUnit||'m²')}</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button class="btn small" onclick="saveCropEdit(${i})">Save changes</button>
       <button class="btn small ghost" onclick="cancelEditCrop()">Cancel</button>
@@ -2585,11 +2825,12 @@ function cropEditRow(cr, i){
 function saveCropEdit(i){
   const m = MEMBERS[state.member], cr = m.crops[i];
   const msg = document.getElementById('ec-msg');
-  const crop = document.getElementById('ec-crop').value.trim();
-  const variety = document.getElementById('ec-variety').value.trim();
+  const crop = pickerValue('ec','crop');
+  const variety = pickerValue('ec','variety');
   const seedCompany = document.getElementById('ec-seed').value.trim();
   const area = Number(document.getElementById('ec-area').value)||0;
   const areaUnit = readUnit('ec-area', LAND_UNITS);
+  const seedlings = Number(document.getElementById('ec-seedlings').value)||0;
   const planted = document.getElementById('ec-planted').value;
   const expected = document.getElementById('ec-expected').value;
   const fail = t=>{ if(msg){ msg.textContent = t; } };
@@ -2602,7 +2843,7 @@ function saveCropEdit(i){
     fail('The expected harvest date must come after the transplanting date.'); return;
   }
   const oldName = cr.crop;
-  Object.assign(cr, {crop, variety, seedCompany, area, areaUnit, planted, expected});
+  Object.assign(cr, {crop, variety, seedCompany, area, areaUnit, seedlings, planted, expected});
   if(oldName !== crop) renameCropRecords(state.member, oldName, crop);
   state.editCrop = null;
   logAction(`${m.name} updated the crop profile entry for ${crop}${oldName!==crop ? ` (renamed from ${oldName})` : ''}.`);
@@ -2636,11 +2877,12 @@ function renameCropRecords(id, from, to){
 
 function addCrop(){
   const msg = document.getElementById('crop-msg');
-  const crop = document.getElementById('newcrop-crop').value.trim();
-  const variety = document.getElementById('newcrop-variety').value.trim();
+  const crop = pickerValue('newcrop','crop');
+  const variety = pickerValue('newcrop','variety');
   const seedCompany = document.getElementById('newcrop-seed').value.trim();
   const area = Number(document.getElementById('newcrop-area').value)||0;
   const areaUnit = readUnit('newcrop-area', LAND_UNITS);
+  const seedlings = Number(document.getElementById('newcrop-seedlings').value)||0;
   const planted = document.getElementById('newcrop-planted').value;
   const expected = document.getElementById('newcrop-expected').value;
   const fail = t=>{ msg.textContent = t; msg.style.color = 'var(--red)'; };
@@ -2651,7 +2893,7 @@ function addCrop(){
   if(m.crops.some(cr=> (cr.crop||'').toLowerCase()===crop.toLowerCase() && (cr.variety||'').toLowerCase()===variety.toLowerCase())){
     fail('That crop and variety are already in your crop profile.'); return;
   }
-  m.crops.push({crop, variety, seedCompany, area, areaUnit, planted, expected,
+  m.crops.push({crop, variety, seedCompany, area, areaUnit, seedlings, planted, expected,
                 stage:CROP_STAGES[0], stageInputs:'', programme:blankProgramme()});
   logAction(`${m.name} added a crop profile entry: ${crop} (${variety})${seedCompany ? ' from '+seedCompany : ''}.`);
   render();
@@ -4035,6 +4277,125 @@ function renderArchive(c){
 }
 function setArchiveFilter(f){ state.archiveFilter = f; state.openArchive = null; render(); }
 
+/* ============================================================
+   Generating a harvest plan
+   A farm has already said, per crop: which variety, how many
+   seedlings, when it transplanted and when it expects to harvest.
+   That is everything needed. The catalogue supplies what one plant
+   yields in each week of its season; the season is as long as the
+   farm's own two dates make it; the seedling count scales it.
+   Nothing is invented here that the farm has not already entered.
+   ============================================================ */
+const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+// The platform files harvests by year, month and one of four weeks in it.
+function slotFor(date){
+  const d = new Date(date);
+  if(isNaN(d)) return null;
+  return { year:d.getFullYear(), month:d.getMonth()+1,
+           week: Math.min(4, Math.max(1, Math.ceil(d.getDate()/7))) };
+}
+
+/* What a crop is expected to give, week by week, from its own dates. */
+function plannedWeeks(cr){
+  const v = catalogueVariety(cr.crop, cr.variety);
+  const n = Number(cr.seedlings)||0;
+  if(!v || !n || !cr.planted || !cr.expected) return [];
+  const start = new Date(cr.planted), end = new Date(cr.expected);
+  if(isNaN(start) || isNaN(end) || end <= start) return [];
+  const weeks = Math.max(1, Math.round((end - start) / MS_WEEK));
+  return weeklyYield(v, weeks).map((kgPerPlant, i)=>({
+    week: i + 1,
+    date: new Date(start.getTime() + i * MS_WEEK),
+    kg: kgPerPlant * n
+  })).filter(r=> r.kg > 0);
+}
+
+// Every crop that has enough entered to be planned, and what stops the rest.
+function plannableCrops(m){
+  return (m.crops||[]).map(cr=>{
+    const rows = plannedWeeks(cr);
+    let why = '';
+    if(!catalogueVariety(cr.crop, cr.variety)) why = 'variety is not in the Secretariat catalogue';
+    else if(!(Number(cr.seedlings)||0)) why = 'number of seedlings not entered';
+    else if(!cr.planted || !cr.expected) why = 'transplanting or expected harvest date missing';
+    else if(!rows.length) why = 'the dates leave no bearing weeks';
+    return { cr, rows, why, total: rows.reduce((a,b)=>a+b.kg, 0) };
+  });
+}
+
+/* Write the generated figures into the plan. Only the weeks the plan
+   covers are touched, so an entry made by hand outside them survives. */
+function generateHarvestPlan(){
+  const id = state.member, m = MEMBERS[id];
+  const plans = plannableCrops(m).filter(p=> p.rows.length);
+  if(!plans.length){
+    state.planGenMsg = 'Nothing to generate yet. A crop needs a catalogue variety, a number of seedlings, and both of its dates.';
+    render(); return;
+  }
+  let cells = 0;
+  plans.forEach(p=>{
+    p.rows.forEach(r=>{
+      const slot = slotFor(r.date);
+      if(!slot) return;
+      const wk = harvestWeek(id, 'plan', slot.year, slot.month, slot.week);
+      if(!wk) return;
+      wk[p.cr.crop] = Math.round(((wk[p.cr.crop] || 0) + r.kg) * 10) / 10;
+      cells++;
+    });
+  });
+  const names = plans.map(p=> p.cr.crop);
+  logAction(`${m.name} generated a harvest plan from the crop profile for ${names.join(', ')}.`);
+  state.planGenMsg = `Planned ${fmt(cells)} week${cells===1?'':'s'} across ${plans.length} crop${plans.length===1?'':'s'}, from the catalogue and your seedling counts.`;
+  render();
+}
+
+function clearGeneratedPlan(){
+  const id = state.member, m = MEMBERS[id];
+  const plans = plannableCrops(m).filter(p=> p.rows.length);
+  plans.forEach(p=> p.rows.forEach(r=>{
+    const slot = slotFor(r.date);
+    if(!slot) return;
+    const wk = harvestWeek(id, 'plan', slot.year, slot.month, slot.week);
+    if(wk) delete wk[p.cr.crop];
+  }));
+  logAction(`${m.name} cleared the generated harvest plan.`);
+  state.planGenMsg = 'The generated weeks have been cleared. Anything you typed in yourself outside them is untouched.';
+  render();
+}
+
+/* The workings, shown rather than hidden: what each crop contributes and,
+   where one cannot be planned, exactly what is missing from it. */
+function harvestPlanSource(m){
+  const rows = plannableCrops(m);
+  if(!rows.length) return '';
+  const ready = rows.filter(r=> r.rows.length);
+  return `
+    <div class="section-label">Where this plan comes from</div>
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">The Secretariat's catalogue holds what one plant of each variety yields week by week. Multiplied by your seedlings and laid across your own transplanting and harvest dates, that is your plan.</p>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seedlings</th><th>Bearing weeks</th><th>Per plant</th><th>Expected total</th></tr></thead>
+      <tbody>${rows.map(r=>{
+        const v = catalogueVariety(r.cr.crop, r.cr.variety);
+        const perPlant = r.rows.length && Number(r.cr.seedlings) ? r.total / Number(r.cr.seedlings) : 0;
+        return `<tr>
+          <td>${esc(r.cr.crop)}</td>
+          <td>${esc(r.cr.variety||'—')}${v ? '' : ' <span class="helper">(not in the catalogue)</span>'}</td>
+          <td>${r.cr.seedlings ? fmt(r.cr.seedlings) : '—'}</td>
+          <td>${r.rows.length ? `${r.rows.length} · ${YIELD_PATTERNS[v.pattern] ? YIELD_PATTERNS[v.pattern].label : ''}` : `<span style="color:var(--red);">${esc(r.why)}</span>`}</td>
+          <td>${perPlant ? perPlant.toFixed(2)+' kg' : '—'}</td>
+          <td><strong>${r.total ? fmt(Math.round(r.total))+' kg' : '—'}</strong></td>
+        </tr>`;
+      }).join('')}</tbody></table>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn" onclick="generateHarvestPlan()">Generate the plan from my crops</button>
+        ${ready.length ? `<button class="btn small ghost" onclick="clearGeneratedPlan()">Clear the generated weeks</button>` : ''}
+      </div>
+      ${state.planGenMsg ? `<p class="helper" style="margin-top:10px;color:var(--deep-green);">${CHECK_ICON} ${esc(state.planGenMsg)}</p>` : ''}
+      ${(state.planGenMsg = '') || ''}
+    </div>`;
+}
+
 function renderHarvestForm(c, kind){
   const m = MEMBERS[state.member];
   const label = kind==='plan' ? 'Harvest plan' : 'Actual harvest';
@@ -4066,6 +4427,7 @@ function renderHarvestForm(c, kind){
       </div>
       <p class="helper" style="margin-top:8px;">Every month of ${year}, by crop. The highlighted row is the month you are entering above.</p>
     </div>
+    ${kind==='plan' ? harvestPlanSource(m) : ''}
     ${kind==='actual' ? renderPlanVsActual(m) : ''}`
     : emptyState('Add your crops first',
         'This table lists the crops from your crop profile. Add the crops you grow on the Profile tab and they appear here to record against.')}`;
@@ -4339,6 +4701,216 @@ function submitAdminRegistration(){
   logAction(`Operator registered a new member directly: ${vals.name} (activated immediately).`);
   state.showAdminRegister = false;
   render();
+}
+
+/* ============================================================
+   Crop catalogue — the Secretariat's side
+   One list for the whole association. A variety here carries the
+   plant spacing and the per-plant yield curve, and every farm's
+   harvest plan is built from it, so editing a variety changes what
+   every farm that grows it is planning for.
+   ============================================================ */
+function renderCatalogue(c){
+  const ed = state.catEdit;
+  c.innerHTML = `
+    <h1 class="page-title">Crop catalogue</h1>
+    <p class="page-sub">The crops and varieties every member farm chooses from · ${CATALOGUE.length} crop${CATALOGUE.length===1?'':'s'}, ${CATALOGUE.reduce((n,x)=>n+(x.varieties||[]).length,0)} varieties</p>
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">A farm picks a crop and variety from this list and enters how many seedlings it put in. Everything in its harvest plan follows from what you set here: how many plants belong in a square metre, and what one plant yields week by week. ${cloudOn() ? 'Saved to the shared database, so a change reaches every farm.' : '<strong>Not connected to the shared database — changes stay on this device.</strong>'}</p>
+      ${state.catMsg ? `<p class="helper" style="color:var(--deep-green);">${CHECK_ICON} ${esc(state.catMsg)}</p>` : ''}
+      ${(state.catMsg = '') || ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div><label class="f">New crop</label><input id="cat-newcrop" placeholder="e.g. Cucumber"></div>
+        <button class="btn small" onclick="addCatalogueCrop()">+ Add crop</button>
+        <button class="btn small ghost" onclick="restoreCatalogue()">Restore the built-in list</button>
+      </div>
+      <p class="helper" id="cat-error" style="color:var(--red);margin-top:8px;"></p>
+    </div>
+    ${CATALOGUE.map((crop, ci)=>`
+      <div class="section-label">${esc(crop.name)}</div>
+      <div class="card" style="overflow-x:auto;">
+        <table class="grid-table"><thead><tr><th>Variety</th><th>Plants per m²</th><th>Harvest pattern</th><th>Figures</th><th>Note</th><th style="min-width:140px;"></th></tr></thead>
+        <tbody>${(crop.varieties||[]).length ? crop.varieties.map((v, vi)=>
+          (ed && ed.ci===ci && ed.vi===vi) ? catalogueEditRow(crop, v, ci, vi) : `<tr>
+            <td><strong>${esc(v.name)}</strong></td>
+            <td>${v.perSqm || '—'}</td>
+            <td>${YIELD_PATTERNS[v.pattern] ? esc(YIELD_PATTERNS[v.pattern].label) : esc(v.pattern||'—')}</td>
+            <td class="helper">${catalogueFigures(v)}</td>
+            <td class="helper">${esc(v.notes||'')}</td>
+            <td><button class="btn small ghost" onclick="editCatalogueVariety(${ci},${vi})">Edit</button>
+                <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeCatalogueVariety(${ci},${vi})">Remove</button></td>
+          </tr>`).join('')
+          : '<tr><td colspan="6" style="color:var(--muted);">No varieties yet — add one below.</td></tr>'}
+        ${(ed && ed.ci===ci && ed.vi===-1) ? catalogueEditRow(crop, null, ci, -1) : ''}
+        </tbody></table>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn small" onclick="addCatalogueVariety(${ci})">+ Add a variety</button>
+          <button class="btn small ghost" onclick="renameCatalogueCrop(${ci})">Rename crop</button>
+          <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeCatalogueCrop(${ci})">Remove crop</button>
+          <span class="helper">${farmsGrowing(crop.name)}</span>
+        </div>
+      </div>`).join('')}`;
+}
+
+function catalogueFigures(v){
+  const def = YIELD_PATTERNS[v.pattern];
+  if(!def) return '—';
+  return def.fields.map(([k,label])=> `${esc(label)}: <strong>${v[k]!==undefined?v[k]:'—'}</strong>`).join('<br>');
+}
+
+// Who this change reaches, said plainly before it is made.
+function farmsGrowing(cropName){
+  const n = Object.keys(MEMBERS).filter(id=>
+    (MEMBERS[id].crops||[]).some(cr=> (cr.crop||'').toLowerCase() === cropName.toLowerCase())).length;
+  return n ? `${n} member farm${n===1?'':'s'} ${n===1?'grows':'grow'} this` : 'No member farm grows this yet';
+}
+
+function catalogueEditRow(crop, v, ci, vi){
+  v = v || { pattern:'continuous' };
+  const def = YIELD_PATTERNS[v.pattern] || YIELD_PATTERNS.continuous;
+  return `<tr class="crop-edit"><td colspan="6">
+    <div class="ce-head">${vi===-1 ? `New variety of <strong>${esc(crop.name)}</strong>` : `Editing <strong>${esc(v.name)}</strong>`}</div>
+    <div class="grid2">
+      <div><label class="f">Variety name</label><input id="cv-name" value="${esc(v.name||'')}" placeholder="e.g. Anna F1"></div>
+      <div><label class="f">Plants per m²</label><input id="cv-persqm" type="number" step="0.01" value="${v.perSqm||''}" placeholder="e.g. 2.5"></div>
+      <div><label class="f">Harvest pattern</label>
+        <select id="cv-pattern" onchange="repatternCatalogueRow(${ci},${vi})">
+          ${Object.keys(YIELD_PATTERNS).map(k=>`<option value="${k}" ${v.pattern===k?'selected':''}>${esc(YIELD_PATTERNS[k].label)}</option>`).join('')}
+        </select></div>
+      <div><label class="f">Note for farms</label><input id="cv-notes" value="${esc(v.notes||'')}" placeholder="e.g. Indoor, trellised"></div>
+      ${def.fields.map(([k,label,dflt])=>`
+        <div><label class="f">${esc(label)}</label>
+          <input id="cv-${k}" type="number" step="any" value="${v[k]!==undefined?v[k]:dflt}"></div>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button class="btn small" onclick="saveCatalogueVariety(${ci},${vi})">Save variety</button>
+      <button class="btn small ghost" onclick="cancelCatalogueEdit()">Cancel</button>
+      <span class="helper" id="cv-msg" style="color:var(--red);"></span>
+    </div>
+    <p class="helper">Weeks are counted from the day a farm transplants. Every farm growing this variety plans against these figures the next time it generates its harvest plan.</p>
+  </td></tr>`;
+}
+
+function editCatalogueVariety(ci, vi){ state.catEdit = {ci, vi}; render(); }
+function addCatalogueVariety(ci){ state.catEdit = {ci, vi:-1}; render(); }
+function cancelCatalogueEdit(){ state.catEdit = null; render(); }
+
+// Switching pattern redraws the row so its own figures are asked for.
+function repatternCatalogueRow(ci, vi){
+  const pattern = document.getElementById('cv-pattern').value;
+  const draft = { name:document.getElementById('cv-name').value,
+                  perSqm:Number(document.getElementById('cv-persqm').value)||0,
+                  notes:document.getElementById('cv-notes').value, pattern };
+  state.catDraft = draft;
+  const crop = CATALOGUE[ci];
+  const holder = document.querySelector('tr.crop-edit');
+  if(holder && crop) holder.outerHTML = catalogueEditRow(crop, draft, ci, vi);
+}
+
+function saveCatalogueVariety(ci, vi){
+  const msg = document.getElementById('cv-msg');
+  const crop = CATALOGUE[ci];
+  if(!crop) return;
+  const name = document.getElementById('cv-name').value.trim();
+  if(!name){ if(msg) msg.textContent = 'Give the variety a name.'; return; }
+  const pattern = document.getElementById('cv-pattern').value;
+  const clash = (crop.varieties||[]).some((x, xi)=> xi !== vi && x.name.toLowerCase() === name.toLowerCase());
+  if(clash){ if(msg) msg.textContent = 'That variety is already listed under this crop.'; return; }
+  const v = { name, pattern,
+    perSqm: Number(document.getElementById('cv-persqm').value)||0,
+    notes: document.getElementById('cv-notes').value.trim() };
+  YIELD_PATTERNS[pattern].fields.forEach(([k])=>{
+    v[k] = Number(document.getElementById('cv-'+k).value)||0;
+  });
+  crop.varieties = crop.varieties || [];
+  const was = vi === -1 ? null : crop.varieties[vi];
+  if(vi === -1) crop.varieties.push(v); else crop.varieties[vi] = v;
+  // A renamed variety would orphan every farm that chose it by name.
+  if(was && was.name !== name) renameFarmVariety(crop.name, was.name, name);
+  state.catEdit = null;
+  state.catMsg = `${name} saved. ${farmsGrowing(crop.name)}.`;
+  logAction(`Operator ${vi===-1?'added':'updated'} catalogue variety ${crop.name} — ${name}.`);
+  saveCatalogue();
+  render();
+}
+
+function removeCatalogueVariety(ci, vi){
+  const crop = CATALOGUE[ci]; if(!crop) return;
+  const v = crop.varieties[vi]; if(!v) return;
+  const ok = (typeof confirm === 'function')
+    ? confirm(`Remove ${v.name} from ${crop.name}? Farms that already chose it keep the name on their crop, but can no longer plan a harvest from it.`) : true;
+  if(!ok) return;
+  crop.varieties.splice(vi, 1);
+  state.catEdit = null;
+  state.catMsg = `${v.name} removed from ${crop.name}.`;
+  logAction(`Operator removed catalogue variety ${crop.name} — ${v.name}.`);
+  saveCatalogue();
+  render();
+}
+
+function addCatalogueCrop(){
+  const el = document.getElementById('cat-newcrop');
+  const err = document.getElementById('cat-error');
+  const name = el ? el.value.trim() : '';
+  if(!name){ if(err) err.textContent = 'Enter the crop name.'; return; }
+  if(catalogueCrop(name)){ if(err) err.textContent = 'That crop is already in the catalogue.'; return; }
+  CATALOGUE.push({ name, varieties: [] });
+  state.catMsg = `${name} added. Give it at least one variety before farms can plan from it.`;
+  logAction(`Operator added ${name} to the crop catalogue.`);
+  saveCatalogue();
+  render();
+}
+
+function renameCatalogueCrop(ci){
+  const crop = CATALOGUE[ci]; if(!crop) return;
+  const next = (typeof prompt === 'function') ? prompt('Rename this crop to:', crop.name) : null;
+  if(!next || !next.trim() || next.trim() === crop.name) return;
+  const name = next.trim();
+  if(catalogueCrop(name)){ state.catMsg = `${name} is already in the catalogue.`; render(); return; }
+  const was = crop.name;
+  crop.name = name;
+  logAction(`Operator renamed catalogue crop ${was} to ${name}.`);
+  state.catMsg = `${was} is now ${name}. Farms keep their own crop names — this changes the list they choose from.`;
+  saveCatalogue();
+  render();
+}
+
+function removeCatalogueCrop(ci){
+  const crop = CATALOGUE[ci]; if(!crop) return;
+  const ok = (typeof confirm === 'function')
+    ? confirm(`Remove ${crop.name} and its ${(crop.varieties||[]).length} variety/varieties from the catalogue? ${farmsGrowing(crop.name)}.`) : true;
+  if(!ok) return;
+  CATALOGUE.splice(ci, 1);
+  state.catEdit = null;
+  state.catMsg = `${crop.name} removed from the catalogue.`;
+  logAction(`Operator removed ${crop.name} from the crop catalogue.`);
+  saveCatalogue();
+  render();
+}
+
+function restoreCatalogue(){
+  const ok = (typeof confirm === 'function')
+    ? confirm('Replace the catalogue with the built-in list? Crops and varieties you added are removed.') : true;
+  if(!ok) return;
+  CATALOGUE = defaultCatalogue();
+  state.catEdit = null;
+  state.catMsg = 'The catalogue has been restored to the built-in list.';
+  logAction('Operator restored the built-in crop catalogue.');
+  saveCatalogue();
+  render();
+}
+
+// Keep farms pointing at a variety that has been renamed under them.
+function renameFarmVariety(cropName, was, now){
+  Object.keys(MEMBERS).forEach(id=>{
+    (MEMBERS[id].crops||[]).forEach(cr=>{
+      if((cr.crop||'').toLowerCase() === cropName.toLowerCase()
+        && (cr.variety||'').toLowerCase() === was.toLowerCase()){
+        cr.variety = now;
+        operatorSync(id);
+      }
+    });
+  });
 }
 
 function renderMembers(c){
@@ -5264,6 +5836,7 @@ function removeAdmin(i){
 
 loadSettings();
 loadMembers();
+loadCatalogue();
 render();
 // Safe to touch `state` from here on.
 cloudPushHook = function(){

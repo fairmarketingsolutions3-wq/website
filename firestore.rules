@@ -70,6 +70,16 @@ service cloud.firestore {
       allow write: if isOperator();
     }
 
+    // ---- Crop catalogue --------------------------------------------------
+    // The crops and varieties every farm chooses from, with the plant spacing
+    // and per-plant yield their harvest plans are built from. The Secretariat
+    // keeps it; every signed-in farm reads it. It holds no secrets — a farm is
+    // meant to see all of it.
+    match /settings/catalogue {
+      allow read: if signedIn();
+      allow write: if isOperator();
+    }
+
     // ---- Operators -----------------------------------------------------
     match /operators/{uid} {
       // Everyone may read their own operator document — a farm signing in asks
