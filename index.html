@@ -569,6 +569,7 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
 .prog-table thead th{background:var(--deep-green);}
 /* Stage bands use the association palette; the accent sits on the stage cell,
    never as a field behind body copy (guidelines p14). */
+.cloud-badge.build{opacity:.75;font-variant-numeric:tabular-nums;}
 .cat-facts{background:var(--field-cream);border-left:3px solid var(--gold);
   padding:9px 12px;border-radius:0 8px 8px 0;margin-top:10px;line-height:1.6;}
 .cat-facts strong{color:var(--deep-green);}
@@ -1077,10 +1078,16 @@ function setCloudStatus(status, detail){
   const el = document.getElementById('cloud-status');
   if(el) el.outerHTML = cloudBadge();
 }
+/* A phone can hold an old copy of this page for a long time, and a fault
+   already fixed looks unfixed until it lets go of it. The build shows on
+   screen so which copy is running can be said rather than guessed. */
+const BUILD = 'v29';
+
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
   return `<span id="cloud-status" class="cloud-badge ${cls}" title="${esc(CLOUD.detail || cloudStatusText())}">
-    <span class="cloud-dot"></span>${CLOUD.status === 'ready' ? 'Cloud sync on' : (CLOUD.status === 'connecting' ? 'Connecting' : 'On this device only')}</span>`;
+    <span class="cloud-dot"></span>${CLOUD.status === 'ready' ? 'Cloud sync on' : (CLOUD.status === 'connecting' ? 'Connecting' : 'On this device only')}</span>
+    <span class="cloud-badge build" title="The version of the site this device has loaded. Reload the page if it is behind.">${BUILD}</span>`;
 }
 
 async function initCloud(){
@@ -2431,7 +2438,7 @@ function renderLogin(){
         </div>
         <img class="lb-logo" src="assets/brand/tipfa-logo-reversed.png"
              alt="TIPFA — Tanzania Indoor &amp; Professional Farmers Association">
-        <div class="eyebrow">Association platform &middot; 2026</div>
+        <div class="eyebrow">Association platform &middot; 2026 &middot; ${BUILD}</div>
         <h2>Farming together.<br>Harvesting excellence.</h2>
         <p class="strap">One association. One quality standard. One coordinated crop calendar.
           <em>Tanzania Indoor &amp; Professional Farmers Association</em></p>
@@ -4559,6 +4566,20 @@ function harvestPlanSource(m){
     </div>`;
 }
 
+// Which years a farm's projected harvests actually land in. A season that
+// runs into the next year, or a crop transplanted last year, otherwise
+// disappears from a plan showing only the year that happens to be selected.
+function projectionYears(id){
+  const m = MEMBERS[id];
+  const years = {};
+  if(m) (m.crops||[]).forEach(cr=>{
+    const y = yieldFor(cr);
+    if(!y.ok || !y.dated) return;
+    y.rows.forEach(r=>{ const s = slotFor(r.date); if(s) years[s.year] = true; });
+  });
+  return Object.keys(years).map(Number).sort((a,b)=> a-b);
+}
+
 /* What the seedlings come to, month by month, shown without being asked
    for. Writing it into the plan stays a deliberate act — a farm may have
    typed its own figures — but seeing it does not. */
@@ -4573,11 +4594,19 @@ function projectionSection(id, year){
       <tbody>${list.map(cr=>`<tr><td><strong>${esc(cr.crop)}</strong></td><td>${esc(cr.variety||'—')}</td>
         <td style="color:var(--red);">${esc(planBlockedReason(cr))}</td></tr>`).join('')}</tbody></table>`;
   if(!table){
+    // The commonest reason for an empty year is that the harvest falls in a
+    // different one — a season running into next year, or a crop transplanted
+    // last year. Saying "nothing" there would be untrue.
+    const elsewhere = projectionYears(id).filter(y=> y !== year);
     return `
       <div class="section-label">What your seedlings come to</div>
       <div class="card" style="overflow-x:auto;">
-        <p class="helper" style="margin:0 0 10px;">Nothing can be placed on the calendar yet. Each crop below says what it is waiting for.</p>
-        ${waiting.length ? missing(waiting) : '<p class="helper" style="margin:0;">Add a crop on your Profile tab, with the number of seedlings you planted and the date you transplanted.</p>'}
+        ${elsewhere.length ? `
+          <p class="helper" style="margin:0 0 10px;">Your crops are projected, but none of the harvest falls in ${year}. It lands in ${esc(elsewhere.join(' and '))}.</p>
+          <div class="chips">${elsewhere.map(y=>`<span class="chip" onclick="selectYear(${y})">Show ${y}</span>`).join('')}</div>`
+        : `<p class="helper" style="margin:0 0 10px;">Nothing can be placed on the calendar yet. ${waiting.length ? 'Each crop below says what it is waiting for.' : ''}</p>
+          ${waiting.length ? '' : '<p class="helper" style="margin:0;">Add a crop on your Profile tab, with the number of seedlings you planted and the date you transplanted.</p>'}`}
+        ${waiting.length ? missing(waiting) : ''}
       </div>`;
   }
   return `
@@ -4592,6 +4621,8 @@ function projectionSection(id, year){
       </div>
       ${state.planGenMsg ? `<p class="helper" style="margin-top:10px;color:var(--deep-green);">${CHECK_ICON} ${esc(state.planGenMsg)}</p>` : ''}
       ${(state.planGenMsg = '') || ''}
+      ${(()=>{ const other = projectionYears(id).filter(y=> y !== year);
+        return other.length ? `<p class="helper" style="margin-top:10px;">More of this harvest falls in ${esc(other.join(' and '))}: <span class="chips" style="display:inline-flex;">${other.map(y=>`<span class="chip" onclick="selectYear(${y})">Show ${y}</span>`).join('')}</span></p>` : ''; })()}
       ${waiting.length ? `<p class="helper" style="margin-top:14px;">Not counted here: ${esc(waiting.map(cr=>cr.crop).join(', '))}.</p>${missing(waiting)}` : ''}
     </div>`;
 }
