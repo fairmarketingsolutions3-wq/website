@@ -851,13 +851,16 @@ function yieldFor(cr){
   const empty = { ok:false, weeks:0, perPlant:0, total:0, rows:[], patternLabel:'',
                   firstDate:'', lastDate:'', peak:0, dated:false, seedlings:n };
   if(!v) return empty;
+  // The transplanting date alone is enough to place a season on the calendar.
+  // The expected harvest date only sets how long that season runs; without it
+  // the catalogue's own 24-week season is used, rather than the crop being
+  // left out of the plan for want of a second date.
   let weeks = 24, start = null, dated = false;
-  if(cr.planted && cr.expected){
-    const a = new Date(cr.planted), b = new Date(cr.expected);
-    if(!isNaN(a) && !isNaN(b) && b > a){
-      weeks = Math.max(1, Math.round((b - a) / MS_WEEK));
-      start = a; dated = true;
-    }
+  const a = cr.planted ? new Date(cr.planted) : null;
+  if(a && !isNaN(a)){ start = a; dated = true; }
+  if(start && cr.expected){
+    const b = new Date(cr.expected);
+    if(!isNaN(b) && b > start) weeks = Math.max(1, Math.round((b - start) / MS_WEEK));
   }
   const per = weeklyYield(v, weeks);
   const perPlant = per.reduce((x,y)=> x+y, 0);
@@ -919,10 +922,19 @@ function yieldPanel(m){
 }
 
 function yieldBlockedReason(cr){
-  if(!catalogueCrop(cr.crop)) return 'This crop is no longer in the Secretariat catalogue, so there are no yield figures for it. Ask the Secretariat to add it back.';
+  if(!catalogueCrop(cr.crop)) return 'This crop is not in the Secretariat catalogue, so there are no yield figures for it. Edit the crop and choose one from the list, or ask the Secretariat to add it.';
   if(!catalogueVariety(cr.crop, cr.variety)) return 'This variety is not in the Secretariat catalogue. Edit the crop and choose one that is, or ask the Secretariat to add it.';
   if(!(Number(cr.seedlings)||0)) return 'Enter the number of seedlings you planted and the yield appears here.';
   return 'Nothing to project from yet.';
+}
+
+// The one thing standing between a crop and a place in the harvest plan.
+function planBlockedReason(cr){
+  const y = yieldFor(cr);
+  if(!y.ok) return yieldBlockedReason(cr);
+  if(!y.dated) return 'Add the transplanting date on your Profile tab — without it these kilograms cannot be placed on a calendar.';
+  if(!y.rows.length) return 'The dates leave no bearing weeks. Check the transplanting and expected harvest dates.';
+  return '';
 }
 
 function catalogueCrop(name){
@@ -2971,9 +2983,15 @@ function addCrop(){
   const planted = document.getElementById('newcrop-planted').value;
   const expected = document.getElementById('newcrop-expected').value;
   const fail = t=>{ msg.textContent = t; msg.style.color = 'var(--red)'; };
-  if(!crop){ fail('Enter the name of the crop you grow.'); return; }
-  if(!variety || !planted || !expected){ fail('Enter variety, transplanting date, and expected harvest date.'); return; }
-  if(new Date(expected) <= new Date(planted)){ fail('The expected harvest date must come after the transplanting date.'); return; }
+  if(!crop){ fail('Choose the crop you grow.'); return; }
+  if(!variety){ fail('Choose the variety.'); return; }
+  // The dates are not required to record a crop. Without the transplanting
+  // date the yield still shows on this tab, over the catalogue's own season;
+  // it is the harvest plan that needs a date to put those weeks on a calendar,
+  // and it says so there. Refusing the crop outright left a farm with nothing.
+  if(planted && expected && new Date(expected) <= new Date(planted)){
+    fail('The expected harvest date must come after the transplanting date.'); return;
+  }
   const m = MEMBERS[state.member];
   if(m.crops.some(cr=> (cr.crop||'').toLowerCase()===crop.toLowerCase() && (cr.variety||'').toLowerCase()===variety.toLowerCase())){
     fail('That crop and variety are already in your crop profile.'); return;
@@ -4551,11 +4569,15 @@ function projectionSection(id, year){
     const y = yieldFor(cr);
     return !(y.ok && y.dated);
   });
+  const missing = list=> `<table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>What it still needs</th></tr></thead>
+      <tbody>${list.map(cr=>`<tr><td><strong>${esc(cr.crop)}</strong></td><td>${esc(cr.variety||'—')}</td>
+        <td style="color:var(--red);">${esc(planBlockedReason(cr))}</td></tr>`).join('')}</tbody></table>`;
   if(!table){
     return `
       <div class="section-label">What your seedlings come to</div>
-      <div class="card">
-        <p class="helper" style="margin:0;">Nothing to work out yet. A crop needs a variety from the Secretariat catalogue, the number of seedlings you planted, and both of its dates${waiting.length?` — ${esc(waiting.map(cr=>cr.crop).join(', '))} ${waiting.length===1?'is':'are'} still missing something.`:'.'}</p>
+      <div class="card" style="overflow-x:auto;">
+        <p class="helper" style="margin:0 0 10px;">Nothing can be placed on the calendar yet. Each crop below says what it is waiting for.</p>
+        ${waiting.length ? missing(waiting) : '<p class="helper" style="margin:0;">Add a crop on your Profile tab, with the number of seedlings you planted and the date you transplanted.</p>'}
       </div>`;
   }
   return `
@@ -4570,7 +4592,7 @@ function projectionSection(id, year){
       </div>
       ${state.planGenMsg ? `<p class="helper" style="margin-top:10px;color:var(--deep-green);">${CHECK_ICON} ${esc(state.planGenMsg)}</p>` : ''}
       ${(state.planGenMsg = '') || ''}
-      ${waiting.length ? `<p class="helper" style="margin-top:8px;">Not counted here: ${esc(waiting.map(cr=>cr.crop).join(', '))} — see Expected yield on your Profile tab for what each is waiting for.</p>` : ''}
+      ${waiting.length ? `<p class="helper" style="margin-top:14px;">Not counted here: ${esc(waiting.map(cr=>cr.crop).join(', '))}.</p>${missing(waiting)}` : ''}
     </div>`;
 }
 
