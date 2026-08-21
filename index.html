@@ -836,6 +836,95 @@ function defaultCatalogue(){
 
 let CATALOGUE = defaultCatalogue();
 
+const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+/* What a farm should expect off a crop, from what it has entered.
+   Everything here is the catalogue's figures scaled by the farm's own
+   seedling count; nothing is guessed. Where the farm has given both its
+   dates the season is as long as those dates make it, and the harvest
+   weeks carry real calendar dates. Without dates the catalogue's own
+   24-week season is used, so a yield still shows the moment a crop and
+   a seedling count are entered. */
+function yieldFor(cr){
+  const v = catalogueVariety(cr.crop, cr.variety);
+  const n = Number(cr.seedlings) || 0;
+  const empty = { ok:false, weeks:0, perPlant:0, total:0, rows:[], patternLabel:'',
+                  firstDate:'', lastDate:'', peak:0, dated:false, seedlings:n };
+  if(!v) return empty;
+  let weeks = 24, start = null, dated = false;
+  if(cr.planted && cr.expected){
+    const a = new Date(cr.planted), b = new Date(cr.expected);
+    if(!isNaN(a) && !isNaN(b) && b > a){
+      weeks = Math.max(1, Math.round((b - a) / MS_WEEK));
+      start = a; dated = true;
+    }
+  }
+  const per = weeklyYield(v, weeks);
+  const perPlant = per.reduce((x,y)=> x+y, 0);
+  const rows = [];
+  per.forEach((kg, i)=>{
+    if(kg <= 0) return;
+    rows.push({ week:i+1, kg: kg * n,
+                date: start ? new Date(start.getTime() + i * MS_WEEK) : null });
+  });
+  const fmtDate = d=> d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
+  return {
+    ok: !!(n && perPlant), weeks, perPlant, total: perPlant * n, rows, dated, seedlings:n,
+    patternLabel: (YIELD_PATTERNS[v.pattern] || {}).label || '',
+    firstDate: rows.length ? fmtDate(rows[0].date) : '',
+    lastDate: rows.length ? fmtDate(rows[rows.length-1].date) : '',
+    peak: rows.reduce((mx,r)=> Math.max(mx, r.kg), 0)
+  };
+}
+
+/* The yield panel on the crop profile: what each crop is expected to give,
+   worked out in front of the farm rather than presented as a number to
+   trust. A crop that cannot be projected says what it is waiting for. */
+function yieldPanel(m){
+  const crops = m.crops || [];
+  if(!crops.length) return '';
+  const each = crops.map(cr=> ({ cr, y: yieldFor(cr) }));
+  const grand = each.reduce((a,x)=> a + x.y.total, 0);
+  return `
+    <div class="section-label">Expected yield</div>
+    <div class="card" style="overflow-x:auto;">
+      <p class="helper" style="margin:0 0 10px;">Worked out from the Secretariat's catalogue figures for the variety you chose, multiplied by the seedlings you planted. Change the seedling count and this changes with it.</p>
+      <table class="grid-table"><thead><tr>
+        <th>Crop</th><th>Variety</th><th>Seedlings</th><th>Per plant</th>
+        <th>Harvest pattern</th><th>Bearing weeks</th><th>Best week</th><th>Expected total</th>
+      </tr></thead>
+      <tbody>${each.map(({cr, y})=> y.ok ? `<tr>
+          <td><strong>${esc(cr.crop)}</strong></td>
+          <td>${esc(cr.variety||'—')}</td>
+          <td>${fmt(y.seedlings)}</td>
+          <td>${y.perPlant.toFixed(2)} kg</td>
+          <td class="helper">${esc(y.patternLabel)}</td>
+          <td>${y.rows.length}${y.dated ? ` <span class="helper">${esc(y.firstDate)} → ${esc(y.lastDate)}</span>` : ' <span class="helper">of a 24-week season</span>'}</td>
+          <td>${fmt(Math.round(y.peak))} kg</td>
+          <td style="background:var(--field-cream);"><strong>${fmt(Math.round(y.total))} kg</strong></td>
+        </tr>` : `<tr>
+          <td><strong>${esc(cr.crop)}</strong></td>
+          <td>${esc(cr.variety||'—')}</td>
+          <td colspan="6" class="helper">${esc(yieldBlockedReason(cr))}</td>
+        </tr>`).join('')}
+        ${grand ? `<tr><td colspan="7" style="text-align:right;"><strong>All crops</strong></td>
+          <td style="background:var(--gold);color:var(--deep-green);"><strong>${fmt(Math.round(grand))} kg</strong></td></tr>` : ''}
+      </tbody></table>
+      ${each.filter(x=>x.y.ok && x.y.rows.length).map(({cr, y})=> `
+        <div class="section-label" style="margin-top:14px;">${esc(cr.crop)} — week by week</div>
+        <table class="grid-table"><thead><tr><th>Harvest</th>${y.rows.map(r=>`<th>${y.dated ? esc(r.date.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})) : 'W'+r.week}</th>`).join('')}</tr></thead>
+        <tbody><tr><td>kg</td>${y.rows.map(r=>`<td${r.kg===y.peak?' style="background:var(--field-cream);font-weight:600;"':''}>${fmt(Math.round(r.kg))}</td>`).join('')}</tr></tbody></table>`).join('')}
+      <p class="helper" style="margin-top:10px;">These are the same figures your harvest plan is generated from. ${each.some(x=>x.y.ok && !x.y.dated) ? 'A crop with no dates yet is shown over the catalogue’s own 24-week season; add your transplanting and harvest dates to place it on the calendar.' : ''}</p>
+    </div>`;
+}
+
+function yieldBlockedReason(cr){
+  if(!catalogueCrop(cr.crop)) return 'This crop is no longer in the Secretariat catalogue, so there are no yield figures for it. Ask the Secretariat to add it back.';
+  if(!catalogueVariety(cr.crop, cr.variety)) return 'This variety is not in the Secretariat catalogue. Edit the crop and choose one that is, or ask the Secretariat to add it.';
+  if(!(Number(cr.seedlings)||0)) return 'Enter the number of seedlings you planted and the yield appears here.';
+  return 'Nothing to project from yet.';
+}
+
 function catalogueCrop(name){
   const n = (name||'').trim().toLowerCase();
   return CATALOGUE.find(c=> (c.name||'').trim().toLowerCase() === n) || null;
@@ -2616,92 +2705,89 @@ function renderProfile(c){
         <div><label class="f">Seed company</label><input id="newcrop-seed" list="seed-companies" placeholder="Who supplied the seed"></div>
         <div><label class="f">Area covered</label>${unitField('newcrop-area','', 'm²', LAND_UNITS, '0.01', "showVarietyFacts('newcrop')")}</div>
         <div><label class="f">Number of seedlings</label><input id="newcrop-seedlings" type="number" min="0" step="1" placeholder="How many plants went in" oninput="showVarietyFacts('newcrop')"></div>
-        <div><label class="f">Transplanting date</label><input id="newcrop-planted" type="date"></div>
-        <div><label class="f">Expected harvest date</label><input id="newcrop-expected" type="date"></div>
+        <div><label class="f">Transplanting date</label><input id="newcrop-planted" type="date" onchange="showVarietyFacts('newcrop')"></div>
+        <div><label class="f">Expected harvest date</label><input id="newcrop-expected" type="date" onchange="showVarietyFacts('newcrop')"></div>
       </div>
       <p class="helper cat-facts" id="newcrop-facts" style="display:none;"></p>
-      ${cropSuggestionList()}
       ${seedCompanyList()}
       <button class="btn small" onclick="addCrop()">+ Add crop</button>
       ${archiveButton('Crop profile')}
       <p class="helper" id="crop-msg" style="margin-top:8px;"></p>
       <p class="helper">Your crop names are your own — they carry through to your harvest plan, actual harvest and market prices. The transplanting and expected harvest dates set the start and end of this crop's calendar.</p>
     </div>
+    ${yieldPanel(m)}
     ${seedCompanyPanel(m)}`;
 }
 
 
-/* Crop and variety come from the Secretariat's catalogue, which carries the
-   plant spacing and the per-plant yield a harvest plan is built from. A farm
-   that grows something not on the list can still type its own name — it just
-   has nothing to generate a plan from until the Secretariat adds it. */
+/* Crop and variety come from the Secretariat's catalogue and nowhere else.
+   A variety carries the plant spacing and the per-plant yield curve, and a
+   farm's whole harvest projection is built from them — a name typed in by
+   hand would carry neither, so there would be nothing to project from. A crop
+   the association grows but the list does not hold is something for the
+   Secretariat to add, and the form says so.
+
+   A crop saved before it left the catalogue keeps its own name in the list,
+   marked, so editing that entry does not quietly rename it. */
 function cropPicker(prefix, current){
   const known = CATALOGUE.map(c=>c.name);
-  const custom = current && !catalogueCrop(current);
+  const stale = current && !catalogueCrop(current);
+  if(!known.length && !stale){
+    return `<select id="${prefix}-crop" disabled><option>No crops in the catalogue yet</option></select>`;
+  }
   return `<select id="${prefix}-crop" onchange="onCropPicked('${prefix}')">
       <option value="">Choose a crop…</option>
       ${known.map(n=>`<option value="${esc(n)}" ${current===n?'selected':''}>${esc(n)}</option>`).join('')}
-      <option value="__other" ${custom?'selected':''}>Something else — type it in</option>
-    </select>
-    <input id="${prefix}-crop-other" placeholder="Crop name" value="${custom?esc(current):''}"
-           style="margin-top:6px;${custom?'':'display:none;'}">`;
+      ${stale?`<option value="${esc(current)}" selected>${esc(current)} — no longer in the catalogue</option>`:''}
+    </select>`;
 }
 function varietyPicker(prefix, cropName, current){
   const crop = catalogueCrop(cropName);
   const list = crop ? (crop.varieties||[]) : [];
-  const custom = current && !catalogueVariety(cropName, current);
-  if(!list.length){
-    return `<input id="${prefix}-variety" value="${esc(current||'')}" placeholder="e.g. Anna F1">`;
+  const stale = current && !catalogueVariety(cropName, current);
+  if(!list.length && !stale){
+    return `<select id="${prefix}-variety" disabled><option>${cropName ? 'This crop has no varieties yet' : 'Choose a crop first'}</option></select>`;
   }
   return `<select id="${prefix}-variety" onchange="onVarietyPicked('${prefix}')">
       <option value="">Choose a variety…</option>
       ${list.map(v=>`<option value="${esc(v.name)}" ${current===v.name?'selected':''}>${esc(v.name)}</option>`).join('')}
-      <option value="__other" ${custom?'selected':''}>Something else — type it in</option>
-    </select>
-    <input id="${prefix}-variety-other" placeholder="Variety name" value="${custom?esc(current):''}"
-           style="margin-top:6px;${custom?'':'display:none;'}">`;
+      ${stale?`<option value="${esc(current)}" selected>${esc(current)} — no longer in the catalogue</option>`:''}
+    </select>`;
 }
-// The value a picker is really holding, whichever half of it is in use.
 function pickerValue(prefix, which){
   const sel = document.getElementById(`${prefix}-${which}`);
-  if(!sel) return '';
-  if(sel.tagName !== 'SELECT') return sel.value.trim();
-  if(sel.value !== '__other') return sel.value.trim();
-  const other = document.getElementById(`${prefix}-${which}-other`);
-  return other ? other.value.trim() : '';
+  if(!sel || sel.disabled) return '';
+  return sel.value.trim();
 }
 function onCropPicked(prefix){
   const sel = document.getElementById(`${prefix}-crop`);
-  const other = document.getElementById(`${prefix}-crop-other`);
-  if(other) other.style.display = sel.value === '__other' ? '' : 'none';
   const holder = document.getElementById(`${prefix}-variety-holder`);
-  if(holder) holder.innerHTML = varietyPicker(prefix, sel.value === '__other' ? '' : sel.value, '');
+  if(holder) holder.innerHTML = varietyPicker(prefix, sel.value, '');
   showVarietyFacts(prefix);
 }
-function onVarietyPicked(prefix){
-  const sel = document.getElementById(`${prefix}-variety`);
-  const other = document.getElementById(`${prefix}-variety-other`);
-  if(other) other.style.display = sel && sel.value === '__other' ? '' : 'none';
-  showVarietyFacts(prefix);
-}
+function onVarietyPicked(prefix){ showVarietyFacts(prefix); }
 
 /* What the catalogue knows about the chosen variety, and what the seedling
    count means against the area entered. Filled in as soon as both are known,
    so nobody has to look any of it up. */
-function varietyFacts(cropName, varietyName, seedlings, area, unit){
+function varietyFacts(cropName, varietyName, seedlings, area, unit, planted, expected){
   const v = catalogueVariety(cropName, varietyName);
   if(!v) return '';
-  const bits = [];
-  if(v.perSqm) bits.push(`Catalogue spacing: <strong>${v.perSqm} plants per m²</strong>`);
-  const sqm = toSqm(area, unit);
-  if(v.perSqm && sqm) bits.push(`that area holds about <strong>${fmt(Math.round(v.perSqm * sqm))}</strong> plants`);
   const n = Number(seedlings)||0;
-  if(n && sqm) bits.push(`you have entered <strong>${fmt(n)}</strong>, or ${(n/sqm).toFixed(2)} per m²`);
-  const weeks = 24;
-  const perPlant = weeklyYield(v, weeks).reduce((a,b)=>a+b, 0);
-  if(perPlant) bits.push(`each plant yields about <strong>${perPlant.toFixed(2)} kg</strong> over ${weeks} weeks`);
-  if(n && perPlant) bits.push(`so ${fmt(n)} plants give roughly <strong>${fmt(Math.round(n*perPlant))} kg</strong>`);
-  return bits.join(' · ') + (v.notes ? `<br>${esc(v.notes)}` : '');
+  const y = yieldFor({crop:cropName, variety:varietyName, seedlings:n, planted, expected});
+  const sqm = toSqm(area, unit);
+  const bits = [];
+  if(v.perSqm) bits.push(`Catalogue spacing <strong>${v.perSqm} plants per m²</strong>`);
+  if(v.perSqm && sqm) bits.push(`that area holds about <strong>${fmt(Math.round(v.perSqm * sqm))}</strong> plants`);
+  if(n && sqm) bits.push(`you entered <strong>${fmt(n)}</strong>, or ${(n/sqm).toFixed(2)} per m²`);
+  const head = bits.join(' · ');
+  if(!n) return head + (head?'<br>':'') + '<em>Enter the number of seedlings to see the yield.</em>' + (v.notes?`<br>${esc(v.notes)}`:'');
+  return `${head}${head?'<br>':''}
+    <strong>${y.perPlant.toFixed(2)} kg</strong> per plant over ${y.weeks} weeks
+    × <strong>${fmt(n)}</strong> seedlings =
+    <strong style="font-size:15px;">${fmt(Math.round(y.total))} kg expected</strong>
+    · ${esc(y.patternLabel)}${y.firstDate?` · first harvest ${esc(y.firstDate)}`:''}
+    ${v.notes?`<br>${esc(v.notes)}`:''}`;
 }
 function showVarietyFacts(prefix){
   const el = document.getElementById(`${prefix}-facts`);
@@ -2709,18 +2795,17 @@ function showVarietyFacts(prefix){
   const crop = pickerValue(prefix, 'crop'), variety = pickerValue(prefix, 'variety');
   const seedEl = document.getElementById(`${prefix}-seedlings`);
   const areaEl = document.getElementById(`${prefix}-area`);
+  const dateEl = document.getElementById(`${prefix}-planted`);
+  const endEl = document.getElementById(`${prefix}-expected`);
   const html = varietyFacts(crop, variety, seedEl?seedEl.value:0, areaEl?areaEl.value:0,
-                            readUnit(`${prefix}-area`, LAND_UNITS));
+                            readUnit(`${prefix}-area`, LAND_UNITS),
+                            dateEl?dateEl.value:'', endEl?endEl.value:'');
   el.innerHTML = html;
   el.style.display = html ? '' : 'none';
 }
 
-/* Crops and seed companies other farms have already entered are offered as
-   suggestions only. Nothing is preset, and a farm can always type its own. */
-function cropSuggestionList(){
-  const names = allCrops();
-  return names.length ? `<datalist id="crop-suggestions">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>` : '';
-}
+/* Seed companies other farms have already named are offered as suggestions.
+   Crops are not: they come from the Secretariat's catalogue. */
 function seedCompanyList(){
   const names = seedCompanyTally().map(r=>r.name);
   return names.length ? `<datalist id="seed-companies">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>` : '';
@@ -2809,10 +2894,10 @@ function cropEditRow(cr, i){
       <div><label class="f">Seed company</label><input id="ec-seed" value="${esc(cr.seedCompany||'')}" list="seed-companies"></div>
       <div><label class="f">Area covered</label>${unitField('ec-area', cr.area, cr.areaUnit || 'm²', LAND_UNITS, '0.01', "showVarietyFacts('ec')")}</div>
       <div><label class="f">Number of seedlings</label><input id="ec-seedlings" type="number" min="0" step="1" value="${cr.seedlings||''}" oninput="showVarietyFacts('ec')"></div>
-      <div><label class="f">Transplanting date</label><input id="ec-planted" type="date" value="${esc(cr.planted||'')}"></div>
-      <div><label class="f">Expected harvest date</label><input id="ec-expected" type="date" value="${esc(cr.expected||'')}"></div>
+      <div><label class="f">Transplanting date</label><input id="ec-planted" type="date" value="${esc(cr.planted||'')}" onchange="showVarietyFacts('ec')"></div>
+      <div><label class="f">Expected harvest date</label><input id="ec-expected" type="date" value="${esc(cr.expected||'')}" onchange="showVarietyFacts('ec')"></div>
     </div>
-    <p class="helper cat-facts" id="ec-facts">${varietyFacts(cr.crop, cr.variety, cr.seedlings, cr.area, cr.areaUnit||'m²')}</p>
+    <p class="helper cat-facts" id="ec-facts">${varietyFacts(cr.crop, cr.variety, cr.seedlings, cr.area, cr.areaUnit||'m²', cr.planted, cr.expected)}</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button class="btn small" onclick="saveCropEdit(${i})">Save changes</button>
       <button class="btn small ghost" onclick="cancelEditCrop()">Cancel</button>
@@ -4286,8 +4371,6 @@ function setArchiveFilter(f){ state.archiveFilter = f; state.openArchive = null;
    farm's own two dates make it; the seedling count scales it.
    Nothing is invented here that the farm has not already entered.
    ============================================================ */
-const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
-
 // The platform files harvests by year, month and one of four weeks in it.
 function slotFor(date){
   const d = new Date(date);
@@ -4296,29 +4379,24 @@ function slotFor(date){
            week: Math.min(4, Math.max(1, Math.ceil(d.getDate()/7))) };
 }
 
-/* What a crop is expected to give, week by week, from its own dates. */
+/* The plan is the same projection the crop profile shows, placed on the
+   calendar. It is read from yieldFor so the two can never disagree — a plan
+   that differed from the yield the farm was shown would be worse than none.
+   Real dates are what the plan adds: a projection with no dates has nothing
+   to file it under. */
 function plannedWeeks(cr){
-  const v = catalogueVariety(cr.crop, cr.variety);
-  const n = Number(cr.seedlings)||0;
-  if(!v || !n || !cr.planted || !cr.expected) return [];
-  const start = new Date(cr.planted), end = new Date(cr.expected);
-  if(isNaN(start) || isNaN(end) || end <= start) return [];
-  const weeks = Math.max(1, Math.round((end - start) / MS_WEEK));
-  return weeklyYield(v, weeks).map((kgPerPlant, i)=>({
-    week: i + 1,
-    date: new Date(start.getTime() + i * MS_WEEK),
-    kg: kgPerPlant * n
-  })).filter(r=> r.kg > 0);
+  const y = yieldFor(cr);
+  return (y.ok && y.dated) ? y.rows : [];
 }
 
 // Every crop that has enough entered to be planned, and what stops the rest.
 function plannableCrops(m){
   return (m.crops||[]).map(cr=>{
-    const rows = plannedWeeks(cr);
+    const y = yieldFor(cr);
+    const rows = (y.ok && y.dated) ? y.rows : [];
     let why = '';
-    if(!catalogueVariety(cr.crop, cr.variety)) why = 'variety is not in the Secretariat catalogue';
-    else if(!(Number(cr.seedlings)||0)) why = 'number of seedlings not entered';
-    else if(!cr.planted || !cr.expected) why = 'transplanting or expected harvest date missing';
+    if(!y.ok) why = yieldBlockedReason(cr);
+    else if(!y.dated) why = 'transplanting or expected harvest date missing';
     else if(!rows.length) why = 'the dates leave no bearing weeks';
     return { cr, rows, why, total: rows.reduce((a,b)=>a+b.kg, 0) };
   });
