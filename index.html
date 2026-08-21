@@ -4402,6 +4402,70 @@ function plannableCrops(m){
   });
 }
 
+/* The projection laid out on the calendar, without writing anything.
+   A farm should be able to see what its seedlings come to as soon as it
+   enters them, rather than having to commit them to the plan first.
+   Keyed the way the plan itself is: year, month, one of four weeks. */
+function projectedYear(id, year){
+  const m = MEMBERS[id];
+  if(!m) return {};
+  const out = {};
+  (m.crops||[]).forEach(cr=>{
+    const y = yieldFor(cr);
+    if(!y.ok || !y.dated) return;
+    y.rows.forEach(r=>{
+      const slot = slotFor(r.date);
+      if(!slot || slot.year !== year) return;
+      out[slot.month] = out[slot.month] || {};
+      out[slot.month][slot.week] = out[slot.month][slot.week] || {};
+      const cell = out[slot.month][slot.week];
+      cell[cr.crop] = (cell[cr.crop] || 0) + r.kg;
+    });
+  });
+  return out;
+}
+function projectedWeek(id, year, month, week, crop){
+  const y = projectedYear(id, year);
+  const cell = y[month] && y[month][week];
+  return cell ? (cell[crop] || 0) : 0;
+}
+function projectedMonthCrop(id, year, month, crop){
+  const y = projectedYear(id, year);
+  let sum = 0;
+  Object.keys(y[month] || {}).forEach(w=>{ sum += (y[month][w][crop] || 0); });
+  return sum;
+}
+
+/* The projection as its own year table, shown whether or not it has been
+   written into the plan, so the figures are visible the moment the crop
+   profile has enough in it. */
+function projectionTable(id, year){
+  const crops = memberCrops(id);
+  const proj = projectedYear(id, year);
+  const cropTotals = {}; crops.forEach(c=> cropTotals[c] = 0);
+  let any = false;
+  const body = MONTHS.map((name, mi)=>{
+    const month = mi + 1;
+    let rowTotal = 0;
+    const cells = crops.map(cr=>{
+      let v = 0;
+      Object.keys(proj[month] || {}).forEach(w=>{ v += (proj[month][w][cr] || 0); });
+      v = Math.round(v);
+      if(v){ any = true; rowTotal += v; cropTotals[cr] += v; }
+      return `<td>${v ? fmt(v) : '<span style="color:var(--muted);">—</span>'}</td>`;
+    }).join('');
+    return `<tr class="${month===state.selMonth?'row-done':''}"><td>${name}</td>${cells}<td><strong>${rowTotal?fmt(rowTotal):'—'}</strong></td></tr>`;
+  }).join('');
+  if(!any) return '';
+  const grand = crops.reduce((t,c)=> t + cropTotals[c], 0);
+  return `<table class="grid-table">
+    <thead><tr><th>Month</th>${crops.map(cr=>`<th>${esc(cr)} (kg)</th>`).join('')}<th>Total (kg)</th></tr></thead>
+    <tbody>${body}</tbody>
+    <tfoot><tr><td><strong>Year total</strong></td>${crops.map(cr=>`<td><strong>${cropTotals[cr]?fmt(cropTotals[cr]):'—'}</strong></td>`).join('')}
+      <td><strong>${grand?fmt(grand):'—'}</strong></td></tr></tfoot>
+  </table>`;
+}
+
 /* Write the generated figures into the plan. Only the weeks the plan
    covers are touched, so an entry made by hand outside them survives. */
 function generateHarvestPlan(){
@@ -4411,14 +4475,24 @@ function generateHarvestPlan(){
     state.planGenMsg = 'Nothing to generate yet. A crop needs a catalogue variety, a number of seedlings, and both of its dates.';
     render(); return;
   }
+  // Set each week to the projection rather than adding to what is there.
+  // Adding would double the plan the second time this is pressed, and would
+  // double a week already taken with "Use it".
   let cells = 0;
-  plans.forEach(p=>{
-    p.rows.forEach(r=>{
-      const slot = slotFor(r.date);
-      if(!slot) return;
-      const wk = harvestWeek(id, 'plan', slot.year, slot.month, slot.week);
-      if(!wk) return;
-      wk[p.cr.crop] = Math.round(((wk[p.cr.crop] || 0) + r.kg) * 10) / 10;
+  const years = {};
+  plans.forEach(p=> p.rows.forEach(r=>{
+    const slot = slotFor(r.date);
+    if(!slot) return;
+    const key = `${slot.year}|${slot.month}|${slot.week}`;
+    years[key] = years[key] || {};
+    years[key][p.cr.crop] = (years[key][p.cr.crop] || 0) + r.kg;
+  }));
+  Object.keys(years).forEach(key=>{
+    const [year, month, week] = key.split('|').map(Number);
+    const wk = harvestWeek(id, 'plan', year, month, week);
+    if(!wk) return;
+    Object.keys(years[key]).forEach(crop=>{
+      wk[crop] = Math.round(years[key][crop] * 10) / 10;
       cells++;
     });
   });
@@ -4447,9 +4521,8 @@ function clearGeneratedPlan(){
 function harvestPlanSource(m){
   const rows = plannableCrops(m);
   if(!rows.length) return '';
-  const ready = rows.filter(r=> r.rows.length);
   return `
-    <div class="section-label">Where this plan comes from</div>
+    <div class="section-label">Where these figures come from</div>
     <div class="card">
       <p class="helper" style="margin:0 0 10px;">The Secretariat's catalogue holds what one plant of each variety yields week by week. Multiplied by your seedlings and laid across your own transplanting and harvest dates, that is your plan.</p>
       <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seedlings</th><th>Bearing weeks</th><th>Per plant</th><th>Expected total</th></tr></thead>
@@ -4465,13 +4538,70 @@ function harvestPlanSource(m){
           <td><strong>${r.total ? fmt(Math.round(r.total))+' kg' : '—'}</strong></td>
         </tr>`;
       }).join('')}</tbody></table>
+    </div>`;
+}
+
+/* What the seedlings come to, month by month, shown without being asked
+   for. Writing it into the plan stays a deliberate act — a farm may have
+   typed its own figures — but seeing it does not. */
+function projectionSection(id, year){
+  const table = projectionTable(id, year);
+  const m = MEMBERS[id];
+  const waiting = (m.crops||[]).filter(cr=>{
+    const y = yieldFor(cr);
+    return !(y.ok && y.dated);
+  });
+  if(!table){
+    return `
+      <div class="section-label">What your seedlings come to</div>
+      <div class="card">
+        <p class="helper" style="margin:0;">Nothing to work out yet. A crop needs a variety from the Secretariat catalogue, the number of seedlings you planted, and both of its dates${waiting.length?` — ${esc(waiting.map(cr=>cr.crop).join(', '))} ${waiting.length===1?'is':'are'} still missing something.`:'.'}</p>
+      </div>`;
+  }
+  return `
+    <div class="section-label">What your seedlings come to — ${year}</div>
+    <div class="card" style="overflow-x:auto;">
+      <p class="helper" style="margin:0 0 10px;">Worked out from the variety you chose and the seedlings you planted, laid out on your own transplanting dates. This is a projection — nothing here is written into your plan until you say so.</p>
+      ${table}
       <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button class="btn" onclick="generateHarvestPlan()">Generate the plan from my crops</button>
-        ${ready.length ? `<button class="btn small ghost" onclick="clearGeneratedPlan()">Clear the generated weeks</button>` : ''}
+        <button class="btn" onclick="generateHarvestPlan()">Copy these figures into my plan</button>
+        <button class="btn small ghost" onclick="clearGeneratedPlan()">Clear them from the plan again</button>
+        <button class="btn small ghost" onclick="exportProjection()">Download this table (CSV)</button>
       </div>
       ${state.planGenMsg ? `<p class="helper" style="margin-top:10px;color:var(--deep-green);">${CHECK_ICON} ${esc(state.planGenMsg)}</p>` : ''}
       ${(state.planGenMsg = '') || ''}
+      ${waiting.length ? `<p class="helper" style="margin-top:8px;">Not counted here: ${esc(waiting.map(cr=>cr.crop).join(', '))} — see Expected yield on your Profile tab for what each is waiting for.</p>` : ''}
     </div>`;
+}
+
+// One week's projected figure, put into the plan where it is being typed.
+function useProjection(month, week, crop){
+  const id = state.member, year = state.selYear;
+  const kg = Math.round(projectedWeek(id, year, month, week, crop));
+  const wk = harvestWeek(id, 'plan', year, month, week);
+  if(!wk) return;
+  wk[crop] = kg;
+  logAction(`${MEMBERS[id].name} planned ${kg} kg of ${crop} for week ${week} of ${MONTHS[month-1]} ${year} from the seedling projection.`);
+  render();
+}
+
+function exportProjection(){
+  const id = state.member, year = state.selYear, m = MEMBERS[id];
+  const crops = memberCrops(id);
+  const rows = [['Month', ...crops.map(c=>c+' (kg)'), 'Total (kg)']];
+  const proj = projectedYear(id, year);
+  MONTHS.forEach((name, mi)=>{
+    const month = mi + 1;
+    let total = 0;
+    const cells = crops.map(cr=>{
+      let v = 0;
+      Object.keys(proj[month]||{}).forEach(w=>{ v += (proj[month][w][cr]||0); });
+      v = Math.round(v); total += v;
+      return v || '';
+    });
+    rows.push([name, ...cells, total || '']);
+  });
+  downloadCSV(`${m.name.replace(/\W+/g,'-').toLowerCase()}-projected-harvest-${year}.csv`, rows);
 }
 
 function renderHarvestForm(c, kind){
@@ -4489,13 +4619,21 @@ function renderHarvestForm(c, kind){
     ${yearChips()}
     ${monthWeekChips()}
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th style="width:160px;">${MONTHS[month-1]} ${year}, Week ${week} (kg)</th></tr></thead>
-      <tbody>${crops.map(crop=>`<tr><td>${esc(crop)}</td><td><input type="number" value="${weekData[crop]||0}" data-crop="${esc(crop)}" onchange="setHarvest('${kind}', ${month}, ${week}, this.dataset.crop, this.value)"></td></tr>`).join('')}</tbody></table>
+      <table class="grid-table"><thead><tr><th>Crop</th><th style="width:160px;">${MONTHS[month-1]} ${year}, Week ${week} (kg)</th>${kind==='plan'?'<th style="width:200px;">From your seedlings</th>':''}</tr></thead>
+      <tbody>${crops.map(crop=>{
+        const expect = kind==='plan' ? Math.round(projectedWeek(id, year, month, week, crop)) : 0;
+        return `<tr><td>${esc(crop)}</td>
+        <td><input type="number" value="${weekData[crop]||0}" data-crop="${esc(crop)}" onchange="setHarvest('${kind}', ${month}, ${week}, this.dataset.crop, this.value)"></td>
+        ${kind==='plan' ? `<td>${expect
+            ? `<strong>${fmt(expect)} kg</strong>${Number(weekData[crop]||0) !== expect ? ` <button class="btn small ghost" onclick="useProjection(${month}, ${week}, '${esc(crop).replace(/'/g,"\\'")}')">Use it</button>` : ''}`
+            : '<span style="color:var(--muted);">nothing due this week</span>'}</td>` : ''}</tr>`;
+      }).join('')}</tbody></table>
       <div style="margin-top:12px;"><button class="btn" onclick="saveHarvest('${kind}')">Save week ${week}</button>
         <span class="helper" id="save-msg" style="margin-left:10px;">${state.harvestSaved ? `<span class="added-flash">${CHECK_ICON} Saved — the year table below is updated</span>` : ''}</span></div>
       ${(state.harvestSaved = false) || ''}
       <p class="helper" style="margin-top:10px;">${MONTHS[month-1]} ${year} total so far (all 4 weeks): <strong>${fmt(monthTotal)} kg</strong></p>
     </div>
+    ${kind==='plan' ? projectionSection(id, year) : ''}
     <div class="section-label">${label} for ${year} — full year</div>
     <div class="card" style="overflow-x:auto;">
       ${yearTable(id, kind, year)}
