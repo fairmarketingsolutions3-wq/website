@@ -1046,6 +1046,69 @@ function defaultCatalogue(){
   ];
 }
 
+/* ---- Carrying older varieties forward -------------------------------
+   Before the calculator's figures were adopted, a variety was one weekly
+   amount and a week to start from. Those varieties are still in the
+   catalogues operators have saved, and they carry real work, so they are
+   read into the month table rather than dropped — the figures they gave
+   are preserved exactly, with the low and the high equal, because that is
+   all the old shape ever knew. */
+function migrateVariety(v){
+  if(!v || (Array.isArray(v.months) && v.months.length)) return v;
+  const out = { name: v.name, unit: v.unit || 'plant', perSqm: v.perSqm || 0,
+                notes: v.notes || '', months: [] };
+  const startWeek = Math.max(1, Number(v.startWeek) || 1);
+  const SEASON = 6 * WEEKS_PER_MONTH;                 // the old 24-week season
+
+  // Rebuild the old week-by-week series first. Folding it into months only
+  // afterwards is what keeps the totals exact: a variety that began part way
+  // through a month bore for part of it, and rounding the start to the month
+  // boundary would hand it weeks it never had.
+  const weekly = new Array(SEASON + 1).fill(0);
+  const once   = new Array(SEASON + 1).fill(0);
+  const at = (arr, w, kg)=>{ if(w >= 1 && w <= SEASON) arr[w] += kg; };
+  switch(v.pattern){
+    case 'continuous': {
+      const kg = (Number(v.weeklyG) || 0) / 1000;
+      for(let w = startWeek; w <= SEASON; w++) at(weekly, w, kg);
+      break;
+    }
+    case 'pulses': {
+      const step = Math.max(1, Number(v.intervalWeeks) || 1);
+      for(let w = startWeek; w <= SEASON; w += step) at(once, w, Number(v.pulseKg) || 0);
+      break;
+    }
+    case 'single':
+      at(once, startWeek, Number(v.headKg) || 0);
+      break;
+    case 'mainside': {
+      at(once, startWeek, Number(v.mainKg) || 0);
+      const n = Number(v.sideWeeks) || 0, side = (Number(v.sideG) || 0) / 1000;
+      for(let i = 1; i <= n; i++) at(weekly, startWeek + i, side);
+      break;
+    }
+    default: return out;                              // nothing to carry over
+  }
+
+  for(let m = 1; m <= SEASON / WEEKS_PER_MONTH; m++){
+    let wSum = 0, oSum = 0;
+    for(let k = 1; k <= WEEKS_PER_MONTH; k++){
+      const w = (m - 1) * WEEKS_PER_MONTH + k;
+      wSum += weekly[w]; oSum += once[w];
+    }
+    if(wSum <= 0 && oSum <= 0) continue;
+    const rate = wSum / WEEKS_PER_MONTH;              // the month's own weekly rate
+    out.months.push({ month:m, stage: oSum && !wSum ? 'Harvest' : 'Weekly harvest',
+                      low: rate, high: rate, onceLow: oSum, onceHigh: oSum });
+  }
+  return out;
+}
+
+function normaliseCatalogue(list){
+  if(!Array.isArray(list)) return null;
+  return list.map(c=> ({ name: c.name, varieties: (c.varieties||[]).map(migrateVariety) }));
+}
+
 let CATALOGUE = defaultCatalogue();
 
 const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -1342,7 +1405,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v36';
+const BUILD = 'v37';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1476,8 +1539,13 @@ function loadCatalogue(){
   try{
     const raw = localStorage.getItem(CATALOGUE_KEY);
     if(!raw) return;
-    const d = JSON.parse(raw);
-    if(Array.isArray(d) && d.length) CATALOGUE = d;
+    const d = normaliseCatalogue(JSON.parse(raw));
+    if(d && d.length){
+      CATALOGUE = d;
+      // Write the carried-forward shape straight back, so the conversion is
+      // done once rather than on every load.
+      try{ localStorage.setItem(CATALOGUE_KEY, JSON.stringify(CATALOGUE)); }catch(_){ }
+    }
   }catch(e){ /* keep the built-in list */ }
 }
 
@@ -1510,7 +1578,7 @@ async function cloudPullCatalogue(){
     const { doc, getDoc } = CLOUD.fs;
     const d = await getDoc(doc(CLOUD.db, 'settings', 'catalogue'));
     if(d.exists() && Array.isArray(d.data().crops) && d.data().crops.length){
-      CATALOGUE = d.data().crops;
+      CATALOGUE = normaliseCatalogue(d.data().crops);
       CATALOGUE_SHARED = true; CATALOGUE_WHY = '';
       try{ localStorage.setItem(CATALOGUE_KEY, JSON.stringify(CATALOGUE)); }catch(_){ }
       return true;
