@@ -705,6 +705,7 @@ input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
 }
 
 
+.local-only{border-left:4px solid var(--gold);background:#FDF3E3;}
 .cat-local{background:#FDF3E3;border-left:3px solid var(--gold);
   padding:9px 12px;border-radius:0 8px 8px 0;margin-top:10px;line-height:1.6;color:var(--ink);}
 .cat-facts{background:var(--field-cream);border-left:3px solid var(--gold);
@@ -1229,7 +1230,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v33';
+const BUILD = 'v34';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1515,6 +1516,70 @@ async function cloudRegisterOperator(name, email, password, code){
     await updateDoc(doc(CLOUD.db, 'operators', uid), { signupCode: deleteField() });
     return uid;
   });
+}
+
+/* ---- Moving a local account into the shared database ----------------
+   A farm registered while the database was out of reach exists in one
+   browser and nowhere else. It signs in there and fails everywhere else,
+   which reads as a wrong password. The records are all here, and so are
+   the email and password just typed, so the account can be made properly
+   without the farm entering anything again but its sign-up code. */
+function remapMemberId(oldId, newId){
+  if(oldId === newId || !MEMBERS[oldId]) return;
+  MEMBERS[newId] = MEMBERS[oldId];           delete MEMBERS[oldId];
+  if(harvest[oldId]){ harvest[newId] = harvest[oldId]; delete harvest[oldId]; }
+  if(inputsData[oldId]){ inputsData[newId] = inputsData[oldId]; delete inputsData[oldId]; }
+  complaints.forEach(c=>{ if(c.member === oldId) c.member = newId; });
+  if(state.member === oldId) state.member = newId;
+}
+
+async function cloudMigrateFarm(oldId, email, password, code){
+  const { createUserWithEmailAndPassword } = CLOUD.authApi;
+  const { doc, setDoc, updateDoc, deleteField } = CLOUD.fs;
+  const m = MEMBERS[oldId];
+  if(!m) throw new Error('That farm is no longer on this device.');
+  const cred = await createUserWithEmailAndPassword(CLOUD.auth, email, password);
+  const uid = cred.user.uid;
+  return await withRollback(cred, async ()=>{
+    const record = Object.assign(farmDoc(m), { signupCode: code });
+    await setDoc(doc(CLOUD.db, 'farms', uid), record);
+    await updateDoc(doc(CLOUD.db, 'farms', uid), { signupCode: deleteField() });
+    const h = harvest[oldId] || { plan: blankHarvestStore(), actual: blankHarvestStore() };
+    await setDoc(doc(CLOUD.db, 'harvest', uid),
+      JSON.parse(JSON.stringify({ plan: h.plan, actual: h.actual, updatedAt: new Date().toISOString() })));
+    CLOUD_STATE.cloudIds.add(uid);
+    CLOUD_STATE.uid = uid; CLOUD_STATE.email = email; CLOUD_STATE.role = 'farm';
+    remapMemberId(oldId, uid);
+    return uid;
+  });
+}
+
+function submitMigration(btn){
+  const err = document.getElementById('mig-error');
+  const codeEl = document.getElementById('mig-code');
+  const passEl = document.getElementById('mig-pass');
+  const m = MEMBERS[state.member];
+  if(!m){ return; }
+  const email = (m.email||'').trim();
+  const pass = passEl ? passEl.value : '';
+  if(!email){ flagError(err, 'This farm has no email address on its record. Add one on this tab first — the shared database needs it to sign you in.'); return; }
+  if(!pass || pass.length < 6){ flagError(err, 'Choose a password of at least six characters. The shared database will not accept a shorter one.'); return; }
+  if(btn) btn.classList.add('is-busy');
+  err.style.color = 'var(--muted)';
+  err.textContent = 'Moving your farm to the shared database…';
+  const oldId = state.member;
+  withTimeout(cloudMigrateFarm(oldId, email, pass, codeEl ? codeEl.value.trim() : ''), 20000, 'Moving your farm')
+    .then(()=>{
+      state.localOnly = false;
+      state.migrateOpen = false;
+      state.migrateMsg = `Your farm is now in the shared database. Sign in on any device with ${email} and the password you just set.`;
+      logAction(`${m.name} moved their account into the shared database.`);
+      render();
+    })
+    .catch(e=>{
+      if(btn) btn.classList.remove('is-busy');
+      reportCloudFailure(err, e);
+    });
 }
 
 async function cloudSignIn(email, password){
@@ -1929,7 +1994,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', catDraft:null, archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', localOnly:false, migrateOpen:false, migrateMsg:'', catDraft:null, archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -2300,6 +2365,7 @@ async function doMemberLogin(btn){
       }
       curtainTransition(()=>{
         state.loggedIn = true; state.role = 'member'; state.member = who.uid; state.tab = 'profile'; state.forgotMsg = '';
+        state.localOnly = false;
         document.body.setAttribute('data-role','member');
         logAction(`${(MEMBERS[who.uid]||{}).name || raw} signed in.`);
         render();
@@ -2332,6 +2398,10 @@ async function doMemberLogin(btn){
     return;
   }
   const [id] = match;
+  // Signed in from this browser's own copy. If the database is reachable and
+  // has no account for this farm, it exists here and nowhere else — which is
+  // exactly why the same details fail on another device.
+  state.localOnly = cloudOn() && !isCloudFarm(id);
   signInTransition(btn, ()=>{
     state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile'; state.forgotMsg = '';
     document.body.setAttribute('data-role','member');
@@ -3056,6 +3126,33 @@ function farmHeader(m, extra){
   </div>`;
 }
 
+/* The account is in this browser and nowhere else, and the database is
+   reachable — so it can be put right from here rather than explained away. */
+function migrationPanel(m){
+  if(!state.localOnly || !cloudOn()) return '';
+  if(!state.migrateOpen){
+    return `<div class="card local-only">
+      <strong>This farm exists only on this device.</strong>
+      <p class="helper" style="margin:6px 0 10px;">It was registered while the shared database was out of reach, so the same email and password will be refused on any other phone or computer — and the Secretariat cannot see it either. Everything you have entered is here and can be moved across.</p>
+      <button class="btn" onclick="state.migrateOpen=true;render();">Move this farm to the shared database</button>
+    </div>`;
+  }
+  return `<div class="card local-only">
+    <strong>Move ${esc(m.name)} to the shared database</strong>
+    <p class="helper" style="margin:6px 0 10px;">Your profile, crops, harvest figures and prices all go across. You will then sign in with this email on any device.</p>
+    <div class="grid2">
+      <div><label class="f">Email address</label><input value="${esc(m.email||'')}" disabled></div>
+      <div><label class="f">Set a password</label>${pwdField('mig-pass','At least six characters')}</div>
+      <div><label class="f">Farm sign-up code</label><input id="mig-code" placeholder="Code issued by TIPFA"></div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">
+      <button class="btn" onclick="submitMigration(this)">Move it across</button>
+      <button class="btn small ghost" onclick="state.migrateOpen=false;render();">Not now</button>
+    </div>
+    <p class="helper" id="mig-error" style="color:var(--red);margin-top:8px;"></p>
+  </div>`;
+}
+
 function renderProfile(c){
   const m = MEMBERS[state.member];
   c.innerHTML = `
@@ -3064,6 +3161,8 @@ function renderProfile(c){
     ${m.status==='Pending' ? `<div class="msg-banner">${CHECK_ICON} Your registration is with the Secretariat for review. You can build out your full profile in the meantime.</div>` : ''}
     ${!m.email || !looksLikeEmail(m.email) ? `<div class="msg-banner" style="background:#FBEECC;border-left-color:var(--harvest-orange);color:#8A6412;">
       Add an email address below and save. Sign-in is moving to email, and a password reset can only be sent to one.</div>` : ''}
+    ${state.migrateMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.migrateMsg)}</div>${(state.migrateMsg='')||''}` : ''}
+    ${migrationPanel(m)}
     ${farmHeader(m)}
     <div class="card">
       ${logoPicker('prof', m.avatar, m.name)}
