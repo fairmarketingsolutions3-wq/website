@@ -705,6 +705,8 @@ input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
 }
 
 
+.cat-local{background:#FDF3E3;border-left:3px solid var(--gold);
+  padding:9px 12px;border-radius:0 8px 8px 0;margin-top:10px;line-height:1.6;color:var(--ink);}
 .cat-facts{background:var(--field-cream);border-left:3px solid var(--gold);
   padding:9px 12px;border-radius:0 8px 8px 0;margin-top:10px;line-height:1.6;}
 .cat-facts strong{color:var(--deep-green);}
@@ -1227,7 +1229,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v32';
+const BUILD = 'v33';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1373,23 +1375,48 @@ async function cloudPushCatalogue(){
     await setDoc(doc(CLOUD.db, 'settings', 'catalogue'),
       { crops: JSON.parse(JSON.stringify(CATALOGUE)), updatedAt: new Date().toISOString() });
   }catch(e){
-    state.catMsg = '';
-    setCloudStatus('offline', 'Could not save the catalogue to the shared database: ' + (e.message||e));
+    // Reporting the whole platform offline over one refused document would be
+    // wrong: everything else may be reaching the database perfectly well.
+    CATALOGUE_SHARED = false;
+    state.catError = /permission|insufficient/i.test(String(e && (e.code || e.message)))
+      ? 'Saved on this device only. The shared database refused it, because the rule for settings/catalogue has not been published yet — copy firestore.rules into Firestore → Rules → Publish, then save again to send it to every farm.'
+      : 'Saved on this device only. The shared database could not be reached: ' + (e.message||e);
   }
 }
 
+/* Whether the catalogue on this device came from the shared database or is
+   just the copy this browser happens to hold. A farm choosing crops from a
+   local list, while the Secretariat edits another, has no way to tell without
+   being told. */
+let CATALOGUE_SHARED = false;
+let CATALOGUE_WHY = '';
+
 async function cloudPullCatalogue(){
-  if(!cloudOn()) return false;
+  if(!cloudOn()){ CATALOGUE_SHARED = false; CATALOGUE_WHY = 'this device is not connected to the shared database'; return false; }
   try{
     const { doc, getDoc } = CLOUD.fs;
     const d = await getDoc(doc(CLOUD.db, 'settings', 'catalogue'));
     if(d.exists() && Array.isArray(d.data().crops) && d.data().crops.length){
       CATALOGUE = d.data().crops;
+      CATALOGUE_SHARED = true; CATALOGUE_WHY = '';
       try{ localStorage.setItem(CATALOGUE_KEY, JSON.stringify(CATALOGUE)); }catch(_){ }
       return true;
     }
-  }catch(e){ /* the rules for it are not published yet; the built-in list stands */ }
+    CATALOGUE_SHARED = false;
+    CATALOGUE_WHY = 'the Secretariat has not saved a catalogue to the shared database yet';
+  }catch(e){
+    CATALOGUE_SHARED = false;
+    CATALOGUE_WHY = /permission|insufficient/i.test(String(e && (e.code || e.message)))
+      ? 'the rule for settings/catalogue has not been published in the Firebase console yet'
+      : 'the shared database could not be read: ' + (e.message||e);
+  }
   return false;
+}
+
+// Shown wherever the crop list is used, so a stale list is never silent.
+function catalogueSourceNote(){
+  if(CATALOGUE_SHARED) return '';
+  return `<p class="helper cat-local">This crop list is the copy stored on this device, not the shared one — ${esc(CATALOGUE_WHY || 'the shared catalogue could not be read')}. Crops the Secretariat has added elsewhere may be missing from it.</p>`;
 }
 
 function operatorSync(id){
@@ -1902,7 +1929,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catDraft:null, archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', catDraft:null, archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -2233,6 +2260,19 @@ function downloadCSV(filename, rows){
 
 function showLoginTab(tab){ state.loginTab = tab; state.diagnostics = false; state.forgot = null; state.forgotMsg = ''; renderLogin(); }
 
+/* This device is not talking to the shared database, so the only accounts it
+   can check are the ones made on it. Say that, rather than reporting a
+   password as wrong — the account is very likely fine and simply elsewhere. */
+function offlineSignInText(knownHere, noneHere){
+  const why = CLOUD.detail ? ` (${CLOUD.detail})` : '';
+  const head = `This device cannot reach the shared database${why}`;
+  if(knownHere)
+    return `${head}, so it checked only the copy stored here, and that password does not match it. If you changed your password on another device, reconnect and try again — run the connection check below.`;
+  if(noneHere)
+    return `${head}, so it cannot see accounts created elsewhere, and no account has been made on this device yet. Run the connection check below, or create an account here.`;
+  return `${head}, so it cannot see accounts created on other devices. Run the connection check below; until it passes, only accounts made on this device can sign in here.`;
+}
+
 async function doMemberLogin(btn){
   const raw = document.getElementById('login-id').value.trim();
   const identifier = norm(raw);
@@ -2277,6 +2317,13 @@ async function doMemberLogin(btn){
     m.status!=='Rejected' && m.password===password && (norm(m.phone)===identifier || norm(m.email)===identifier));
   if(!match){
     const known = Object.entries(MEMBERS).find(([id,m]) => norm(m.phone)===identifier || norm(m.email)===identifier);
+    // Without the database this device can only check accounts made on it.
+    // Calling a password wrong when the account was never visible here is the
+    // most misleading thing the sign-in screen can say.
+    if(!cloudOn()){
+      flagError(document.getElementById('login-error'), offlineSignInText(!!known, Object.keys(MEMBERS).length === 0));
+      return;
+    }
     flagError(document.getElementById('login-error'),
       known ? (known[1].status==='Rejected'
                 ? 'That registration was not approved. Contact the Secretariat on 0744 443 247.'
@@ -2341,8 +2388,9 @@ async function doAdminLogin(btn){
   });
   if(!match){
     flagError(document.getElementById('login-error-admin'),
-      ADMINS.length ? 'Invalid operator ID or password.'
-                    : 'No administrator account exists in this browser yet. Create one below, or restore a backup from the device that has your records.');
+      !cloudOn() ? offlineSignInText(ADMINS.length > 0, ADMINS.length === 0)
+      : ADMINS.length ? 'Invalid operator ID or password.'
+                      : 'No administrator account exists in this browser yet. Create one below, or restore a backup from the device that has your records.');
     return;
   }
   signInTransition(btn, ()=>{
@@ -3047,6 +3095,7 @@ function renderProfile(c){
         <div><label class="f">Last harvest date <span class="helper" style="font-weight:400;">— when the crop finishes</span></label>${dateField('newcrop-expected','', "showVarietyFacts('newcrop')")}</div>
       </div>
       <p class="helper cat-facts" id="newcrop-facts" style="display:none;"></p>
+      ${catalogueSourceNote()}
       ${seedCompanyList()}
       <button class="btn small" onclick="addCrop()">+ Add crop</button>
       ${archiveButton('Crop profile')}
@@ -5351,9 +5400,12 @@ function renderCatalogue(c){
     <h1 class="page-title">Crop catalogue</h1>
     <p class="page-sub">The crops and varieties every member farm chooses from · ${CATALOGUE.length} crop${CATALOGUE.length===1?'':'s'}, ${CATALOGUE.reduce((n,x)=>n+(x.varieties||[]).length,0)} varieties</p>
     <div class="card">
-      <p class="helper" style="margin:0 0 10px;">A farm picks a crop and variety from this list and enters how many seedlings it put in. Everything in its harvest plan follows from what you set here: how many plants belong in a square metre, and what one plant yields week by week. ${cloudOn() ? 'Saved to the shared database, so a change reaches every farm.' : '<strong>Not connected to the shared database — changes stay on this device.</strong>'}</p>
+      <p class="helper" style="margin:0 0 10px;">A farm picks a crop and variety from this list and enters how many seedlings it put in. Everything in its harvest plan follows from what you set here: how many plants belong in a square metre, and what one plant yields week by week. ${cloudOn() ? 'Saving sends it to the shared database, so a change reaches every farm.' : '<strong>Not connected to the shared database — changes stay on this device.</strong>'}</p>
       ${state.catMsg ? `<p class="helper" style="color:var(--deep-green);">${CHECK_ICON} ${esc(state.catMsg)}</p>` : ''}
       ${(state.catMsg = '') || ''}
+      ${state.catError ? `<p class="helper cat-local">${esc(state.catError)}</p>` : ''}
+      ${(state.catError = '') || ''}
+      ${catalogueSourceNote()}
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
         <div><label class="f">New crop</label><input id="cat-newcrop" placeholder="e.g. Cucumber"></div>
         <button class="btn small" onclick="addCatalogueCrop()">+ Add crop</button>
