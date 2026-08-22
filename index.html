@@ -908,68 +908,141 @@ const CROP_STAGES = ['Transplanting','Vegetative','Flowering','Harvesting'];
      single      one head, once, and nothing after it
      mainside    one main head, then smaller weekly side shoots
    ============================================================ */
-const YIELD_PATTERNS = {
-  continuous: { label:'Every 7 days once bearing',
-    fields:[['startWeek','Weeks from transplanting to first harvest',11],
-            ['weeklyG','Each harvest, per plant (g)',300]] },
-  pulses: { label:'In fruiting pulses',
-    fields:[['startWeek','Weeks from transplanting to first harvest',13],
-            ['pulseKg','Each pulse, per plant (kg)',1.5],
-            ['intervalWeeks','Weeks between pulses',3]] },
-  single: { label:'One head, once only',
-    fields:[['startWeek','Weeks from transplanting to harvest',11],
-            ['headKg','Head, per plant (kg)',1.15]] },
-  mainside: { label:'Main head, then side shoots',
-    fields:[['startWeek','Weeks from transplanting to the main head',11],
-            ['mainKg','Main head, per plant (kg)',0.75],
-            ['sideWeeks','Weeks of side shoots after it',4],
-            ['sideG','Side shoots, per plant per week (g)',250]] }
-};
+/* The harvest model follows the association's Greenhouse Seasonal Yield
+   Calculator. A variety is a table of months counted from transplanting;
+   each month carries the kilograms one plant yields in a week, as a low to
+   high range, and any one-off cut taken once in that month. Four weeks to
+   a month, as the workbook assumes. Season totals here reproduce the
+   workbook's own figures exactly. */
+const WEEKS_PER_MONTH = 4;
+const BAG_KG = 5;                       // the workbook reports 5 kg bags
 
-// Kilograms per plant for each week of a season this many weeks long.
+// Weekly kilograms per plant, week by week, for a season this many weeks long.
+// Week w falls in month ceil(w / 4); a one-off cut lands in that month's
+// first week. Returns a low, high and midpoint for every week.
 function weeklyYield(v, weeks){
-  const out = new Array(Math.max(0, weeks)).fill(0);
-  if(!v || !out.length) return out;
-  const p = v.pattern || 'continuous';
-  const at = (w, kg)=>{ if(w >= 1 && w <= out.length) out[w-1] += kg; };
-  const start = Math.max(1, Number(v.startWeek) || 1);
-  if(p === 'continuous'){
-    const kg = (Number(v.weeklyG)||0) / 1000;
-    for(let w = start; w <= out.length; w++) at(w, kg);
-  } else if(p === 'pulses'){
-    const step = Math.max(1, Number(v.intervalWeeks) || 1);
-    for(let w = start; w <= out.length; w += step) at(w, Number(v.pulseKg)||0);
-  } else if(p === 'single'){
-    at(start, Number(v.headKg)||0);
-  } else if(p === 'mainside'){
-    at(start, Number(v.mainKg)||0);
-    const n = Number(v.sideWeeks)||0, side = (Number(v.sideG)||0)/1000;
-    for(let i = 1; i <= n; i++) at(start + i, side);
+  const out = [];
+  const months = (v && Array.isArray(v.months)) ? v.months : [];
+  for(let w = 1; w <= Math.max(0, weeks); w++){
+    const month = Math.ceil(w / WEEKS_PER_MONTH);
+    const row = months.find(m=> Number(m.month) === month);
+    let low = 0, high = 0;
+    if(row){
+      low  = Number(row.low)  || 0;
+      high = Number(row.high) || 0;
+      if((w - 1) % WEEKS_PER_MONTH === 0){    // the first week of that month
+        low  += Number(row.onceLow)  || 0;
+        high += Number(row.onceHigh) || 0;
+      }
+    }
+    out.push({ low, high, avg: (low + high) / 2, week: w, month, stage: row ? (row.stage||'') : '' });
   }
   return out;
 }
 
-/* The catalogue the platform starts with. An operator edits it from the
-   Crop catalogue tab and the edited list replaces this one everywhere. */
+function seasonTotals(v, weeks){
+  return weeklyYield(v, weeks).reduce((t, r)=>({
+    low: t.low + r.low, high: t.high + r.high, avg: t.avg + r.avg
+  }), {low:0, high:0, avg:0});
+}
+
+// The first and last month a variety bears anything.
+function bearingMonths(v){
+  const ms = ((v && v.months) || [])
+    .filter(m=> (Number(m.low)||0) + (Number(m.high)||0) + (Number(m.onceLow)||0) + (Number(m.onceHigh)||0) > 0)
+    .map(m=> Number(m.month)).sort((a,b)=> a-b);
+  return ms.length ? { first: ms[0], last: ms[ms.length-1] } : null;
+}
+function firstBearingWeek(v){
+  const b = bearingMonths(v);
+  return b ? (b.first - 1) * WEEKS_PER_MONTH + 1 : 0;
+}
+function seasonWeeksOf(v){
+  const b = bearingMonths(v);
+  return b ? b.last * WEEKS_PER_MONTH : 0;
+}
+// A plain description of the shape, for a farm reading its own figures.
+function patternLabelOf(v){
+  const b = bearingMonths(v);
+  if(!b) return '';
+  const once = (v.months||[]).some(m=> (Number(m.onceLow)||0) + (Number(m.onceHigh)||0) > 0);
+  const weekly = (v.months||[]).some(m=> (Number(m.low)||0) + (Number(m.high)||0) > 0);
+  const span = b.first === b.last ? `month ${b.first}` : `months ${b.first}–${b.last}`;
+  if(once && !weekly) return `One cut, in ${span}`;
+  if(once && weekly)  return `A main cut then weekly picking, ${span}`;
+  return `Weekly picking, ${span}`;
+}
+
+/* The catalogue the platform starts with, taken from the Greenhouse Seasonal
+   Yield Calculator. Cherry Tomato and Capsicum carry the workbook's own
+   month-by-month rates. The rest are given the shape the workbook describes
+   for them, scaled so each season total matches its stated range exactly. */
 function defaultCatalogue(){
-  const c = (name, pattern, extra, perSqm, notes)=> Object.assign({pattern, perSqm, notes:notes||''}, extra, {name});
+  const M = (month, stage, low, high, onceLow, onceHigh)=>
+    ({ month, stage, low, high, onceLow: onceLow||0, onceHigh: onceHigh||0 });
   return [
-    { name:'Cherry Tomatoes', varieties:[
-      c('Indoor cherry', 'continuous', {startWeek:11, weeklyG:300}, 2.5, 'Indoor, trellised.') ] },
-    { name:'Capsicum', varieties:[
-      c('Bell pepper', 'continuous', {startWeek:15, weeklyG:200}, 3, 'Indoor.') ] },
-    { name:'Paprika', varieties:[
-      c('Field paprika', 'continuous', {startWeek:19, weeklyG:400}, 2.5, 'Outdoor.') ] },
-    { name:'Habanero', varieties:[
-      c('Loleza', 'continuous', {startWeek:14, weeklyG:150}, 2.5, 'Outdoor.') ] },
-    { name:'Sweet Melon', varieties:[
-      c('Indoor melon', 'pulses', {startWeek:13, pulseKg:1.5, intervalWeeks:3}, 1, 'Indoor, fruits in pulses.') ] },
-    { name:'Broccoli', varieties:[
-      c('Standard', 'mainside', {startWeek:11, mainKg:0.75, sideWeeks:4, sideG:250}, 4, 'Outdoor.') ] },
-    { name:'Cauliflower', varieties:[
-      c('Standard', 'single', {startWeek:11, headKg:1.15}, 4, 'Outdoor, one cut.') ] },
-    { name:'Avocado', varieties:[
-      c('Bearing tree', 'continuous', {startWeek:1, weeklyG:1500}, 0.02, 'Assumes a tree already in bearing.') ] }
+    { name:'Cherry Tomato', varieties:[{
+      name:'Greenhouse cherry', unit:'plant', perSqm:2.5,
+      notes:'Continuous weekly harvest, peak in months 4–5. Season total 8.4–16.6 kg per plant.',
+      months:[
+        M(3,'First fruits',      0.25, 0.50),
+        M(4,'Peak production',   0.50, 1.00),
+        M(5,'Peak continues',    0.50, 1.00),
+        M(6,'Stable production', 0.40, 0.75),
+        M(7,'Declining yield',   0.30, 0.60),
+        M(8,'Extended harvest',  0.15, 0.30) ] }] },
+
+    { name:'Capsicum (Sweet Pepper)', varieties:[{
+      name:'Greenhouse capsicum', unit:'plant', perSqm:3,
+      notes:'Strong yields, peak in months 4–5. Season total 8.8–15.2 kg per plant.',
+      months:[
+        M(3,'First fruits',      0.30, 0.50),
+        M(4,'Peak production',   0.50, 0.80),
+        M(5,'Peak continues',    0.50, 0.80),
+        M(6,'Stable production', 0.40, 0.70),
+        M(7,'Declining yield',   0.30, 0.60),
+        M(8,'Extended harvest',  0.20, 0.40) ] }] },
+
+    { name:'Broccoli', varieties:[{
+      name:'Greenhouse broccoli', unit:'plant', perSqm:4,
+      notes:'One main head then side shoots, single cycle. Season total 1.5–3.0 kg per plant.',
+      months:[
+        M(3,'Main head',   0,    0,    0.90, 1.80),
+        M(4,'Side shoots', 0.15, 0.30) ] }] },
+
+    { name:'Cauliflower', varieties:[{
+      name:'Greenhouse cauliflower', unit:'plant', perSqm:4,
+      notes:'A single head, cut once. 1.0–2.0 kg per plant.',
+      months:[ M(3,'Single head', 0, 0, 1.00, 2.00) ] }] },
+
+    { name:'Herbs', varieties:[{
+      name:'Cut-and-come-again herbs', unit:'plant', perSqm:16,
+      notes:'Cut and come again, harvested weekly. Season total 1.2–2.4 kg per plant.',
+      months:[
+        M(3,'Weekly cutting', 0.05, 0.10),
+        M(4,'Weekly cutting', 0.05, 0.10),
+        M(5,'Weekly cutting', 0.05, 0.10),
+        M(6,'Weekly cutting', 0.05, 0.10),
+        M(7,'Weekly cutting', 0.05, 0.10),
+        M(8,'Weekly cutting', 0.05, 0.10) ] }] },
+
+    { name:'Habanero', varieties:[{
+      name:'Greenhouse habanero', unit:'plant', perSqm:2.5,
+      notes:'Continuous fruiting, peak in months 4–6. Season total 3.6–6.0 kg per plant.',
+      months:[
+        M(3,'First fruits',     0.10, 0.15),
+        M(4,'Peak production',  0.20, 0.35),
+        M(5,'Peak continues',   0.20, 0.35),
+        M(6,'Peak continues',   0.20, 0.35),
+        M(7,'Declining yield',  0.15, 0.25),
+        M(8,'Extended harvest', 0.05, 0.05) ] }] },
+
+    { name:'Avocado', varieties:[{
+      name:'Mature tree', unit:'tree', perSqm:0.02,
+      notes:'A mature bearing tree, 150–200 fruits over one season. 100–150 kg per tree — enter the number of trees, not seedlings.',
+      months:[
+        M(5,'Main crop', 12.5, 18.75),
+        M(6,'Main crop', 12.5, 18.75) ] }] }
   ];
 }
 
@@ -987,77 +1060,115 @@ const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
 function yieldFor(cr){
   const v = catalogueVariety(cr.crop, cr.variety);
   const n = Number(cr.seedlings) || 0;
-  const empty = { ok:false, weeks:0, perPlant:0, total:0, rows:[], patternLabel:'',
-                  firstDate:'', lastDate:'', peak:0, dated:false, seedlings:n };
+  const empty = { ok:false, weeks:0, perPlant:0, perPlantLow:0, perPlantHigh:0,
+                  total:0, totalLow:0, totalHigh:0, rows:[], patternLabel:'',
+                  firstDate:'', lastDate:'', peak:0, dated:false, seedlings:n,
+                  unit:'plant', months:[] };
   if(!v) return empty;
-  // The transplanting date alone is enough to place a season on the calendar.
-  // The expected harvest date only sets how long that season runs; without it
-  // the catalogue's own 24-week season is used, rather than the crop being
-  // left out of the plan for want of a second date.
-  let weeks = 24, start = null, dated = false;
+
+  // The variety's own season is what the catalogue says it is. A farm's dates
+  // may shorten it — a crop cleared early yields only what it gave by then —
+  // but they cannot invent bearing months the variety does not have.
+  const own = seasonWeeksOf(v) || 24;
+  let weeks = own, start = null, dated = false;
   const a = cr.planted ? new Date(cr.planted) : null;
   if(a && !isNaN(a)){ start = a; dated = true; }
   if(start && cr.expected){
     const b = new Date(cr.expected);
-    if(!isNaN(b) && b > start) weeks = Math.max(1, Math.round((b - start) / MS_WEEK));
+    if(!isNaN(b) && b > start) weeks = Math.min(own, Math.max(1, Math.round((b - start) / MS_WEEK)));
   }
+
   const per = weeklyYield(v, weeks);
-  const perPlant = per.reduce((x,y)=> x+y, 0);
+  const tot = per.reduce((t,r)=>({low:t.low+r.low, high:t.high+r.high, avg:t.avg+r.avg}), {low:0,high:0,avg:0});
   const rows = [];
-  per.forEach((kg, i)=>{
-    if(kg <= 0) return;
-    rows.push({ week:i+1, kg: kg * n,
+  per.forEach((r, i)=>{
+    if(r.avg <= 0) return;
+    rows.push({ week: r.week, month: r.month, stage: r.stage,
+                kg: r.avg * n, kgLow: r.low * n, kgHigh: r.high * n,
                 date: start ? new Date(start.getTime() + i * MS_WEEK) : null });
   });
   const fmtDate = d=> d ? d.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '';
   return {
-    ok: !!(n && perPlant), weeks, perPlant, total: perPlant * n, rows, dated, seedlings:n,
-    patternLabel: (YIELD_PATTERNS[v.pattern] || {}).label || '',
+    ok: !!(n && tot.avg), weeks, dated, seedlings:n, unit: v.unit || 'plant',
+    perPlant: tot.avg, perPlantLow: tot.low, perPlantHigh: tot.high,
+    total: tot.avg * n, totalLow: tot.low * n, totalHigh: tot.high * n,
+    rows, months: v.months || [],
+    patternLabel: patternLabelOf(v),
     firstDate: rows.length ? fmtDate(rows[0].date) : '',
     lastDate: rows.length ? fmtDate(rows[rows.length-1].date) : '',
     peak: rows.reduce((mx,r)=> Math.max(mx, r.kg), 0)
   };
 }
 
+// The workbook reports in 5 kg bags as well as kilograms.
+function bags(kg){ return Math.round((kg / BAG_KG) * 10) / 10; }
+// "plant" or "tree", said correctly for a count.
+function unitWord(u, n){ return (u === 'tree' ? 'tree' : 'plant') + (n === 1 ? '' : 's'); }
+
 /* The yield panel on the crop profile: what each crop is expected to give,
-   worked out in front of the farm rather than presented as a number to
-   trust. A crop that cannot be projected says what it is waiting for. */
+   as the range the association's calculator states rather than one figure
+   presented as certainty. A crop that cannot be projected says what it is
+   waiting for. */
 function yieldPanel(m){
   const crops = m.crops || [];
   if(!crops.length) return '';
   const each = crops.map(cr=> ({ cr, y: yieldFor(cr) }));
-  const grand = each.reduce((a,x)=> a + x.y.total, 0);
+  const gLow  = each.reduce((a,x)=> a + x.y.totalLow, 0);
+  const gAvg  = each.reduce((a,x)=> a + x.y.total, 0);
+  const gHigh = each.reduce((a,x)=> a + x.y.totalHigh, 0);
   return `
     <div class="section-label">Expected yield</div>
     <div class="card" style="overflow-x:auto;">
-      <p class="helper" style="margin:0 0 10px;">Worked out from the Secretariat's catalogue figures for the variety you chose, multiplied by the seedlings you planted. Change the seedling count and this changes with it.</p>
+      <p class="helper" style="margin:0 0 10px;">From the association's seasonal yield figures for the variety you chose, multiplied by the number you planted. Every crop has a low and a high — the average is the midpoint, and it is the figure your harvest plan uses.</p>
       <table class="grid-table"><thead><tr>
-        <th>Crop</th><th>Variety</th><th>Seedlings</th><th>Per plant</th>
-        <th>Harvest pattern</th><th>Bearing weeks</th><th>Best week</th><th>Expected total</th>
+        <th>Crop</th><th>Variety</th><th>Planted</th><th>Per ${'plant'}</th>
+        <th>Harvest</th><th>Low (kg)</th><th>Average (kg)</th><th>High (kg)</th><th>Bags (5 kg)</th>
       </tr></thead>
       <tbody>${each.map(({cr, y})=> y.ok ? `<tr>
           <td><strong>${esc(cr.crop)}</strong></td>
           <td>${esc(cr.variety||'—')}</td>
-          <td>${fmt(y.seedlings)}</td>
-          <td>${y.perPlant.toFixed(2)} kg</td>
-          <td class="helper">${esc(y.patternLabel)}</td>
-          <td>${y.rows.length}${y.dated ? ` <span class="helper">${esc(y.firstDate)} → ${esc(y.lastDate)}</span>` : ' <span class="helper">of a 24-week season</span>'}</td>
-          <td>${fmt(Math.round(y.peak))} kg</td>
-          <td style="background:var(--field-cream);"><strong>${fmt(Math.round(y.total))} kg</strong></td>
+          <td>${fmt(y.seedlings)} ${esc(unitWord(y.unit, y.seedlings))}</td>
+          <td>${y.perPlantLow.toFixed(2)}–${y.perPlantHigh.toFixed(2)} kg</td>
+          <td class="helper">${esc(y.patternLabel)}${y.dated ? `<br>${esc(y.firstDate)} → ${esc(y.lastDate)}` : ''}</td>
+          <td>${fmt(Math.round(y.totalLow))}</td>
+          <td style="background:var(--field-cream);"><strong>${fmt(Math.round(y.total))}</strong></td>
+          <td>${fmt(Math.round(y.totalHigh))}</td>
+          <td>${fmt(bags(y.total))}</td>
         </tr>` : `<tr>
           <td><strong>${esc(cr.crop)}</strong></td>
           <td>${esc(cr.variety||'—')}</td>
-          <td colspan="6" class="helper">${esc(yieldBlockedReason(cr))}</td>
+          <td colspan="7" class="helper">${esc(yieldBlockedReason(cr))}</td>
         </tr>`).join('')}
-        ${grand ? `<tr><td colspan="7" style="text-align:right;"><strong>All crops</strong></td>
-          <td style="background:var(--gold);color:var(--deep-green);"><strong>${fmt(Math.round(grand))} kg</strong></td></tr>` : ''}
+        ${gAvg ? `<tr><td colspan="5" style="text-align:right;"><strong>All crops</strong></td>
+          <td><strong>${fmt(Math.round(gLow))}</strong></td>
+          <td style="background:var(--gold);color:var(--deep-green);"><strong>${fmt(Math.round(gAvg))}</strong></td>
+          <td><strong>${fmt(Math.round(gHigh))}</strong></td>
+          <td><strong>${fmt(bags(gAvg))}</strong></td></tr>` : ''}
       </tbody></table>
-      ${each.filter(x=>x.y.ok && x.y.rows.length).map(({cr, y})=> `
-        <div class="section-label" style="margin-top:14px;">${esc(cr.crop)} — week by week</div>
-        <table class="grid-table"><thead><tr><th>Harvest</th>${y.rows.map(r=>`<th>${y.dated ? esc(r.date.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})) : 'W'+r.week}</th>`).join('')}</tr></thead>
-        <tbody><tr><td>kg</td>${y.rows.map(r=>`<td${r.kg===y.peak?' style="background:var(--field-cream);font-weight:600;"':''}>${fmt(Math.round(r.kg))}</td>`).join('')}</tr></tbody></table>`).join('')}
-      <p class="helper" style="margin-top:10px;">These are the same figures your harvest plan is generated from. ${each.some(x=>x.y.ok && !x.y.dated) ? 'A crop with no dates yet is shown over the catalogue’s own 24-week season; add your transplanting and harvest dates to place it on the calendar.' : ''}</p>
+      ${each.filter(x=> x.y.ok && x.y.rows.length).map(({cr, y})=> `
+        <div class="section-label" style="margin-top:14px;">${esc(cr.crop)} — month by month</div>
+        <table class="grid-table"><thead><tr><th>Month</th><th>Stage</th><th>Low (kg)</th><th>Average (kg)</th><th>High (kg)</th></tr></thead>
+        <tbody>${monthlyBreakdown(y).map(r=>`<tr>
+          <td>Month ${r.month}${r.label ? ` <span class="helper">${esc(r.label)}</span>` : ''}</td>
+          <td class="helper">${esc(r.stage)}</td>
+          <td>${fmt(Math.round(r.low))}</td>
+          <td><strong>${fmt(Math.round(r.avg))}</strong></td>
+          <td>${fmt(Math.round(r.high))}</td></tr>`).join('')}
+        </tbody></table>`).join('')}
+      <p class="helper" style="margin-top:10px;">These are the same figures your harvest plan is generated from. Months are counted from the day you transplanted, four weeks to a month.</p>
     </div>`;
+}
+
+// The season gathered into months, the way the calculator reports it.
+function monthlyBreakdown(y){
+  const by = {};
+  y.rows.forEach(r=>{
+    const k = r.month;
+    by[k] = by[k] || { month:k, stage:r.stage, low:0, avg:0, high:0, label:'' };
+    by[k].low += r.kgLow; by[k].avg += r.kg; by[k].high += r.kgHigh;
+    if(r.date && !by[k].label) by[k].label = r.date.toLocaleDateString('en-GB',{month:'short',year:'numeric'});
+  });
+  return Object.keys(by).map(Number).sort((a,b)=>a-b).map(k=> by[k]);
 }
 
 function yieldBlockedReason(cr){
@@ -1071,11 +1182,12 @@ function yieldBlockedReason(cr){
   // Past this point the catalogue and the seedlings are both in order and the
   // variety still yields nothing. There are only two ways that happens, and
   // saying which one it is turns a dead end into something that can be fixed.
-  const start = Math.max(1, Number(v.startWeek) || 1);
-  if(start > y.weeks){
-    return `${cr.variety} does not start bearing until week ${start}, and your dates leave only ${y.weeks} week${y.weeks===1?'':'s'} between transplanting and the expected harvest. Move the last harvest date later — at least ${start} weeks after transplanting — or clear it, and the catalogue's own 24-week season is used instead. That date is when the crop finishes, not the first pick.`;
+  const first = firstBearingWeek(v);
+  if(first && first > y.weeks){
+    const b = bearingMonths(v);
+    return `${cr.variety} does not start bearing until month ${b.first}, and your dates leave only ${y.weeks} week${y.weeks===1?'':'s'} between transplanting and the last harvest. Move the last harvest date later — at least ${first} weeks after transplanting — or clear it, and the variety's own season is used instead. That date is when the crop finishes, not the first pick.`;
   }
-  return `The Secretariat's figures for ${cr.variety} come to nothing per plant — the harvest amount on the variety is zero. Ask the Secretariat to fill it in on the Crop catalogue tab.`;
+  return `The Secretariat's figures for ${cr.variety} come to nothing per plant — no month on it carries a harvest. Ask the Secretariat to fill them in on the Crop catalogue tab.`;
 }
 
 // The one thing standing between a crop and a place in the harvest plan.
@@ -1230,7 +1342,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v34';
+const BUILD = 'v36';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1994,7 +2106,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', localOnly:false, migrateOpen:false, migrateMsg:'', catDraft:null, archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -3262,16 +3374,18 @@ function varietyFacts(cropName, varietyName, seedlings, area, unit, planted, exp
   const n = Number(seedlings)||0;
   const y = yieldFor({crop:cropName, variety:varietyName, seedlings:n, planted, expected});
   const sqm = toSqm(area, unit);
+  const grown = v.unit || 'plant';                 // `unit` is the area's unit
   const bits = [];
-  if(v.perSqm) bits.push(`Catalogue spacing <strong>${v.perSqm} plants per m²</strong>`);
-  if(v.perSqm && sqm) bits.push(`that area holds about <strong>${fmt(Math.round(v.perSqm * sqm))}</strong> plants`);
+  if(v.perSqm) bits.push(`Catalogue spacing <strong>${v.perSqm} ${esc(unitWord(grown, v.perSqm))} per m²</strong>`);
+  if(v.perSqm && sqm) bits.push(`that area holds about <strong>${fmt(Math.round(v.perSqm * sqm))}</strong>`);
   if(n && sqm) bits.push(`you entered <strong>${fmt(n)}</strong>, or ${(n/sqm).toFixed(2)} per m²`);
   const head = bits.join(' · ');
-  if(!n) return head + (head?'<br>':'') + '<em>Enter the number of seedlings to see the yield.</em>' + (v.notes?`<br>${esc(v.notes)}`:'');
+  if(!n) return head + (head?'<br>':'') + `<em>Enter how many ${esc(unitWord(grown,2))} you planted to see the yield.</em>` + (v.notes?`<br>${esc(v.notes)}`:'');
   return `${head}${head?'<br>':''}
-    <strong>${y.perPlant.toFixed(2)} kg</strong> per plant over ${y.weeks} weeks
-    × <strong>${fmt(n)}</strong> seedlings =
+    <strong>${y.perPlantLow.toFixed(2)}–${y.perPlantHigh.toFixed(2)} kg</strong> per ${esc(unitWord(grown,1))} over ${y.weeks} weeks
+    × <strong>${fmt(n)}</strong> =
     <strong style="font-size:15px;">${fmt(Math.round(y.total))} kg expected</strong>
+    <span class="helper">(${fmt(Math.round(y.totalLow))}–${fmt(Math.round(y.totalHigh))} kg · about ${fmt(bags(y.total))} bags of 5 kg)</span>
     · ${esc(y.patternLabel)}${y.firstDate?` · first harvest ${esc(y.firstDate)}`:''}
     ${v.notes?`<br>${esc(v.notes)}`:''}`;
 }
@@ -5026,17 +5140,19 @@ function harvestPlanSource(m){
     <div class="section-label">Where these figures come from</div>
     <div class="card">
       <p class="helper" style="margin:0 0 10px;">The Secretariat's catalogue holds what one plant of each variety yields week by week. Multiplied by your seedlings and laid across your own transplanting and harvest dates, that is your plan.</p>
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seedlings</th><th>Bearing weeks</th><th>Per plant</th><th>Expected total</th></tr></thead>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Planted</th><th>Harvest</th><th>Per plant</th><th>Low</th><th>Expected</th><th>High</th></tr></thead>
       <tbody>${rows.map(r=>{
         const v = catalogueVariety(r.cr.crop, r.cr.variety);
-        const perPlant = r.rows.length && Number(r.cr.seedlings) ? r.total / Number(r.cr.seedlings) : 0;
+        const y = yieldFor(r.cr);
         return `<tr>
           <td>${esc(r.cr.crop)}</td>
           <td>${esc(r.cr.variety||'—')}${v ? '' : ' <span class="helper">(not in the catalogue)</span>'}</td>
-          <td>${r.cr.seedlings ? fmt(r.cr.seedlings) : '—'}</td>
-          <td>${r.rows.length ? `${r.rows.length} · ${YIELD_PATTERNS[v.pattern] ? YIELD_PATTERNS[v.pattern].label : ''}` : `<span style="color:var(--red);">${esc(r.why)}</span>`}</td>
-          <td>${perPlant ? perPlant.toFixed(2)+' kg' : '—'}</td>
+          <td>${r.cr.seedlings ? `${fmt(r.cr.seedlings)} ${esc(unitWord(y.unit, r.cr.seedlings))}` : '—'}</td>
+          <td class="helper">${r.rows.length ? esc(y.patternLabel) : `<span style="color:var(--red);">${esc(r.why)}</span>`}</td>
+          <td>${y.perPlant ? `${y.perPlantLow.toFixed(2)}–${y.perPlantHigh.toFixed(2)} kg` : '—'}</td>
+          <td>${r.total ? fmt(Math.round(y.totalLow)) : '—'}</td>
           <td><strong>${r.total ? fmt(Math.round(r.total))+' kg' : '—'}</strong></td>
+          <td>${r.total ? fmt(Math.round(y.totalHigh)) : '—'}</td>
         </tr>`;
       }).join('')}</tbody></table>
     </div>`;
@@ -5515,12 +5631,12 @@ function renderCatalogue(c){
     ${CATALOGUE.map((crop, ci)=>`
       <div class="section-label">${esc(crop.name)}</div>
       <div class="card" style="overflow-x:auto;">
-        <table class="grid-table"><thead><tr><th>Variety</th><th>Plants per m²</th><th>Harvest pattern</th><th>Figures</th><th>Note</th><th style="min-width:140px;"></th></tr></thead>
+        <table class="grid-table"><thead><tr><th>Variety</th><th>Counted as</th><th>Per m²</th><th>Season figures</th><th>Note</th><th style="min-width:140px;"></th></tr></thead>
         <tbody>${(crop.varieties||[]).length ? crop.varieties.map((v, vi)=>
           (ed && ed.ci===ci && ed.vi===vi) ? catalogueEditRow(crop, v, ci, vi) : `<tr>
             <td><strong>${esc(v.name)}</strong></td>
+            <td>${esc(unitWord(v.unit||'plant', 2))}</td>
             <td>${v.perSqm || '—'}</td>
-            <td>${YIELD_PATTERNS[v.pattern] ? esc(YIELD_PATTERNS[v.pattern].label) : esc(v.pattern||'—')}</td>
             <td class="helper">${catalogueFigures(v)}</td>
             <td class="helper">${esc(v.notes||'')}</td>
             <td><button class="btn small ghost" onclick="editCatalogueVariety(${ci},${vi})">Edit</button>
@@ -5539,9 +5655,11 @@ function renderCatalogue(c){
 }
 
 function catalogueFigures(v){
-  const def = YIELD_PATTERNS[v.pattern];
-  if(!def) return '—';
-  return def.fields.map(([k,label])=> `${esc(label)}: <strong>${v[k]!==undefined?v[k]:'—'}</strong>`).join('<br>');
+  const t = seasonTotals(v, seasonWeeksOf(v));
+  if(!t.avg) return '<span style="color:var(--red);">no harvest set</span>';
+  const b = bearingMonths(v);
+  return `Season <strong>${t.low.toFixed(2)}–${t.high.toFixed(2)} kg</strong> per ${esc(unitWord(v.unit||'plant',1))}
+    <br>average <strong>${t.avg.toFixed(2)} kg</strong> · months ${b.first}–${b.last}`;
 }
 
 // Who this change reaches, said plainly before it is made.
@@ -5551,78 +5669,119 @@ function farmsGrowing(cropName){
   return n ? `${n} member farm${n===1?'':'s'} ${n===1?'grows':'grow'} this` : 'No member farm grows this yet';
 }
 
+/* Editing a variety is editing its months. Each row is what one plant gives
+   in a week of that month, low to high, plus any one-off cut taken once in
+   it — a broccoli head, a cauliflower. The season total is shown as the
+   figures are typed, so it can be checked against the calculator. */
+const MONTH_ROWS = 12;
+
 function catalogueEditRow(crop, v, ci, vi){
-  v = v || { pattern:'continuous' };
-  const def = YIELD_PATTERNS[v.pattern] || YIELD_PATTERNS.continuous;
+  v = v || { unit:'plant', months:[] };
+  const months = v.months || [];
+  const row = m=> months.find(x=> Number(x.month) === m) || {};
   return `<tr class="crop-edit"><td colspan="6">
     <div class="ce-head">${vi===-1 ? `New variety of <strong>${esc(crop.name)}</strong>` : `Editing <strong>${esc(v.name)}</strong>`}</div>
     <div class="grid2">
-      <div><label class="f">Variety name</label><input id="cv-name" value="${esc(v.name||'')}" placeholder="e.g. Anna F1"></div>
-      <div><label class="f">Plants per m²</label><input id="cv-persqm" type="number" step="0.01" value="${v.perSqm||''}" placeholder="e.g. 2.5"></div>
-      <div><label class="f">Harvest pattern</label>
-        <select id="cv-pattern" onchange="repatternCatalogueRow(${ci},${vi})">
-          ${Object.keys(YIELD_PATTERNS).map(k=>`<option value="${k}" ${v.pattern===k?'selected':''}>${esc(YIELD_PATTERNS[k].label)}</option>`).join('')}
+      <div><label class="f">Variety name</label><input id="cv-name" value="${esc(v.name||'')}" placeholder="e.g. Greenhouse cherry"></div>
+      <div><label class="f">Counted as</label>
+        <select id="cv-unit">
+          <option value="plant" ${(v.unit||'plant')==='plant'?'selected':''}>Plants — a farm enters seedlings</option>
+          <option value="tree" ${v.unit==='tree'?'selected':''}>Trees — a farm enters trees</option>
         </select></div>
-      <div><label class="f">Note for farms</label><input id="cv-notes" value="${esc(v.notes||'')}" placeholder="e.g. Indoor, trellised"></div>
-      ${def.fields.map(([k,label,dflt])=>`
-        <div><label class="f">${esc(label)}</label>
-          <input id="cv-${k}" type="number" step="any" value="${v[k]!==undefined?v[k]:dflt}"></div>`).join('')}
+      <div><label class="f">Per m²</label><input id="cv-persqm" type="number" step="0.01" value="${v.perSqm||''}" placeholder="e.g. 2.5"></div>
+      <div><label class="f">Note for farms</label><input id="cv-notes" value="${esc(v.notes||'')}" placeholder="e.g. Peak in months 4–5"></div>
     </div>
+    <p class="helper" style="margin:12px 0 6px;">Months are counted from transplanting, ${WEEKS_PER_MONTH} weeks to a month. Fill in only the months this variety bears in; leave the rest empty.</p>
+    <div style="overflow-x:auto;">
+      <table class="grid-table"><thead><tr>
+        <th>Month</th><th>Stage</th>
+        <th>Weekly low (kg)</th><th>Weekly high (kg)</th>
+        <th>One-off low (kg)</th><th>One-off high (kg)</th>
+      </tr></thead>
+      <tbody>${Array.from({length:MONTH_ROWS}, (_,i)=>{
+        const m = i + 1, r = row(m);
+        return `<tr>
+          <td><strong>${m}</strong></td>
+          <td><input id="cvm-stage-${m}" value="${esc(r.stage||'')}" placeholder="e.g. Peak production" oninput="previewVarietyTotals()"></td>
+          <td><input id="cvm-low-${m}" type="number" step="0.01" min="0" value="${r.low!==undefined?r.low:''}" oninput="previewVarietyTotals()"></td>
+          <td><input id="cvm-high-${m}" type="number" step="0.01" min="0" value="${r.high!==undefined?r.high:''}" oninput="previewVarietyTotals()"></td>
+          <td><input id="cvm-onceLow-${m}" type="number" step="0.01" min="0" value="${r.onceLow||''}" oninput="previewVarietyTotals()"></td>
+          <td><input id="cvm-onceHigh-${m}" type="number" step="0.01" min="0" value="${r.onceHigh||''}" oninput="previewVarietyTotals()"></td>
+        </tr>`;
+      }).join('')}</tbody></table>
+    </div>
+    <p class="helper cat-facts" id="cv-total">${esc(varietyTotalLine(v))}</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button class="btn small" onclick="saveCatalogueVariety(${ci},${vi})">Save variety</button>
       <button class="btn small ghost" onclick="cancelCatalogueEdit()">Cancel</button>
       <span class="helper" id="cv-msg" style="color:var(--red);"></span>
     </div>
-    <p class="helper">Weeks are counted from the day a farm transplants. Every farm growing this variety plans against these figures the next time it generates its harvest plan.</p>
+    <p class="helper">Every farm growing this variety plans against these figures the next time it opens its harvest plan.</p>
   </td></tr>`;
+}
+
+// The variety as the form currently holds it, before anything is saved.
+function readVarietyForm(){
+  const v = {
+    name: (document.getElementById('cv-name')||{}).value ? document.getElementById('cv-name').value.trim() : '',
+    unit: (document.getElementById('cv-unit')||{}).value || 'plant',
+    perSqm: Number((document.getElementById('cv-persqm')||{}).value) || 0,
+    notes: (document.getElementById('cv-notes')||{}).value ? document.getElementById('cv-notes').value.trim() : '',
+    months: []
+  };
+  for(let m = 1; m <= MONTH_ROWS; m++){
+    const get = k=>{ const el = document.getElementById(`cvm-${k}-${m}`); return el ? el.value : ''; };
+    const low = Number(get('low')) || 0, high = Number(get('high')) || 0;
+    const onceLow = Number(get('onceLow')) || 0, onceHigh = Number(get('onceHigh')) || 0;
+    const stage = (get('stage') || '').trim();
+    if(low || high || onceLow || onceHigh || stage)
+      v.months.push({ month:m, stage, low, high, onceLow, onceHigh });
+  }
+  return v;
+}
+
+function varietyTotalLine(v){
+  const t = seasonTotals(v, seasonWeeksOf(v));
+  if(!t.avg) return 'No harvest set yet — fill in at least one month.';
+  const b = bearingMonths(v);
+  const u = unitWord(v.unit||'plant', 1);
+  return `Season total ${t.low.toFixed(2)}–${t.high.toFixed(2)} kg per ${u}, average ${t.avg.toFixed(2)} kg · bears in months ${b.first}–${b.last} · ${patternLabelOf(v)}`;
+}
+function previewVarietyTotals(){
+  const el = document.getElementById('cv-total');
+  if(el) el.textContent = varietyTotalLine(readVarietyForm());
 }
 
 function editCatalogueVariety(ci, vi){ state.catEdit = {ci, vi}; render(); }
 function addCatalogueVariety(ci){ state.catEdit = {ci, vi:-1}; render(); }
 function cancelCatalogueEdit(){ state.catEdit = null; render(); }
 
-// Switching pattern redraws the row so its own figures are asked for.
-function repatternCatalogueRow(ci, vi){
-  const pattern = document.getElementById('cv-pattern').value;
-  const draft = { name:document.getElementById('cv-name').value,
-                  perSqm:Number(document.getElementById('cv-persqm').value)||0,
-                  notes:document.getElementById('cv-notes').value, pattern };
-  state.catDraft = draft;
-  const crop = CATALOGUE[ci];
-  const holder = document.querySelector('tr.crop-edit');
-  if(holder && crop) holder.outerHTML = catalogueEditRow(crop, draft, ci, vi);
-}
-
 function saveCatalogueVariety(ci, vi){
   const msg = document.getElementById('cv-msg');
   const crop = CATALOGUE[ci];
   if(!crop) return;
-  const name = document.getElementById('cv-name').value.trim();
-  if(!name){ if(msg) msg.textContent = 'Give the variety a name.'; return; }
-  const pattern = document.getElementById('cv-pattern').value;
-  const clash = (crop.varieties||[]).some((x, xi)=> xi !== vi && x.name.toLowerCase() === name.toLowerCase());
+  const v = readVarietyForm();
+  if(!v.name){ if(msg) msg.textContent = 'Give the variety a name.'; return; }
+  const clash = (crop.varieties||[]).some((x, xi)=> xi !== vi && x.name.toLowerCase() === v.name.toLowerCase());
   if(clash){ if(msg) msg.textContent = 'That variety is already listed under this crop.'; return; }
-  const v = { name, pattern,
-    perSqm: Number(document.getElementById('cv-persqm').value)||0,
-    notes: document.getElementById('cv-notes').value.trim() };
-  YIELD_PATTERNS[pattern].fields.forEach(([k])=>{
-    v[k] = Number(document.getElementById('cv-'+k).value)||0;
-  });
-  // A variety whose figures come to nothing is worse than no variety: farms
+  // A variety whose months come to nothing is worse than no variety: farms
   // choose it, enter their seedlings, and get a blank plan with no idea why.
-  // Refuse it here, where the figures can actually be corrected.
-  if(weeklyYield(v, 24).reduce((a,b)=> a+b, 0) <= 0){
-    if(msg) msg.textContent = 'These figures give nothing per plant, so no farm could plan a harvest from them. Enter how much one plant yields, and from which week.';
+  if(seasonTotals(v, seasonWeeksOf(v)).avg <= 0){
+    if(msg) msg.textContent = 'No month carries a harvest, so no farm could plan from this. Fill in what one plant gives in a week, or a one-off cut, for at least one month.';
     return;
   }
+  const bad = v.months.find(m=> Number(m.high) < Number(m.low) || Number(m.onceHigh) < Number(m.onceLow));
+  if(bad){ if(msg) msg.textContent = `Month ${bad.month}: the high figure is below the low one.`; return; }
+
   crop.varieties = crop.varieties || [];
   const was = vi === -1 ? null : crop.varieties[vi];
   if(vi === -1) crop.varieties.push(v); else crop.varieties[vi] = v;
   // A renamed variety would orphan every farm that chose it by name.
-  if(was && was.name !== name) renameFarmVariety(crop.name, was.name, name);
+  if(was && was.name !== v.name) renameFarmVariety(crop.name, was.name, v.name);
   state.catEdit = null;
-  state.catMsg = `${name} saved. ${farmsGrowing(crop.name)}.`;
-  logAction(`Operator ${vi===-1?'added':'updated'} catalogue variety ${crop.name} — ${name}.`);
+  const t = seasonTotals(v, seasonWeeksOf(v));
+  state.catMsg = `${v.name} saved — ${t.low.toFixed(2)}–${t.high.toFixed(2)} kg per ${unitWord(v.unit,1)}, average ${t.avg.toFixed(2)} kg. ${farmsGrowing(crop.name)}.`;
+  logAction(`Operator ${vi===-1?'added':'updated'} catalogue variety ${crop.name} — ${v.name}.`);
   saveCatalogue();
   render();
 }
