@@ -570,6 +570,141 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
 /* Stage bands use the association palette; the accent sits on the stage cell,
    never as a field behind body copy (guidelines p14). */
 .cloud-badge.build{opacity:.75;font-variant-numeric:tabular-nums;}
+
+/* ---- Date field ---------------------------------------------------- */
+.datefield{position:relative;}
+.date-trigger{
+  display:flex;align-items:center;gap:9px;width:100%;cursor:pointer;
+  padding:11px 13px;border:1px solid var(--line);border-radius:12px;
+  background:#fff;color:var(--ink);font:inherit;text-align:left;
+  transition:border-color .22s cubic-bezier(.2,.8,.3,1), box-shadow .22s, transform .18s;
+}
+.date-trigger:hover{border-color:var(--leaf-green);transform:translateY(-1px);}
+.date-trigger:focus-visible{outline:none;border-color:var(--tipfa-green);box-shadow:0 0 0 3px rgba(126,155,63,.24);}
+.dt-icon{display:inline-flex;color:var(--leaf-green);flex:0 0 auto;}
+.dt-icon svg{width:16px;height:16px;}
+.dt-text{flex:1;}
+.dt-clear{color:var(--muted);font-size:19px;line-height:1;padding:0 3px;border-radius:6px;}
+.dt-clear:hover{color:var(--red);background:rgba(0,0,0,.05);}
+.datefield.just-set .date-trigger{animation:dateSet .5s cubic-bezier(.2,.9,.3,1);}
+@keyframes dateSet{
+  0%{box-shadow:0 0 0 0 rgba(232,167,52,.55);}
+  100%{box-shadow:0 0 0 14px rgba(232,167,52,0);}
+}
+.datepop{
+  position:fixed;z-index:400;min-width:290px;max-width:calc(100vw - 16px);
+  background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px;
+  box-shadow:0 22px 48px -18px rgba(35,40,31,.42), 0 3px 10px rgba(35,40,31,.09);
+  opacity:0;transform:translateY(-8px) scale(.97);transform-origin:top left;
+  transition:opacity .2s ease, transform .26s cubic-bezier(.2,.9,.3,1);
+}
+.datepop.open{opacity:1;transform:none;}
+.dp-head{display:flex;align-items:center;gap:5px;margin-bottom:9px;}
+.dp-title{
+  flex:1;text-align:center;font-family:'Poppins',sans-serif;font-weight:600;
+  font-size:13px;color:var(--tipfa-green);display:flex;gap:6px;justify-content:center;align-items:center;
+}
+.dp-year{
+  width:66px;padding:3px 6px;border:1px solid var(--line);border-radius:8px;
+  font:inherit;font-size:13px;text-align:center;color:var(--ink);
+}
+.dp-year:focus{outline:none;border-color:var(--leaf-green);}
+.dp-nav{
+  width:28px;height:28px;border-radius:9px;border:1px solid var(--line);background:#fff;
+  color:var(--tipfa-green);cursor:pointer;font-size:14px;line-height:1;
+  transition:background .18s, transform .18s, border-color .18s;
+}
+.dp-nav:hover{background:var(--field-cream);border-color:var(--leaf-green);transform:scale(1.09);}
+.dp-nav:active{transform:scale(.94);}
+.dp-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;}
+.dp-dow span{
+  text-align:center;font-size:10px;font-weight:600;letter-spacing:.06em;
+  color:var(--muted);text-transform:uppercase;
+}
+.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.dp-cell{
+  height:34px;border:0;border-radius:9px;background:transparent;color:var(--ink);
+  font:inherit;font-size:13px;cursor:pointer;
+  transition:background .16s, color .16s, transform .16s;
+  animation:dpIn .3s cubic-bezier(.2,.9,.3,1) backwards;
+}
+@keyframes dpIn{from{opacity:0;transform:scale(.8);}to{opacity:1;transform:none;}}
+.dp-cell:hover{background:var(--field-cream);transform:scale(1.1);}
+.dp-cell.today{box-shadow:inset 0 0 0 1px var(--leaf-green);}
+.dp-cell.chosen{background:var(--tipfa-green);color:#fff;font-weight:600;}
+.dp-cell.blank{pointer-events:none;}
+.dp-foot{display:flex;gap:6px;justify-content:flex-end;margin-top:9px;
+  border-top:1px solid var(--line);padding-top:9px;}
+
+
+/* ---- Year and month chips ------------------------------------------ */
+.chip{transition:background .2s, color .2s, transform .18s cubic-bezier(.2,.9,.3,1), box-shadow .2s;}
+.chip:hover{transform:translateY(-2px);box-shadow:0 5px 14px -6px rgba(35,40,31,.4);}
+.chip:active{transform:translateY(0) scale(.96);}
+.chip.active{animation:chipOn .4s cubic-bezier(.2,.9,.3,1);}
+@keyframes chipOn{0%{transform:scale(.86);}60%{transform:scale(1.07);}100%{transform:none;}}
+.year-nav .chip.nav{font-weight:700;padding-left:11px;padding-right:11px;}
+
+@media (prefers-reduced-motion: reduce){
+  .datepop, .dp-cell, .chip, .date-trigger{transition:none !important;animation:none !important;}
+}
+
+/* ---- Motion across the platform ------------------------------------
+   Every surface arrives rather than appearing: cards rise in sequence,
+   table rows follow one another, figures count and settle. Nothing here
+   moves a logo out of position (Brand Guidelines p11), and everything
+   stops for a viewer who has asked for less motion. */
+.content .card{animation:cardRise .5s cubic-bezier(.2,.9,.3,1) backwards;}
+.content .card:nth-of-type(2){animation-delay:.05s;}
+.content .card:nth-of-type(3){animation-delay:.1s;}
+.content .card:nth-of-type(4){animation-delay:.15s;}
+.content .card:nth-of-type(n+5){animation-delay:.2s;}
+@keyframes cardRise{
+  from{opacity:0;transform:translateY(18px) scale(.985);}
+  to{opacity:1;transform:none;}
+}
+.content .section-label{animation:labelSlide .45s cubic-bezier(.2,.9,.3,1) backwards;}
+@keyframes labelSlide{from{opacity:0;transform:translateX(-12px);}to{opacity:1;transform:none;}}
+
+.grid-table tbody tr{animation:rowIn .42s cubic-bezier(.2,.9,.3,1) backwards;}
+.grid-table tbody tr:nth-child(1){animation-delay:.02s;}
+.grid-table tbody tr:nth-child(2){animation-delay:.06s;}
+.grid-table tbody tr:nth-child(3){animation-delay:.1s;}
+.grid-table tbody tr:nth-child(4){animation-delay:.14s;}
+.grid-table tbody tr:nth-child(5){animation-delay:.18s;}
+.grid-table tbody tr:nth-child(n+6){animation-delay:.22s;}
+@keyframes rowIn{from{opacity:0;transform:translateY(9px);}to{opacity:1;transform:none;}}
+.grid-table tbody tr{transition:background .2s ease, transform .2s cubic-bezier(.2,.9,.3,1);}
+.grid-table tbody tr:hover{background:var(--field-cream);}
+
+.metric{animation:metricPop .55s cubic-bezier(.2,.9,.3,1) backwards;
+  transition:transform .22s cubic-bezier(.2,.9,.3,1), box-shadow .22s;}
+.metric:nth-child(2){animation-delay:.07s;}
+.metric:nth-child(3){animation-delay:.14s;}
+.metric:nth-child(n+4){animation-delay:.2s;}
+.metric:hover{transform:translateY(-3px);box-shadow:0 14px 30px -18px rgba(35,40,31,.5);}
+@keyframes metricPop{
+  0%{opacity:0;transform:translateY(14px) scale(.94);}
+  70%{transform:translateY(-2px) scale(1.012);}
+  100%{opacity:1;transform:none;}
+}
+
+.btn{transition:transform .18s cubic-bezier(.2,.9,.3,1), box-shadow .22s, background .2s, color .2s, border-color .2s;}
+.btn:hover{transform:translateY(-2px);}
+.btn:active{transform:translateY(0) scale(.97);}
+.tabbtn{transition:background .2s, color .2s, transform .2s cubic-bezier(.2,.9,.3,1), padding-left .2s;}
+.tabbtn:hover{transform:translateX(3px);}
+input, select, textarea{transition:border-color .2s, box-shadow .2s, transform .18s;}
+input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
+
+@media (prefers-reduced-motion: reduce){
+  .content .card, .content .section-label, .grid-table tbody tr, .metric,
+  .btn, .tabbtn, input, select, textarea{
+    animation:none !important;transition:none !important;transform:none !important;
+  }
+}
+
+
 .cat-facts{background:var(--field-cream);border-left:3px solid var(--gold);
   padding:9px 12px;border-radius:0 8px 8px 0;margin-top:10px;line-height:1.6;}
 .cat-facts strong{color:var(--deep-green);}
@@ -924,9 +1059,20 @@ function yieldPanel(m){
 
 function yieldBlockedReason(cr){
   if(!catalogueCrop(cr.crop)) return 'This crop is not in the Secretariat catalogue, so there are no yield figures for it. Edit the crop and choose one from the list, or ask the Secretariat to add it.';
-  if(!catalogueVariety(cr.crop, cr.variety)) return 'This variety is not in the Secretariat catalogue. Edit the crop and choose one that is, or ask the Secretariat to add it.';
+  const v = catalogueVariety(cr.crop, cr.variety);
+  if(!v) return 'This variety is not in the Secretariat catalogue. Edit the crop and choose one that is, or ask the Secretariat to add it.';
   if(!(Number(cr.seedlings)||0)) return 'Enter the number of seedlings you planted and the yield appears here.';
-  return 'Nothing to project from yet.';
+  const y = yieldFor(cr);
+  if(y.perPlant > 0) return '';
+
+  // Past this point the catalogue and the seedlings are both in order and the
+  // variety still yields nothing. There are only two ways that happens, and
+  // saying which one it is turns a dead end into something that can be fixed.
+  const start = Math.max(1, Number(v.startWeek) || 1);
+  if(start > y.weeks){
+    return `${cr.variety} does not start bearing until week ${start}, and your dates leave only ${y.weeks} week${y.weeks===1?'':'s'} between transplanting and the expected harvest. Move the last harvest date later — at least ${start} weeks after transplanting — or clear it, and the catalogue's own 24-week season is used instead. That date is when the crop finishes, not the first pick.`;
+  }
+  return `The Secretariat's figures for ${cr.variety} come to nothing per plant — the harvest amount on the variety is zero. Ask the Secretariat to fill it in on the Crop catalogue tab.`;
 }
 
 // The one thing standing between a crop and a place in the harvest plan.
@@ -1081,7 +1227,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v29';
+const BUILD = 'v32';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1754,7 +1900,7 @@ function logAction(text){
 window.addEventListener('beforeunload', saveMembers);
 logAction('System initialised — TIPFA Association Platform ready.');
 
-const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
+const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
   calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catDraft:null, archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
@@ -1860,6 +2006,175 @@ function readUnit(id, units){
   const el = document.getElementById(id+'-unit');
   return el ? el.value : units[0];
 }
+
+/* ---- Date field ----------------------------------------------------
+   The native date input is a different control on every device, and on a
+   phone it hides the year behind a spinner. This is one calendar
+   everywhere: a month grid, arrows for the month, arrows for the year, and
+   a year that can be typed. No range is imposed, so a season can be
+   recorded in any year a farm needs.
+   The real value still lives in a hidden input of the same id, so
+   everything that reads these fields is untouched. */
+const DATE_STATE = {};   // id -> the month currently on show
+
+function dateField(id, value, onchange){
+  return `<div class="datefield" id="${id}-wrap">
+    <input type="hidden" id="${id}" value="${esc(value||'')}" data-onchange="${esc(onchange||'')}">
+    <button type="button" class="date-trigger" onclick="openDatePicker('${id}')" aria-haspopup="dialog">
+      <span class="dt-icon" aria-hidden="true">${lineIcon('<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>')}</span>
+      <span class="dt-text" id="${id}-label">${value ? esc(prettyDate(value)) : 'Choose a date'}</span>
+      ${value ? `<span class="dt-clear" title="Clear" onclick="event.stopPropagation();clearDate('${id}')">&times;</span>` : ''}
+    </button>
+    <div class="datepop" id="${id}-pop" role="dialog" aria-label="Choose a date" hidden></div>
+  </div>`;
+}
+
+function prettyDate(iso){
+  const d = new Date(iso + 'T00:00:00');
+  if(isNaN(d)) return iso;
+  return d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'});
+}
+function isoOf(y, m, d){
+  return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+}
+
+/* The calendar is moved to the end of the page and positioned against the
+   trigger. Left where it was written it is cut off by the first ancestor
+   that scrolls — the crop table's card does — and half the month disappears
+   behind an edge. Nothing else in the page can clip it from here. */
+function placeDatePicker(id){
+  const pop = document.getElementById(id+'-pop');
+  const trigger = document.querySelector(`#${id}-wrap .date-trigger`);
+  if(!pop || !trigger) return;
+  const r = trigger.getBoundingClientRect();
+  const w = pop.offsetWidth || 290, h = pop.offsetHeight || 330;
+  const gap = 8;
+  let top = r.bottom + gap;
+  if(top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - gap);
+  let left = r.left;
+  if(left + w > window.innerWidth - 8) left = Math.max(8, window.innerWidth - w - 8);
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+  pop.style.width = Math.min(Math.max(r.width, 290), window.innerWidth - 16) + 'px';
+}
+
+function closeAllDatePickers(){
+  document.querySelectorAll('.datepop').forEach(p=>{ p.classList.remove('open'); p.hidden = true; });
+}
+
+function openDatePicker(id){
+  const pop = document.getElementById(id+'-pop');
+  if(!pop) return;
+  const wasOpen = !pop.hidden;
+  closeAllDatePickers();
+  if(wasOpen) return;
+  if(pop.parentNode !== document.body) document.body.appendChild(pop);
+  const cur = document.getElementById(id).value;
+  const base = cur ? new Date(cur + 'T00:00:00') : new Date();
+  DATE_STATE[id] = { y: base.getFullYear(), m: base.getMonth() + 1 };
+  drawDatePicker(id);
+  pop.hidden = false;
+  placeDatePicker(id);
+  requestAnimationFrame(()=>{ placeDatePicker(id); pop.classList.add('open'); });
+}
+// A page that scrolls or resizes under an open calendar must take it along.
+['scroll','resize'].forEach(ev=> window.addEventListener(ev, ()=>{
+  document.querySelectorAll('.datepop:not([hidden])').forEach(p=> placeDatePicker(p.id.replace(/-pop$/,'')));
+}, true));
+
+function stepDateMonth(id, by){
+  const st = DATE_STATE[id]; if(!st) return;
+  let m = st.m + by, y = st.y;
+  while(m < 1){ m += 12; y--; }
+  while(m > 12){ m -= 12; y++; }
+  st.m = m; st.y = y;
+  drawDatePicker(id);
+}
+function stepDateYear(id, by){
+  const st = DATE_STATE[id]; if(!st) return;
+  st.y += by;
+  drawDatePicker(id);
+}
+function setDateYear(id, value){
+  const st = DATE_STATE[id]; if(!st) return;
+  const y = parseInt(value, 10);
+  if(!isNaN(y) && y > 0 && y < 9999){ st.y = y; drawDatePicker(id); }
+}
+
+function drawDatePicker(id){
+  const pop = document.getElementById(id+'-pop');
+  const st = DATE_STATE[id];
+  if(!pop || !st) return;
+  const chosen = document.getElementById(id).value;
+  const first = new Date(st.y, st.m - 1, 1);
+  const lead = (first.getDay() + 6) % 7;          // weeks start on Monday
+  const days = new Date(st.y, st.m, 0).getDate();
+  const today = new Date();
+  const todayIso = isoOf(today.getFullYear(), today.getMonth()+1, today.getDate());
+  const cells = [];
+  for(let i = 0; i < lead; i++) cells.push('<span class="dp-cell blank"></span>');
+  for(let d = 1; d <= days; d++){
+    const iso = isoOf(st.y, st.m, d);
+    const cls = ['dp-cell'];
+    if(iso === chosen) cls.push('chosen');
+    if(iso === todayIso) cls.push('today');
+    cells.push(`<button type="button" class="${cls.join(' ')}" style="animation-delay:${d*7}ms" onclick="pickDate('${id}','${iso}')">${d}</button>`);
+  }
+  pop.innerHTML = `
+    <div class="dp-head">
+      <button type="button" class="dp-nav" onclick="stepDateYear('${id}',-1)" title="Previous year">&laquo;</button>
+      <button type="button" class="dp-nav" onclick="stepDateMonth('${id}',-1)" title="Previous month">&lsaquo;</button>
+      <span class="dp-title">${MONTHS[st.m-1]}
+        <input class="dp-year" type="number" value="${st.y}" onchange="setDateYear('${id}', this.value)"
+               onclick="event.stopPropagation();" aria-label="Year"></span>
+      <button type="button" class="dp-nav" onclick="stepDateMonth('${id}',1)" title="Next month">&rsaquo;</button>
+      <button type="button" class="dp-nav" onclick="stepDateYear('${id}',1)" title="Next year">&raquo;</button>
+    </div>
+    <div class="dp-dow">${['Mo','Tu','We','Th','Fr','Sa','Su'].map(d=>`<span>${d}</span>`).join('')}</div>
+    <div class="dp-grid">${cells.join('')}</div>
+    <div class="dp-foot">
+      <button type="button" class="btn small ghost" onclick="pickDate('${id}','${todayIso}')">Today</button>
+      <button type="button" class="btn small ghost" onclick="clearDate('${id}')">Clear</button>
+    </div>`;
+}
+
+function pickDate(id, iso){
+  const input = document.getElementById(id);
+  input.value = iso;
+  const label = document.getElementById(id+'-label');
+  if(label) label.textContent = prettyDate(iso);
+  closeAllDatePickers();
+  const wrap = document.getElementById(id+'-wrap');
+  if(wrap){ wrap.classList.remove('just-set'); void wrap.offsetWidth; wrap.classList.add('just-set'); }
+  runDateHook(input);
+}
+function clearDate(id){
+  const input = document.getElementById(id);
+  input.value = '';
+  const label = document.getElementById(id+'-label');
+  if(label) label.textContent = 'Choose a date';
+  closeAllDatePickers();
+  runDateHook(input);
+}
+function runDateHook(input){
+  const hook = input.getAttribute('data-onchange');
+  if(hook) try{ new Function(hook).call(input); }catch(e){ /* the field is still set */ }
+}
+/* Stepping the month or year redraws the calendar, which detaches the button
+   that was clicked. By the time the click reaches the document that node has
+   no parent, so asking it what it sits inside answers nothing and the popup
+   was closed under the finger. Record where the press began instead, while
+   the element is still in the page. */
+let datePressedInside = false;
+document.addEventListener('pointerdown', e=>{
+  datePressedInside = !!(e.target.closest && (e.target.closest('.datepop') || e.target.closest('.date-trigger')));
+}, true);
+document.addEventListener('click', e=>{
+  if(datePressedInside) return;
+  closeAllDatePickers();
+});
+// A redraw of the page must not leave an orphaned calendar floating on it.
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') closeAllDatePickers(); });
 
 function profileFormFields(prefix, v, opts){
   v = v || {}; opts = opts || {};
@@ -2608,6 +2923,10 @@ function periodChips(){
 }
 
 function render(){
+  // A calendar lifted onto the page body would be orphaned by this redraw,
+  // and its id would collide with the fresh field about to be written.
+  document.querySelectorAll('body > .datepop').forEach(p=> p.remove());
+
   renderTopbarRight();
   if(!state.loggedIn){
     document.getElementById('loginScreen').style.display = 'block';
@@ -2707,7 +3026,7 @@ function renderProfile(c){
     </div>
     <div class="section-label">Crop profile</div>
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Seedlings</th><th>Transplanted</th><th>Expected harvest</th><th style="min-width:150px;"></th></tr></thead>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Seedlings</th><th>Transplanted</th><th>Last harvest</th><th style="min-width:150px;"></th></tr></thead>
       <tbody>${m.crops.length ? m.crops.map((cr,i)=> state.editCrop===i ? cropEditRow(cr,i) : `<tr>
           <td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td>
           <td>${cr.seedCompany ? esc(cr.seedCompany) : '<span style="color:var(--muted);">Not recorded</span>'}</td>
@@ -2724,15 +3043,15 @@ function renderProfile(c){
         <div><label class="f">Seed company</label><input id="newcrop-seed" list="seed-companies" placeholder="Who supplied the seed"></div>
         <div><label class="f">Area covered</label>${unitField('newcrop-area','', 'm²', LAND_UNITS, '0.01', "showVarietyFacts('newcrop')")}</div>
         <div><label class="f">Number of seedlings</label><input id="newcrop-seedlings" type="number" min="0" step="1" placeholder="How many plants went in" oninput="showVarietyFacts('newcrop')"></div>
-        <div><label class="f">Transplanting date</label><input id="newcrop-planted" type="date" onchange="showVarietyFacts('newcrop')"></div>
-        <div><label class="f">Expected harvest date</label><input id="newcrop-expected" type="date" onchange="showVarietyFacts('newcrop')"></div>
+        <div><label class="f">Transplanting date</label>${dateField('newcrop-planted','', "showVarietyFacts('newcrop')")}</div>
+        <div><label class="f">Last harvest date <span class="helper" style="font-weight:400;">— when the crop finishes</span></label>${dateField('newcrop-expected','', "showVarietyFacts('newcrop')")}</div>
       </div>
       <p class="helper cat-facts" id="newcrop-facts" style="display:none;"></p>
       ${seedCompanyList()}
       <button class="btn small" onclick="addCrop()">+ Add crop</button>
       ${archiveButton('Crop profile')}
       <p class="helper" id="crop-msg" style="margin-top:8px;"></p>
-      <p class="helper">Your crop names are your own — they carry through to your harvest plan, actual harvest and market prices. The transplanting and expected harvest dates set the start and end of this crop's calendar.</p>
+      <p class="helper">The transplanting date is when the seedlings went in; the last harvest date is when you expect the crop to be finished — <em>not</em> the first pick. Leave it blank and the Secretariat's own season length for that variety is used. The two dates set the start and end of this crop's calendar.</p>
     </div>
     ${yieldPanel(m)}
     ${seedCompanyPanel(m)}`;
@@ -2913,8 +3232,8 @@ function cropEditRow(cr, i){
       <div><label class="f">Seed company</label><input id="ec-seed" value="${esc(cr.seedCompany||'')}" list="seed-companies"></div>
       <div><label class="f">Area covered</label>${unitField('ec-area', cr.area, cr.areaUnit || 'm²', LAND_UNITS, '0.01', "showVarietyFacts('ec')")}</div>
       <div><label class="f">Number of seedlings</label><input id="ec-seedlings" type="number" min="0" step="1" value="${cr.seedlings||''}" oninput="showVarietyFacts('ec')"></div>
-      <div><label class="f">Transplanting date</label><input id="ec-planted" type="date" value="${esc(cr.planted||'')}" onchange="showVarietyFacts('ec')"></div>
-      <div><label class="f">Expected harvest date</label><input id="ec-expected" type="date" value="${esc(cr.expected||'')}" onchange="showVarietyFacts('ec')"></div>
+      <div><label class="f">Transplanting date</label>${dateField('ec-planted', cr.planted||'', "showVarietyFacts('ec')")}</div>
+      <div><label class="f">Last harvest date <span class="helper" style="font-weight:400;">— when the crop finishes</span></label>${dateField('ec-expected', cr.expected||'', "showVarietyFacts('ec')")}</div>
     </div>
     <p class="helper cat-facts" id="ec-facts">${varietyFacts(cr.crop, cr.variety, cr.seedlings, cr.area, cr.areaUnit||'m²', cr.planted, cr.expected)}</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -4187,9 +4506,18 @@ function saveInvestments(){
 }
 
 function yearChips(){
-  return `<div class="chips"><label class="f" style="align-self:center;margin:0 4px 0 0;">Year</label>${
-    harvestYears(state.member || activeMembers()[0] || '').map(y=>
-      `<span class="chip ${state.selYear===y?'active':''}" onclick="selectYear(${y})">${y}</span>`).join('')}</div>`;
+  // Any year, not a fixed window: the arrows step without limit, and every
+  // year that actually holds figures or projected harvest gets its own chip.
+  const id = state.member || activeMembers()[0] || '';
+  const known = new Set(harvestYears(id));
+  if(state.member && typeof projectionYears === 'function')
+    projectionYears(state.member).forEach(y=> known.add(y));
+  known.add(state.selYear);
+  const list = [...known].sort((a,b)=> a-b);
+  return `<div class="chips year-nav"><label class="f" style="align-self:center;margin:0 4px 0 0;">Year</label>
+    <span class="chip nav" onclick="selectYear(${state.selYear-1})" title="Earlier year">&lsaquo;</span>
+    ${list.map(y=>`<span class="chip ${state.selYear===y?'active':''}" onclick="selectYear(${y})">${y}</span>`).join('')}
+    <span class="chip nav" onclick="selectYear(${state.selYear+1})" title="Later year">&rsaquo;</span></div>`;
 }
 function selectYear(y){ state.selYear = y; render(); }
 
@@ -4580,6 +4908,48 @@ function projectionYears(id){
   return Object.keys(years).map(Number).sort((a,b)=> a-b);
 }
 
+/* The total for whatever months are selected, projected and planned side by
+   side. Selecting April and May has to answer for April and May together —
+   a figure for one month while two are lit would be worse than none. */
+function selectionTotals(id, year){
+  const months = (state.selMonths && state.selMonths.length ? state.selMonths : [state.selMonth])
+    .slice().sort((a,b)=> a-b);
+  const crops = memberCrops(id);
+  const proj = projectedYear(id, year);
+  const rows = crops.map(crop=>{
+    let projected = 0, planned = 0;
+    months.forEach(m=>{
+      Object.keys(proj[m] || {}).forEach(w=>{ projected += (proj[m][w][crop] || 0); });
+      planned += memberMonthCropTotal(id, 'plan', year, m, crop);
+    });
+    return { crop, projected: Math.round(projected), planned: Math.round(planned) };
+  }).filter(r=> r.projected || r.planned);
+  const totProj = rows.reduce((t,r)=> t + r.projected, 0);
+  const totPlan = rows.reduce((t,r)=> t + r.planned, 0);
+  const span = months.length === 1
+    ? `${MONTHS[months[0]-1]} ${year}`
+    : `${months.map(m=> MONTHS[m-1].slice(0,3)).join(', ')} ${year}`;
+  return `
+    <div class="section-label">Selected: ${esc(span)}</div>
+    <div class="card">
+      <div class="grid3">
+        <div class="metric"><div class="lbl">Months selected</div><div class="val">${months.length}</div></div>
+        <div class="metric"><div class="lbl">Expected from your seedlings</div><div class="val" style="color:var(--leaf-green);">${fmt(totProj)} kg</div></div>
+        <div class="metric"><div class="lbl">In your plan</div><div class="val" style="color:var(--gold);">${fmt(totPlan)} kg</div></div>
+      </div>
+      ${rows.length ? `<table class="grid-table" style="margin-top:12px;">
+        <thead><tr><th>Crop</th><th>Expected (kg)</th><th>Planned (kg)</th><th>Difference</th></tr></thead>
+        <tbody>${rows.map(r=>{
+          const d = r.planned - r.projected;
+          return `<tr><td>${esc(r.crop)}</td><td>${fmt(r.projected)}</td><td>${fmt(r.planned)}</td>
+            <td style="color:${d===0?'var(--muted)':(d>0?'var(--gold)':'var(--red)')};">${d===0?'matches':(d>0?'+':'')+fmt(d)}</td></tr>`;
+        }).join('')}</tbody>
+        <tfoot><tr><td><strong>Total</strong></td><td><strong>${fmt(totProj)}</strong></td><td><strong>${fmt(totPlan)}</strong></td><td></td></tr></tfoot>
+      </table>` : `<p class="helper" style="margin:12px 0 0;">Nothing expected or planned across ${esc(span)}. Pick other months, or step to another year above.</p>`}
+      <p class="helper" style="margin-top:10px;">Tap a month to add or drop it. Every figure here covers exactly the months lit above.</p>
+    </div>`;
+}
+
 /* What the seedlings come to, month by month, shown without being asked
    for. Writing it into the plan stays a deliberate act — a farm may have
    typed its own figures — but seeing it does not. */
@@ -4667,25 +5037,21 @@ function renderHarvestForm(c, kind){
   const crops = memberCrops(id);
   c.innerHTML = `
     <h1 class="page-title">${label}</h1>
-    <p class="page-sub">${esc(m.name)} · click a month, then a week, and fill in kilograms for each of your crops</p>
+    <p class="page-sub">${esc(m.name)} · ${kind==='plan' ? 'pick any months — the totals below follow whatever you select' : 'click a month, then a week, and fill in kilograms for each of your crops'}</p>
     ${crops.length ? `
     ${yearChips()}
-    ${monthWeekChips()}
+    ${monthWeekChips({multi: kind==='plan', weeks: kind!=='plan'})}
+    ${kind==='plan' ? '' : `
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th style="width:160px;">${MONTHS[month-1]} ${year}, Week ${week} (kg)</th>${kind==='plan'?'<th style="width:200px;">From your seedlings</th>':''}</tr></thead>
-      <tbody>${crops.map(crop=>{
-        const expect = kind==='plan' ? Math.round(projectedWeek(id, year, month, week, crop)) : 0;
-        return `<tr><td>${esc(crop)}</td>
-        <td><input type="number" value="${weekData[crop]||0}" data-crop="${esc(crop)}" onchange="setHarvest('${kind}', ${month}, ${week}, this.dataset.crop, this.value)"></td>
-        ${kind==='plan' ? `<td>${expect
-            ? `<strong>${fmt(expect)} kg</strong>${Number(weekData[crop]||0) !== expect ? ` <button class="btn small ghost" onclick="useProjection(${month}, ${week}, '${esc(crop).replace(/'/g,"\\'")}')">Use it</button>` : ''}`
-            : '<span style="color:var(--muted);">nothing due this week</span>'}</td>` : ''}</tr>`;
-      }).join('')}</tbody></table>
+      <table class="grid-table"><thead><tr><th>Crop</th><th style="width:160px;">${MONTHS[month-1]} ${year}, Week ${week} (kg)</th></tr></thead>
+      <tbody>${crops.map(crop=>`<tr><td>${esc(crop)}</td>
+        <td><input type="number" value="${weekData[crop]||0}" data-crop="${esc(crop)}" onchange="setHarvest('${kind}', ${month}, ${week}, this.dataset.crop, this.value)"></td></tr>`).join('')}</tbody></table>
       <div style="margin-top:12px;"><button class="btn" onclick="saveHarvest('${kind}')">Save week ${week}</button>
         <span class="helper" id="save-msg" style="margin-left:10px;">${state.harvestSaved ? `<span class="added-flash">${CHECK_ICON} Saved — the year table below is updated</span>` : ''}</span></div>
       ${(state.harvestSaved = false) || ''}
       <p class="helper" style="margin-top:10px;">${MONTHS[month-1]} ${year} total so far (all 4 weeks): <strong>${fmt(monthTotal)} kg</strong></p>
-    </div>
+    </div>`}
+    ${kind==='plan' ? selectionTotals(id, year) : ''}
     ${kind==='plan' ? projectionSection(id, year) : ''}
     <div class="section-label">${label} for ${year} — full year</div>
     <div class="card" style="overflow-x:auto;">
@@ -5091,6 +5457,13 @@ function saveCatalogueVariety(ci, vi){
   YIELD_PATTERNS[pattern].fields.forEach(([k])=>{
     v[k] = Number(document.getElementById('cv-'+k).value)||0;
   });
+  // A variety whose figures come to nothing is worse than no variety: farms
+  // choose it, enter their seedlings, and get a blank plan with no idea why.
+  // Refuse it here, where the figures can actually be corrected.
+  if(weeklyYield(v, 24).reduce((a,b)=> a+b, 0) <= 0){
+    if(msg) msg.textContent = 'These figures give nothing per plant, so no farm could plan a harvest from them. Enter how much one plant yields, and from which week.';
+    return;
+  }
   crop.varieties = crop.varieties || [];
   const was = vi === -1 ? null : crop.varieties[vi];
   if(vi === -1) crop.varieties.push(v); else crop.varieties[vi] = v;
@@ -5623,11 +5996,27 @@ function comparisonBar(label, plan, actual){
   </div>`;
 }
 
-function selectMonth(m){ state.selMonth = m; render(); }
+function selectMonth(m){ state.selMonth = m; state.selMonths = [m]; render(); }
 function selectWeek(w){ state.selWeek = w; render(); }
-function monthWeekChips(){
-  return `<div class="chips">${MONTHS.map((mName,i)=>`<span class="chip ${state.selMonth===i+1?'active':''}" onclick="selectMonth(${i+1})">${mName.slice(0,3)}</span>`).join('')}</div>
-    <div class="chips">${[1,2,3,4].map(w=>`<span class="chip ${state.selWeek===w?'active':''}" onclick="selectWeek(${w})">Week ${w}</span>`).join('')}</div>`;
+// On the harvest plan several months can be picked together; the totals
+// follow the whole selection. One month always stays selected.
+function toggleMonth(m){
+  const i = state.selMonths.indexOf(m);
+  if(i === -1) state.selMonths.push(m);
+  else if(state.selMonths.length > 1) state.selMonths.splice(i, 1);
+  state.selMonth = state.selMonths[state.selMonths.length-1];
+  render();
+}
+function monthWeekChips(opts){
+  opts = opts || {};
+  const months = `<div class="chips">${MONTHS.map((mName,i)=>{
+    const m = i + 1;
+    const on = opts.multi ? state.selMonths.indexOf(m) !== -1 : state.selMonth === m;
+    return `<span class="chip ${on?'active':''}" onclick="${opts.multi?`toggleMonth(${m})`:`selectMonth(${m})`}">${mName.slice(0,3)}</span>`;
+  }).join('')}</div>`;
+  const weeks = opts.weeks === false ? '' :
+    `<div class="chips">${[1,2,3,4].map(w=>`<span class="chip ${state.selWeek===w?'active':''}" onclick="selectWeek(${w})">Week ${w}</span>`).join('')}</div>`;
+  return months + weeks;
 }
 
 let capacityChartRef=null, trendChartRef=null, memberChartRef=null;
