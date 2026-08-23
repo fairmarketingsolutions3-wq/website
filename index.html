@@ -1405,7 +1405,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v38';
+const BUILD = 'v39';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1688,6 +1688,87 @@ async function cloudDeleteSubmission(docId){
   if(!cloudOn() || !docId || CLOUD_STATE.role !== 'operator') return;
   try{ await CLOUD.fs.deleteDoc(CLOUD.fs.doc(CLOUD.db, 'submissions', docId)); }
   catch(e){ /* it stays until an operator can remove it */ }
+}
+
+/* ---- The operator roll -----------------------------------------------
+   Operators are Firebase accounts, but Governance was listing an array
+   kept in whichever browser happened to be open. An operator who signed
+   up on one device was invisible on every other, so the roll showed only
+   the ones made here. Read the real list. */
+async function cloudPullOperators(){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator') return 0;
+  try{
+    const { collection, getDocs } = CLOUD.fs;
+    const snap = await getDocs(collection(CLOUD.db, 'operators'));
+    let n = 0;
+    const seen = {};
+    snap.forEach(d=>{
+      const v = d.data() || {};
+      const email = (v.email || '').trim();
+      if(!email) return;
+      seen[d.id] = true;
+      const at = ADMINS.findIndex(a=> norm(a.username) === norm(email));
+      if(at === -1) ADMINS.push({ name: v.name || email, username: email, uid: d.id, since: v.since || '' });
+      else Object.assign(ADMINS[at], { name: v.name || ADMINS[at].name, uid: d.id, since: v.since || ADMINS[at].since });
+      n++;
+    });
+    // The roll is what the database holds. An operator removed on another
+    // device has to leave this one too, or every console keeps its own idea
+    // of who the association's operators are — which is the fault being fixed.
+    for(let i = ADMINS.length - 1; i >= 0; i--){
+      const a = ADMINS[i];
+      if(a.uid && !seen[a.uid]) ADMINS.splice(i, 1);
+    }
+    // Removing an operator revokes their access at the database, so a console
+    // still open on that account can no longer read or write anything. Say so
+    // and close the session rather than leaving it looking signed in.
+    if(CLOUD_STATE.uid && !seen[CLOUD_STATE.uid]){
+      saveAdmins();
+      await revokeOperatorSession();
+      return n;
+    }
+    // An account this browser made before the database existed is still shown,
+    // but it is not one of the association's — say which is which.
+    ADMINS.forEach(a=>{ if(!a.uid) a.localOnly = true; else delete a.localOnly; });
+    saveAdmins();
+    return n;
+  }catch(e){
+    // A revoked operator cannot list the collection either — the refusal is
+    // itself the answer. Their own record is readable to them if it exists,
+    // so ask for that before concluding anything.
+    if(/permission|insufficient/i.test(String(e && (e.code || e.message))))
+      await checkStillAnOperator();
+    return 0;
+  }
+}
+
+async function checkStillAnOperator(){
+  if(!cloudOn() || !CLOUD_STATE.uid) return true;
+  try{
+    const { doc, getDoc } = CLOUD.fs;
+    const mine = await getDoc(doc(CLOUD.db, 'operators', CLOUD_STATE.uid));
+    if(mine.exists()) return true;
+  }catch(e){ return true; }        // could not tell; leave the session alone
+  await revokeOperatorSession();
+  return false;
+}
+
+async function revokeOperatorSession(){
+  for(let i = ADMINS.length - 1; i >= 0; i--) if(ADMINS[i].uid === CLOUD_STATE.uid) ADMINS.splice(i, 1);
+  saveAdmins();
+  logAction('This operator account was removed by another operator — signing out.');
+  state.forgotMsg = 'Your operator account has been removed by another operator, so this console has been signed out.';
+  await cloudSignOut();
+  state.loggedIn = false; state.role = null;
+  document.body.removeAttribute('data-role');
+  render();
+}
+
+async function cloudDeleteOperator(uid){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator' || !uid) return;
+  if(uid === CLOUD_STATE.uid) return;                 // never the one signed in
+  try{ await CLOUD.fs.deleteDoc(CLOUD.fs.doc(CLOUD.db, 'operators', uid)); }
+  catch(e){ state.govError = 'The database refused that removal. Check the rules in firestore.rules are published.'; }
 }
 
 async function cloudPullAll(){
@@ -2250,7 +2331,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -2608,6 +2689,7 @@ async function doMemberLogin(btn){
       await cloudPullAll();
       await cloudPullCatalogue();
       await cloudPullSubmissions();
+      await cloudPullOperators();
       if(btn) btn.classList.remove('is-busy');
       if(who.role === 'operator'){
         flagError(document.getElementById('login-error'), 'That is an operator account — sign in on the Administrator tab.');
@@ -2695,6 +2777,7 @@ async function doAdminLogin(btn){
       await cloudPullAll();
       await cloudPullCatalogue();
       await cloudPullSubmissions();
+      await cloudPullOperators();
       if(btn) btn.classList.remove('is-busy');
       curtainTransition(()=>{
         state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = who.name || raw;
@@ -6904,10 +6987,24 @@ function renderGovernance(c){
     </div>
     <div class="section-label">Administrator accounts (${ADMINS.length}/${MAX_ADMINS})</div>
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Name</th><th>Operator ID / email</th><th></th></tr></thead>
-      <tbody>${ADMINS.map((a,i)=>`<tr><td>${a.name}</td><td>${a.username}</td><td><button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeAdmin(${i})">Remove</button></td></tr>`).join('')}</tbody></table>
-      ${ADMINS.length < MAX_ADMINS ? `
+      ${state.govError ? `<p class="helper cat-local">${esc(state.govError)}</p>${(state.govError='')||''}` : ''}
+      <table class="grid-table"><thead><tr><th>Name</th><th>Operator ID / email</th><th>Account</th><th></th></tr></thead>
+      <tbody>${ADMINS.map((a,i)=>`<tr>
+        <td>${esc(a.name)}</td><td>${esc(a.username)}</td>
+        <td>${a.localOnly
+              ? '<span class="helper" style="color:var(--red);">this device only</span>'
+              : `<span class="helper">shared${a.since?` · since ${esc(a.since)}`:''}</span>`}</td>
+        <td>${norm(a.username) === norm(CLOUD_STATE.email || '')
+              ? '<span class="helper">signed in now</span>'
+              : `<button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeAdmin(${i})">Remove</button>`}</td>
+      </tr>`).join('')}</tbody></table>
+      ${cloudOn() ? `
+        <p class="helper" style="margin-top:12px;">This is the association's roll, read from the shared database, so an operator who signed up on any device appears here.
+        A new operator creates their own account from the Administrator tab of the sign-in screen, quoting the operator sign-up code below — an account cannot be made for someone else from here, because only they can set their own password.</p>
+        <button class="btn small ghost" onclick="refreshOperators()">Refresh the roll</button>
+      ` : `
         <div class="section-label" style="margin-top:16px;">Add administrator</div>
+        <p class="helper" style="margin:0 0 8px;">Not connected to the shared database, so this account will exist on this device only until the database is reachable.</p>
         <div class="grid2">
           <div><label class="f">Full name</label><input id="newadmin-name"></div>
           <div><label class="f">Operator ID / email</label><input id="newadmin-user"></div>
@@ -6915,8 +7012,7 @@ function renderGovernance(c){
         <label class="f">Password</label>${pwdField('newadmin-pass','Set a password')}
         <button class="btn small" style="margin-top:6px;" onclick="addAdmin()">Add administrator</button>
         <p class="helper" id="newadmin-error" style="color:var(--red);margin-top:8px;"></p>
-      ` : `<p class="helper" style="color:var(--soil);margin-top:10px;">Maximum of ${MAX_ADMINS} administrator accounts reached. Remove one above to free a seat.</p>`}
-      <p class="helper" style="margin-top:12px;">Operators create their own account from the Administrator tab of the sign-in screen by quoting the operator sign-up code below. Self sign-ups appear in this list and are recorded in the audit log.</p>
+      `}
     </div>
     ${codesPanel()}
     ${backupPanel()}
@@ -6925,6 +7021,15 @@ function renderGovernance(c){
       `<div class="log-item" style="animation-delay:${Math.min(i,10)*40}ms"><span class="t">${l.time}</span><span>${esc(l.text)}</span></div>`
     ).join('')}</div>`;
 }
+// Read the roll again without signing out and back in.
+function refreshOperators(){
+  cloudPullOperators().then(n=>{
+    state.govError = '';
+    logAction(`Operator ${state.adminName||''} refreshed the administrator roll (${n} account${n===1?'':'s'}).`);
+    render();
+  });
+}
+
 function addAdmin(){
   if(ADMINS.length >= MAX_ADMINS) return;
   const name = document.getElementById('newadmin-name').value.trim();
@@ -6950,6 +7055,7 @@ function removeAdmin(i){
     render();
     return;
   }
+  if(removed && removed.uid) cloudDeleteOperator(removed.uid);
   ADMINS.splice(i,1);
   saveAdmins();
   logAction(`Operator ${state.adminName||''} removed administrator account: ${removed.name}.`);
