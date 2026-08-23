@@ -1405,7 +1405,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v37';
+const BUILD = 'v38';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1503,6 +1503,7 @@ function farmDoc(m){
     crops:m.crops||[], marketStandards:m.marketStandards||[], marketPrices:m.marketPrices||[],
     investments:m.investments||blankInvestments(), futurePlan:m.futurePlan||{year1:'',year2:'',year3:''},
     archives:m.archives||[],
+    inputs: inputsData[m.__id] || null,
     updatedAt: new Date().toISOString()
   }));
 }
@@ -1513,7 +1514,7 @@ async function cloudPushFarm(id){
   if(!cloudOn() || !MEMBERS[id] || !isCloudFarm(id)) return;
   try{
     const { doc, setDoc } = CLOUD.fs;
-    await setDoc(doc(CLOUD.db, 'farms', id), farmDoc(MEMBERS[id]), {merge:true});
+    await setDoc(doc(CLOUD.db, 'farms', id), farmDoc(Object.assign({__id:id}, MEMBERS[id])), {merge:true});
     if(harvest[id]) await setDoc(doc(CLOUD.db, 'harvest', id),
       JSON.parse(JSON.stringify({ plan:harvest[id].plan, actual:harvest[id].actual, updatedAt:new Date().toISOString() })), {merge:true});
   }catch(e){ setCloudStatus('offline', 'Could not save to the shared database: ' + (e.message||e)); }
@@ -1626,6 +1627,69 @@ function cloudPushSoon(id){
   }, 1200);
 }
 
+/* ---- Requests and complaints ---------------------------------------
+   A farm raising a complaint on its own phone and the Secretariat reading
+   it on another machine is the whole point of the thing, so these live in
+   the database like everything else. Each carries an id made from the
+   farm's own uid and the moment it was raised, so two farms writing at
+   once cannot land on the same document. */
+function submissionId(uid){
+  return `${uid}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+}
+
+async function cloudPushSubmission(c){
+  if(!cloudOn() || !c || !c.docId) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'submissions', c.docId), {
+      farmUid: c.member, type: c.type, text: c.text,
+      status: c.status, assignee: c.assignee || 'Unassigned',
+      created: c.created || new Date().toISOString()
+    }, {merge:true});
+  }catch(e){
+    state.commsError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
+      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
+      : 'Saved on this device only — the shared database could not be reached.';
+  }
+}
+
+async function cloudPullSubmissions(){
+  if(!cloudOn()) return 0;
+  const fs = CLOUD.fs;
+  try{
+    let snap;
+    if(CLOUD_STATE.role === 'operator'){
+      snap = await fs.getDocs(fs.collection(CLOUD.db, 'submissions'));
+    } else if(CLOUD_STATE.uid && fs.query && fs.where){
+      // A farm may read only its own, so the query has to say as much or the
+      // rules refuse the whole listing.
+      snap = await fs.getDocs(fs.query(fs.collection(CLOUD.db, 'submissions'),
+                                       fs.where('farmUid', '==', CLOUD_STATE.uid)));
+    } else return 0;
+    let n = 0;
+    snap.forEach(d=>{
+      const v = d.data();
+      const existing = complaints.find(x=> x.docId === d.id);
+      if(existing){
+        existing.status = v.status; existing.assignee = v.assignee;
+        existing.type = v.type; existing.text = v.text;
+      } else {
+        complaints.unshift({ id: nextComplaintId++, docId: d.id, member: v.farmUid,
+                             type: v.type, text: v.text, status: v.status,
+                             assignee: v.assignee || 'Unassigned', created: v.created });
+      }
+      n++;
+    });
+    return n;
+  }catch(e){ return 0; }
+}
+
+async function cloudDeleteSubmission(docId){
+  if(!cloudOn() || !docId || CLOUD_STATE.role !== 'operator') return;
+  try{ await CLOUD.fs.deleteDoc(CLOUD.fs.doc(CLOUD.db, 'submissions', docId)); }
+  catch(e){ /* it stays until an operator can remove it */ }
+}
+
 async function cloudPullAll(){
   if(!cloudOn()) return 0;
   const { collection, getDocs, doc, getDoc } = CLOUD.fs;
@@ -1633,12 +1697,24 @@ async function cloudPullAll(){
   try{
     if(CLOUD_STATE.role === 'operator'){
       const farms = await getDocs(collection(CLOUD.db, 'farms'));
-      farms.forEach(d=>{ MEMBERS[d.id] = Object.assign(MEMBERS[d.id]||{}, d.data()); CLOUD_STATE.cloudIds.add(d.id); count++; });
+      farms.forEach(d=>{
+        const rec = d.data();
+        if(rec.inputs) inputsData[d.id] = rec.inputs;
+        delete rec.inputs;
+        MEMBERS[d.id] = Object.assign(MEMBERS[d.id]||{}, rec);
+        CLOUD_STATE.cloudIds.add(d.id); count++;
+      });
       const hv = await getDocs(collection(CLOUD.db, 'harvest'));
       hv.forEach(d=>{ harvest[d.id] = { plan:d.data().plan||blankHarvestStore(), actual:d.data().actual||blankHarvestStore() }; });
     } else if(CLOUD_STATE.uid){
       const f = await getDoc(doc(CLOUD.db, 'farms', CLOUD_STATE.uid));
-      if(f.exists()){ MEMBERS[CLOUD_STATE.uid] = Object.assign(MEMBERS[CLOUD_STATE.uid]||{}, f.data()); CLOUD_STATE.cloudIds.add(CLOUD_STATE.uid); count++; }
+      if(f.exists()){
+        const rec = f.data();
+        if(rec.inputs) inputsData[CLOUD_STATE.uid] = rec.inputs;
+        delete rec.inputs;
+        MEMBERS[CLOUD_STATE.uid] = Object.assign(MEMBERS[CLOUD_STATE.uid]||{}, rec);
+        CLOUD_STATE.cloudIds.add(CLOUD_STATE.uid); count++;
+      }
       const h = await getDoc(doc(CLOUD.db, 'harvest', CLOUD_STATE.uid));
       if(h.exists()) harvest[CLOUD_STATE.uid] = { plan:h.data().plan||blankHarvestStore(), actual:h.data().actual||blankHarvestStore() };
     }
@@ -2174,7 +2250,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -2531,6 +2607,7 @@ async function doMemberLogin(btn){
       const who = await cloudSignIn(raw, password);
       await cloudPullAll();
       await cloudPullCatalogue();
+      await cloudPullSubmissions();
       if(btn) btn.classList.remove('is-busy');
       if(who.role === 'operator'){
         flagError(document.getElementById('login-error'), 'That is an operator account — sign in on the Administrator tab.');
@@ -2617,6 +2694,7 @@ async function doAdminLogin(btn){
       }
       await cloudPullAll();
       await cloudPullCatalogue();
+      await cloudPullSubmissions();
       if(btn) btn.classList.remove('is-busy');
       curtainTransition(()=>{
         state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = who.name || raw;
@@ -5613,6 +5691,7 @@ function renderComms(c, isAdmin){
       <label class="f">Message</label><input id="msg-text" placeholder="Describe the issue or request">
       <button class="btn small" onclick="addComplaint()">Submit</button>
     </div>`}
+    ${state.commsError ? `<p class="helper cat-local">${esc(state.commsError)}</p>${(state.commsError='')||''}` : ''}
     <div class="section-label">${isAdmin?'All submissions':'Recent submissions'}</div>
     <div class="card">
       <table class="grid-table"><thead><tr><th>Farm</th><th>Message</th>${isAdmin?'<th>Assignee</th>':''}<th>Status</th></tr></thead>
@@ -5630,12 +5709,17 @@ function addComplaint(){
   const type = document.getElementById('msg-type').value;
   const text = document.getElementById('msg-text').value.trim();
   if(!text) return;
-  complaints.unshift({id:nextComplaintId++, member:state.member, type, text, status:'open', assignee:'Unassigned'});
+  const c = { id:nextComplaintId++, docId: submissionId(state.member), member:state.member,
+              type, text, status:'open', assignee:'Unassigned',
+              created: new Date().toISOString() };
+  complaints.unshift(c);
+  cloudPushSubmission(c);
   logAction(`${MEMBERS[state.member].name} submitted a new ${type.toLowerCase()}.`);
   render();
 }
 function updateStatus(id, status){
   const item = complaints.find(x=>x.id===id); item.status = status;
+  cloudPushSubmission(item);
   logAction(`Submission #${id} (${MEMBERS[item.member] ? MEMBERS[item.member].name : 'removed farm'}) status set to ${status}.`);
   render();
 }
@@ -6072,7 +6156,9 @@ function removeMember(id){
   if(!ok) return;
   cloudDeleteFarm(id);
   delete MEMBERS[id]; delete harvest[id]; delete inputsData[id];
-  for(let i=complaints.length-1;i>=0;i--){ if(complaints[i].member===id) complaints.splice(i,1); }
+  for(let i=complaints.length-1;i>=0;i--){
+    if(complaints[i].member===id){ cloudDeleteSubmission(complaints[i].docId); complaints.splice(i,1); }
+  }
   logAction(`Operator ${state.adminName||''} removed member: ${m.name}.`);
   if(state.memberPanel && state.memberPanel.id===id) state.memberPanel = null;
   render();

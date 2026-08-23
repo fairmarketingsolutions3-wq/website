@@ -119,6 +119,12 @@ service cloud.firestore {
       allow update, delete: if isOperator();
     }
 
+    // A farm listing its own submissions asks for exactly those, and the read
+    // rule above is what permits it. Operators list the collection whole.
+    match /submissions/{document=**} {
+      allow read: if isOperator();
+    }
+
     // ---- Diagnostics ----------------------------------------------------
     // Two documents that are never created. They exist only so the platform
     // can read them and learn why a sign-up was refused, without a code ever
