@@ -1134,8 +1134,22 @@ function yieldFor(cr){
   // but they cannot invent bearing months the variety does not have.
   const own = seasonWeeksOf(v) || 24;
   let weeks = own, start = null, dated = false;
-  const a = cr.planted ? new Date(cr.planted) : null;
-  if(a && !isNaN(a)){ start = a; dated = true; }
+
+  /* Two ways to place that season on a calendar, and a farm may know either.
+     The transplanting date is week one. The first harvest date is the week the
+     variety starts bearing, so the season is worked back from it. A farm that
+     knows when picking began but not when the seedlings went in is the common
+     case, and it is the more direct statement about the harvest, so it wins
+     when both are given. */
+  const firstWeek = firstBearingWeek(v) || 1;
+  const fh = cr.firstHarvest ? new Date(cr.firstHarvest) : null;
+  if(fh && !isNaN(fh)){
+    start = new Date(fh.getTime() - (firstWeek - 1) * MS_WEEK);
+    dated = true;
+  } else {
+    const a = cr.planted ? new Date(cr.planted) : null;
+    if(a && !isNaN(a)){ start = a; dated = true; }
+  }
   if(start && cr.expected){
     const b = new Date(cr.expected);
     if(!isNaN(b) && b > start) weeks = Math.min(own, Math.max(1, Math.round((b - start) / MS_WEEK)));
@@ -1184,15 +1198,15 @@ function yieldPanel(m){
     <div class="card" style="overflow-x:auto;">
       <p class="helper" style="margin:0 0 10px;">From the association's seasonal yield figures for the variety you chose, multiplied by the number you planted. Every crop has a low and a high — the average is the midpoint, and it is the figure your harvest plan uses.</p>
       <table class="grid-table"><thead><tr>
-        <th>Crop</th><th>Variety</th><th>Planted</th><th>Per ${'plant'}</th>
-        <th>Harvest</th><th>Low (kg)</th><th>Average (kg)</th><th>High (kg)</th><th>Bags (5 kg)</th>
+        <th>Crop</th><th>Variety</th><th>Planted</th><th>Per plant</th>
+        <th>Harvest window</th><th>Low (kg)</th><th>Average (kg)</th><th>High (kg)</th><th>Bags (5 kg)</th>
       </tr></thead>
       <tbody>${each.map(({cr, y})=> y.ok ? `<tr>
           <td><strong>${esc(cr.crop)}</strong></td>
           <td>${esc(cr.variety||'—')}</td>
           <td>${fmt(y.seedlings)} ${esc(unitWord(y.unit, y.seedlings))}</td>
           <td>${y.perPlantLow.toFixed(2)}–${y.perPlantHigh.toFixed(2)} kg</td>
-          <td class="helper">${esc(y.patternLabel)}${y.dated ? `<br>${esc(y.firstDate)} → ${esc(y.lastDate)}` : ''}</td>
+          <td class="helper">${esc(y.patternLabel)}${y.dated ? `<br><strong>${esc(y.firstDate)} → ${esc(y.lastDate)}</strong>` : '<br>no dates given'}</td>
           <td>${fmt(Math.round(y.totalLow))}</td>
           <td style="background:var(--field-cream);"><strong>${fmt(Math.round(y.total))}</strong></td>
           <td>${fmt(Math.round(y.totalHigh))}</td>
@@ -1218,7 +1232,7 @@ function yieldPanel(m){
           <td><strong>${fmt(Math.round(r.avg))}</strong></td>
           <td>${fmt(Math.round(r.high))}</td></tr>`).join('')}
         </tbody></table>`).join('')}
-      <p class="helper" style="margin-top:10px;">These are the same figures your harvest plan is generated from. Months are counted from the day you transplanted, four weeks to a month.</p>
+      <p class="helper" style="margin-top:10px;">These are the same figures your harvest plan is generated from, counted from your first harvest through to your last, four weeks to a month.</p>
     </div>`;
 }
 
@@ -1405,7 +1419,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v39';
+const BUILD = 'v40';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3514,16 +3528,16 @@ function renderProfile(c){
     </div>
     <div class="section-label">Crop profile</div>
     <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Seedlings</th><th>Transplanted</th><th>Last harvest</th><th style="min-width:150px;"></th></tr></thead>
+      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Seed company</th><th>Area</th><th>Seedlings</th><th>Transplanted</th><th>First harvest</th><th>Last harvest</th><th style="min-width:150px;"></th></tr></thead>
       <tbody>${m.crops.length ? m.crops.map((cr,i)=> state.editCrop===i ? cropEditRow(cr,i) : `<tr>
           <td>${esc(cr.crop)}</td><td>${esc(cr.variety)}</td>
           <td>${cr.seedCompany ? esc(cr.seedCompany) : '<span style="color:var(--muted);">Not recorded</span>'}</td>
           <td>${esc(areaText(cr.area, cr.areaUnit, 'm²'))}</td>
           <td>${cr.seedlings ? fmt(cr.seedlings) : '<span style="color:var(--muted);">—</span>'}</td>
-          <td>${esc(cr.planted||'—')}</td><td>${esc(cr.expected||'—')}</td>
+          <td>${esc(cr.planted||'—')}</td><td>${esc(cr.firstHarvest||'—')}</td><td>${esc(cr.expected||'—')}</td>
           <td><button class="btn small ghost" onclick="editCrop(${i})">Edit</button>
               <button class="btn small ghost" onclick="removeCrop(${i})">Remove</button></td></tr>`).join('')
-        : '<tr><td colspan="8" style="color:var(--muted);">No crops recorded yet — add the crops you grow below.</td></tr>'}</tbody></table>
+        : '<tr><td colspan="9" style="color:var(--muted);">No crops recorded yet — add the crops you grow below.</td></tr>'}</tbody></table>
       <div class="section-label" style="margin-top:16px;">Add a crop</div>
       <div class="grid2">
         <div><label class="f">Crop</label>${cropPicker('newcrop','')}</div>
@@ -3532,6 +3546,7 @@ function renderProfile(c){
         <div><label class="f">Area covered</label>${unitField('newcrop-area','', 'm²', LAND_UNITS, '0.01', "showVarietyFacts('newcrop')")}</div>
         <div><label class="f">Number of seedlings</label><input id="newcrop-seedlings" type="number" min="0" step="1" placeholder="How many plants went in" oninput="showVarietyFacts('newcrop')"></div>
         <div><label class="f">Transplanting date</label>${dateField('newcrop-planted','', "showVarietyFacts('newcrop')")}</div>
+        <div><label class="f">First harvest date <span class="helper" style="font-weight:400;">— when picking starts</span></label>${dateField('newcrop-firstHarvest','', "showVarietyFacts('newcrop')")}</div>
         <div><label class="f">Last harvest date <span class="helper" style="font-weight:400;">— when the crop finishes</span></label>${dateField('newcrop-expected','', "showVarietyFacts('newcrop')")}</div>
       </div>
       <p class="helper cat-facts" id="newcrop-facts" style="display:none;"></p>
@@ -3540,7 +3555,7 @@ function renderProfile(c){
       <button class="btn small" onclick="addCrop()">+ Add crop</button>
       ${archiveButton('Crop profile')}
       <p class="helper" id="crop-msg" style="margin-top:8px;"></p>
-      <p class="helper">The transplanting date is when the seedlings went in; the last harvest date is when you expect the crop to be finished — <em>not</em> the first pick. Leave it blank and the Secretariat's own season length for that variety is used. The two dates set the start and end of this crop's calendar.</p>
+      <p class="helper">Give either the transplanting date or the first harvest date — whichever you know. The first harvest date is when picking starts, and the season is worked back from it, so it is used when you give both. The last harvest date is when the crop finishes; leave it blank and the association's own season length for that variety is used.</p>
     </div>
     ${yieldPanel(m)}
     ${seedCompanyPanel(m)}`;
@@ -3597,11 +3612,11 @@ function onVarietyPicked(prefix){ showVarietyFacts(prefix); }
 /* What the catalogue knows about the chosen variety, and what the seedling
    count means against the area entered. Filled in as soon as both are known,
    so nobody has to look any of it up. */
-function varietyFacts(cropName, varietyName, seedlings, area, unit, planted, expected){
+function varietyFacts(cropName, varietyName, seedlings, area, unit, planted, expected, firstHarvest){
   const v = catalogueVariety(cropName, varietyName);
   if(!v) return '';
   const n = Number(seedlings)||0;
-  const y = yieldFor({crop:cropName, variety:varietyName, seedlings:n, planted, expected});
+  const y = yieldFor({crop:cropName, variety:varietyName, seedlings:n, planted, expected, firstHarvest});
   const sqm = toSqm(area, unit);
   const grown = v.unit || 'plant';                 // `unit` is the area's unit
   const bits = [];
@@ -3615,7 +3630,7 @@ function varietyFacts(cropName, varietyName, seedlings, area, unit, planted, exp
     × <strong>${fmt(n)}</strong> =
     <strong style="font-size:15px;">${fmt(Math.round(y.total))} kg expected</strong>
     <span class="helper">(${fmt(Math.round(y.totalLow))}–${fmt(Math.round(y.totalHigh))} kg · about ${fmt(bags(y.total))} bags of 5 kg)</span>
-    · ${esc(y.patternLabel)}${y.firstDate?` · first harvest ${esc(y.firstDate)}`:''}
+    · ${esc(y.patternLabel)}${y.firstDate?` · harvest ${esc(y.firstDate)} → ${esc(y.lastDate)}`:''}
     ${v.notes?`<br>${esc(v.notes)}`:''}`;
 }
 function showVarietyFacts(prefix){
@@ -3625,10 +3640,12 @@ function showVarietyFacts(prefix){
   const seedEl = document.getElementById(`${prefix}-seedlings`);
   const areaEl = document.getElementById(`${prefix}-area`);
   const dateEl = document.getElementById(`${prefix}-planted`);
+  const fhEl = document.getElementById(`${prefix}-firstHarvest`);
   const endEl = document.getElementById(`${prefix}-expected`);
   const html = varietyFacts(crop, variety, seedEl?seedEl.value:0, areaEl?areaEl.value:0,
                             readUnit(`${prefix}-area`, LAND_UNITS),
-                            dateEl?dateEl.value:'', endEl?endEl.value:'');
+                            dateEl?dateEl.value:'', endEl?endEl.value:'',
+                            fhEl?fhEl.value:'');
   el.innerHTML = html;
   el.style.display = html ? '' : 'none';
 }
@@ -3715,7 +3732,7 @@ function cancelEditCrop(){ state.editCrop = null; render(); }
 
 function cropEditRow(cr, i){
   // A full-width editing panel: seven columns of inputs is unreadable.
-  return `<tr class="crop-edit"><td colspan="8">
+  return `<tr class="crop-edit"><td colspan="9">
     <div class="ce-head">Editing <strong>${esc(cr.crop)}</strong>${cr.variety?` — ${esc(cr.variety)}`:''}</div>
     <div class="grid2">
       <div><label class="f">Crop</label>${cropPicker('ec', cr.crop)}</div>
@@ -3724,9 +3741,10 @@ function cropEditRow(cr, i){
       <div><label class="f">Area covered</label>${unitField('ec-area', cr.area, cr.areaUnit || 'm²', LAND_UNITS, '0.01', "showVarietyFacts('ec')")}</div>
       <div><label class="f">Number of seedlings</label><input id="ec-seedlings" type="number" min="0" step="1" value="${cr.seedlings||''}" oninput="showVarietyFacts('ec')"></div>
       <div><label class="f">Transplanting date</label>${dateField('ec-planted', cr.planted||'', "showVarietyFacts('ec')")}</div>
+      <div><label class="f">First harvest date <span class="helper" style="font-weight:400;">— when picking starts</span></label>${dateField('ec-firstHarvest', cr.firstHarvest||'', "showVarietyFacts('ec')")}</div>
       <div><label class="f">Last harvest date <span class="helper" style="font-weight:400;">— when the crop finishes</span></label>${dateField('ec-expected', cr.expected||'', "showVarietyFacts('ec')")}</div>
     </div>
-    <p class="helper cat-facts" id="ec-facts">${varietyFacts(cr.crop, cr.variety, cr.seedlings, cr.area, cr.areaUnit||'m²', cr.planted, cr.expected)}</p>
+    <p class="helper cat-facts" id="ec-facts">${varietyFacts(cr.crop, cr.variety, cr.seedlings, cr.area, cr.areaUnit||'m²', cr.planted, cr.expected, cr.firstHarvest)}</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button class="btn small" onclick="saveCropEdit(${i})">Save changes</button>
       <button class="btn small ghost" onclick="cancelEditCrop()">Cancel</button>
@@ -3746,6 +3764,7 @@ function saveCropEdit(i){
   const areaUnit = readUnit('ec-area', LAND_UNITS);
   const seedlings = Number(document.getElementById('ec-seedlings').value)||0;
   const planted = document.getElementById('ec-planted').value;
+  const firstHarvest = document.getElementById('ec-firstHarvest').value;
   const expected = document.getElementById('ec-expected').value;
   const fail = t=>{ if(msg){ msg.textContent = t; } };
   if(!crop){ fail('Enter the crop name.'); return; }
@@ -3757,7 +3776,7 @@ function saveCropEdit(i){
     fail('The expected harvest date must come after the transplanting date.'); return;
   }
   const oldName = cr.crop;
-  Object.assign(cr, {crop, variety, seedCompany, area, areaUnit, seedlings, planted, expected});
+  Object.assign(cr, {crop, variety, seedCompany, area, areaUnit, seedlings, planted, firstHarvest, expected});
   if(oldName !== crop) renameCropRecords(state.member, oldName, crop);
   state.editCrop = null;
   logAction(`${m.name} updated the crop profile entry for ${crop}${oldName!==crop ? ` (renamed from ${oldName})` : ''}.`);
@@ -3798,6 +3817,7 @@ function addCrop(){
   const areaUnit = readUnit('newcrop-area', LAND_UNITS);
   const seedlings = Number(document.getElementById('newcrop-seedlings').value)||0;
   const planted = document.getElementById('newcrop-planted').value;
+  const firstHarvest = document.getElementById('newcrop-firstHarvest').value;
   const expected = document.getElementById('newcrop-expected').value;
   const fail = t=>{ msg.textContent = t; msg.style.color = 'var(--red)'; };
   if(!crop){ fail('Choose the crop you grow.'); return; }
@@ -3813,7 +3833,7 @@ function addCrop(){
   if(m.crops.some(cr=> (cr.crop||'').toLowerCase()===crop.toLowerCase() && (cr.variety||'').toLowerCase()===variety.toLowerCase())){
     fail('That crop and variety are already in your crop profile.'); return;
   }
-  m.crops.push({crop, variety, seedCompany, area, areaUnit, seedlings, planted, expected,
+  m.crops.push({crop, variety, seedCompany, area, areaUnit, seedlings, planted, firstHarvest, expected,
                 stage:CROP_STAGES[0], stageInputs:'', programme:blankProgramme()});
   logAction(`${m.name} added a crop profile entry: ${crop} (${variety})${seedCompany ? ' from '+seedCompany : ''}.`);
   render();
