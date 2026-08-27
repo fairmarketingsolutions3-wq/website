@@ -706,6 +706,18 @@ input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
 
 
 .local-only{border-left:4px solid var(--gold);background:#FDF3E3;}
+.restoring-card{max-width:420px;margin:60px auto;text-align:center;padding:44px 26px;}
+.restoring-card h2{font-family:'Poppins',sans-serif;color:var(--tipfa-green);margin:12px 0 6px;font-size:19px;}
+.restoring-card .es-mark{margin:0 auto;}
+.restoring-card .es-mark svg{animation:spin 1.4s linear infinite;}
+@media (prefers-reduced-motion: reduce){ .restoring-card .es-mark svg{animation:none;} }
+.refresh-btn{display:inline-flex;align-items:center;gap:6px;margin-left:8px;}
+.refresh-btn .rf-icon{display:inline-flex;}
+.refresh-btn .rf-icon svg{width:14px;height:14px;}
+.refresh-btn.is-busy .rf-icon{animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.rf-ago{margin-left:7px;white-space:nowrap;}
+@media (prefers-reduced-motion: reduce){ .refresh-btn.is-busy .rf-icon{animation:none;} }
 .cat-local{background:#FDF3E3;border-left:3px solid var(--gold);
   padding:9px 12px;border-radius:0 8px 8px 0;margin-top:10px;line-height:1.6;color:var(--ink);}
 .cat-facts{background:var(--field-cream);border-left:3px solid var(--gold);
@@ -1419,7 +1431,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v41';
+const BUILD = 'v42';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1779,6 +1791,7 @@ async function revokeOperatorSession(){
   state.forgotMsg = 'Your operator account has been removed by another operator, so this console has been signed out.';
   await cloudSignOut();
   state.loggedIn = false; state.role = null;
+  forgetSession();
   document.body.removeAttribute('data-role');
   render();
 }
@@ -1958,6 +1971,101 @@ async function cloudSignIn(email, password){
   CLOUD_STATE.email = email;
   CLOUD_STATE.role = role;
   return { uid, role, name: (op && op.exists()) ? (op.data().name||email) : null };
+}
+
+/* ---- Staying signed in ----------------------------------------------
+   Firebase keeps the sign-in in this browser already; the page just never
+   asked. Reloading therefore looked like being signed out, and every
+   refresh meant typing a password again. On start-up the session is picked
+   up and the console restored to whoever is actually signed in.
+
+   With no database behind it there is no Firebase session to read, so the
+   role and the farm are remembered here instead — the same browser that
+   already holds the accounts themselves. */
+const SESSION_KEY = 'tipfa.session.v1';
+
+function rememberSession(){
+  try{
+    if(!state.loggedIn){ localStorage.removeItem(SESSION_KEY); return; }
+    localStorage.setItem(SESSION_KEY, JSON.stringify({
+      role: state.role, member: state.member, adminName: state.adminName,
+      cloud: !!cloudOn(), at: Date.now()
+    }));
+  }catch(e){ /* the session simply will not be remembered */ }
+}
+function forgetSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
+function storedSession(){
+  try{ return JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }catch(e){ return null; }
+}
+
+function enterSession(role, opts){
+  opts = opts || {};
+  state.loggedIn = true;
+  state.role = role;
+  state.rollRead = false;
+  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'profile'; }
+  else { state.adminName = opts.adminName || 'TIPFA Secretariat operator'; state.tab = state.tab || 'members'; }
+  document.body.setAttribute('data-role', role);
+  rememberSession();
+}
+
+/* Restore whoever this browser is already signed in as. Firebase answers
+   asynchronously, so the page says it is looking rather than showing a
+   sign-in form that is about to be replaced. */
+async function restoreSession(){
+  const saved = storedSession();
+  if(!saved) return false;
+
+  if(cloudOn() && CLOUD.authApi && CLOUD.authApi.onAuthStateChanged){
+    const user = await new Promise(resolve=>{
+      const stop = CLOUD.authApi.onAuthStateChanged(CLOUD.auth, u=>{ stop(); resolve(u); },
+                                                    ()=>{ resolve(null); });
+      setTimeout(()=> resolve(CLOUD.auth.currentUser || null), 8000);
+    });
+    if(!user){ forgetSession(); return false; }
+    state.restoring = true; render();
+    try{
+      CLOUD_STATE.uid = user.uid;
+      CLOUD_STATE.email = user.email || saved.adminName || '';
+      const { doc, getDoc } = CLOUD.fs;
+      const farm = await getDoc(doc(CLOUD.db, 'farms', user.uid));
+      if(farm.exists()){
+        CLOUD_STATE.role = 'farm';
+        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions();
+        enterSession('member', { member: user.uid });
+      } else {
+        const op = await getDoc(doc(CLOUD.db, 'operators', user.uid));
+        if(!op.exists()){ CLOUD_STATE.uid = null; forgetSession(); state.restoring = false; return false; }
+        CLOUD_STATE.role = 'operator';
+        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOperators();
+        enterSession('admin', { adminName: (op.data() || {}).name || user.email });
+      }
+      state.restoring = false;
+      state.lastRefresh = Date.now();
+      render();
+      return true;
+    }catch(e){
+      // Being dropped back to a sign-in screen with no explanation is the
+      // worst of both: the browser is signed in, the page says otherwise.
+      state.restoring = false;
+      CLOUD_STATE.uid = null; CLOUD_STATE.role = null;
+      state.restoreError = 'Your session could not be restored: ' + ((e && e.message) || e) + ' — please sign in again.';
+      forgetSession(); render();
+      return false;
+    }
+  }
+
+  // No database: the browser's own records are all there is, so the session
+  // is only restored if the account it names is still here.
+  if(saved.cloud) return false;                 // it was a database session; do not fake one
+  if(saved.role === 'member' && MEMBERS[saved.member]){
+    enterSession('member', { member: saved.member }); render(); return true;
+  }
+  if(saved.role === 'admin' && ADMINS.length){
+    enterSession('admin', { adminName: saved.adminName }); render(); return true;
+  }
+  forgetSession();
+  return false;
 }
 
 async function cloudSignOut(){
@@ -2350,7 +2458,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -2722,8 +2830,9 @@ async function doMemberLogin(btn){
         return;
       }
       curtainTransition(()=>{
-        state.loggedIn = true; state.role = 'member'; state.member = who.uid; state.tab = 'profile'; state.forgotMsg = '';
-        state.localOnly = false;
+        state.tab = 'profile'; state.forgotMsg = ''; state.localOnly = false;
+        enterSession('member', { member: who.uid });
+        state.lastRefresh = Date.now();
         document.body.setAttribute('data-role','member');
         logAction(`${(MEMBERS[who.uid]||{}).name || raw} signed in.`);
         render();
@@ -2761,8 +2870,8 @@ async function doMemberLogin(btn){
   // exactly why the same details fail on another device.
   state.localOnly = cloudOn() && !isCloudFarm(id);
   signInTransition(btn, ()=>{
-    state.loggedIn = true; state.role = 'member'; state.member = id; state.tab = 'profile'; state.forgotMsg = '';
-    document.body.setAttribute('data-role','member');
+    state.tab = 'profile'; state.forgotMsg = '';
+    enterSession('member', { member: id });
     logAction(`${MEMBERS[id].name} signed in.`);
     render();
   });
@@ -2799,9 +2908,9 @@ async function doAdminLogin(btn){
       await cloudPullOperators();
       if(btn) btn.classList.remove('is-busy');
       curtainTransition(()=>{
-        state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = who.name || raw;
-        state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = ''; state.rollRead = false;
-        document.body.setAttribute('data-role','admin');
+        state.tab = 'members'; state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = '';
+        enterSession('admin', { adminName: who.name || raw });
+        state.lastRefresh = Date.now();
         logAction(`Operator ${state.adminName} signed in to the administrator console.`);
         render();
       });
@@ -2824,18 +2933,19 @@ async function doAdminLogin(btn){
     return;
   }
   signInTransition(btn, ()=>{
-    state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = match.name;
-    state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = '';
-    document.body.setAttribute('data-role','admin');
+    state.tab = 'members'; state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = '';
+    enterSession('admin', { adminName: match.name });
     logAction(`Operator ${match.name} signed in to the administrator console.`);
     render();
   });
 }
 function logout(){
   logAction(`${state.role==='member' ? MEMBERS[state.member].name : (state.adminName||'Operator')} signed out.`);
+  forgetSession();
   cloudSignOut();
   curtainTransition(()=>{
     state.loggedIn = false; state.role = null; state.rollRead = false;
+    forgetSession();
     document.body.removeAttribute('data-role');
     render();
   });
@@ -3277,6 +3387,7 @@ function renderLogin(){
         <p class="login-note">Registration needs a membership code from the Secretariat — contact them on 0744 443 247 or tipfatz@gmail.com to be issued one. Your registration is then reviewed before your membership is approved.</p>
         ` : `
         ${state.regSuccess ? `<div class="msg-banner">${CHECK_ICON} Registration submitted — the Secretariat will review and approve your account.</div>` : ''}
+        ${state.restoreError ? `<p class="helper cat-local">${esc(state.restoreError)}</p>${(state.restoreError='')||''}` : ''}
         ${state.forgotMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.forgotMsg)}</div>` : ''}
         <div class="card">
           <label class="f">Phone number or email</label>
@@ -3382,17 +3493,67 @@ function renderSidebar(){
   ).join('');
 }
 
+/* Pull everything this session is entitled to see, without signing out and
+   back in — which was the only way to pick up another device's work. */
+async function refreshNow(btn){
+  if(state.refreshing) return;
+  state.refreshing = true;
+  if(btn) btn.classList.add('is-busy');
+  try{
+    if(cloudOn()){
+      await cloudPullAll();
+      await cloudPullCatalogue();
+      await cloudPullSubmissions();
+      if(CLOUD_STATE.role === 'operator'){ state.rollRead = true; await cloudPullOperators(); }
+    }
+    state.lastRefresh = Date.now();
+  }catch(e){ /* whatever failed reports itself */ }
+  state.refreshing = false;
+  render();
+}
+
+function refreshedAgo(){
+  if(!state.lastRefresh) return '';
+  const secs = Math.round((Date.now() - state.lastRefresh) / 1000);
+  if(secs < 60) return 'just now';
+  const mins = Math.round(secs / 60);
+  if(mins < 60) return `${mins} minute${mins===1?'':'s'} ago`;
+  const hrs = Math.round(mins / 60);
+  return `${hrs} hour${hrs===1?'':'s'} ago`;
+}
+
+function refreshButton(){
+  const ago = refreshedAgo();
+  return `<button class="btn small ghost refresh-btn${state.refreshing?' is-busy':''}" onclick="refreshNow(this)"
+      title="${cloudOn() ? 'Fetch everything again from the shared database' : 'Not connected to the shared database'}">
+      <span class="rf-icon" aria-hidden="true">${lineIcon('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>')}</span>
+      Refresh</button>${ago ? `<span class="helper rf-ago">updated ${esc(ago)}</span>` : ''}`;
+}
+
+// Shown while the browser's own sign-in is being read back.
+function renderRestoring(){
+  renderTopbarRight();
+  document.getElementById('loginScreen').style.display = 'block';
+  document.getElementById('appScreen').style.display = 'none';
+  const box = document.getElementById('loginBox') || document.getElementById('loginScreen');
+  box.innerHTML = `<div class="card restoring-card">
+    <div class="es-mark" aria-hidden="true">${lineIcon('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>')}</div>
+    <h2>Signing you back in</h2>
+    <p class="helper">This browser is already signed in — fetching your records.</p>
+  </div>`;
+}
+
 function renderSubbar(){
   const bar = document.getElementById('subbar');
   if(state.role==='member'){
     const m = MEMBERS[state.member];
     bar.innerHTML = `<label>Signed in as</label>${farmLogo(m,'sm')}<span class="who-name">${esc(m.name)}</span>
       <span class="helper" style="margin-left:8px;">${esc(m.location)} &middot; only your own farm's data is visible in this session.</span>
-      ${cloudBadge()}`;
+      ${refreshButton()}${cloudBadge()}`;
   } else {
     bar.innerHTML = `<label>Signed in as</label><span class="who-name">${esc(state.adminName||'TIPFA Secretariat operator')}</span>
       <span class="helper" style="margin-left:8px;">Association-wide access — every entry here is logged.</span>
-      ${cloudBadge()}`;
+      ${refreshButton()}${cloudBadge()}`;
   }
 }
 
@@ -3404,6 +3565,7 @@ function render(){
   // A calendar lifted onto the page body would be orphaned by this redraw,
   // and its id would collide with the fresh field about to be written.
   document.querySelectorAll('body > .datepop').forEach(p=> p.remove());
+  if(state.restoring){ renderRestoring(); return; }
 
   renderTopbarRight();
   if(!state.loggedIn){
@@ -7103,7 +7265,10 @@ render();
 cloudPushHook = function(){
   if(state.role === 'member' && state.member) cloudPushSoon(state.member);
 };
-initCloud();
+// Reloading the page is not signing out. Whoever this browser is already
+// signed in as is picked back up once the database is reachable — and if it
+// never becomes reachable, a local session is restored instead.
+initCloud().then(()=> restoreSession()).catch(()=> restoreSession());
 </script>
 </body>
 </html>
