@@ -1419,7 +1419,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v40';
+const BUILD = 'v41';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1750,8 +1750,13 @@ async function cloudPullOperators(){
     // A revoked operator cannot list the collection either — the refusal is
     // itself the answer. Their own record is readable to them if it exists,
     // so ask for that before concluding anything.
-    if(/permission|insufficient/i.test(String(e && (e.code || e.message))))
-      await checkStillAnOperator();
+    const denied = /permission|insufficient/i.test(String(e && (e.code || e.message)));
+    if(denied && !(await checkStillAnOperator())) return 0;
+    // Still an operator, so the read failed for another reason. Saying nothing
+    // leaves a console showing one account and no idea why.
+    state.govError = denied
+      ? 'The roll of administrators could not be read from the shared database — it refused the request. Check that the rules in firestore.rules are published, then try again.'
+      : 'The roll of administrators could not be read from the shared database: ' + ((e && e.message) || e);
     return 0;
   }
 }
@@ -2345,7 +2350,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -2795,7 +2800,7 @@ async function doAdminLogin(btn){
       if(btn) btn.classList.remove('is-busy');
       curtainTransition(()=>{
         state.loggedIn = true; state.role = 'admin'; state.tab = 'members'; state.adminName = who.name || raw;
-        state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = '';
+        state.adminSignupMsg = ''; state.adminSignupUser = ''; state.forgotMsg = ''; state.rollRead = false;
         document.body.setAttribute('data-role','admin');
         logAction(`Operator ${state.adminName} signed in to the administrator console.`);
         render();
@@ -2830,7 +2835,7 @@ function logout(){
   logAction(`${state.role==='member' ? MEMBERS[state.member].name : (state.adminName||'Operator')} signed out.`);
   cloudSignOut();
   curtainTransition(()=>{
-    state.loggedIn = false; state.role = null;
+    state.loggedIn = false; state.role = null; state.rollRead = false;
     document.body.removeAttribute('data-role');
     render();
   });
@@ -6999,6 +7004,13 @@ function backupPanel(){
 }
 
 function renderGovernance(c){
+  // The roll is the association's, not this browser's, so it is read when the
+  // page is opened rather than only at sign-in — an operator who signed up
+  // since would otherwise be missing until the next sign-in.
+  if(cloudOn() && !state.rollRead){
+    state.rollRead = true;
+    cloudPullOperators().then(()=> render());
+  }
   c.innerHTML = `
     <h1 class="page-title">Governance</h1>
     <p class="page-sub">Oversight, compliance, and transparency</p>
@@ -7043,6 +7055,7 @@ function renderGovernance(c){
 }
 // Read the roll again without signing out and back in.
 function refreshOperators(){
+  state.rollRead = true;
   cloudPullOperators().then(n=>{
     state.govError = '';
     logAction(`Operator ${state.adminName||''} refreshed the administrator roll (${n} account${n===1?'':'s'}).`);
