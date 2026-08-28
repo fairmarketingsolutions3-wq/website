@@ -711,6 +711,54 @@ input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
 .restoring-card .es-mark{margin:0 auto;}
 .restoring-card .es-mark svg{animation:spin 1.4s linear infinite;}
 @media (prefers-reduced-motion: reduce){ .restoring-card .es-mark svg{animation:none;} }
+/* ---- Harvest plan and actual harvest --------------------------------
+   Mobile first, one idea to a line, and the numbers that matter the
+   largest thing on the screen. */
+.big-card{padding:20px 18px;}
+.big-row{display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:9px 0;flex-wrap:wrap;}
+.big-lbl{font-size:14px;color:var(--muted);}
+.big-val{font-size:19px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+.big-rule{border-top:1px solid var(--line);margin:6px 0;}
+.big-row.total{padding-top:12px;}
+.big-row.total .big-lbl{color:var(--ink);font-weight:600;}
+.big-total{font-family:'Poppins',sans-serif;font-size:30px;font-weight:700;
+  color:var(--tipfa-green);line-height:1.1;font-variant-numeric:tabular-nums;}
+.big-note{margin:10px 0 0;font-size:14px;color:var(--soil-ink);}
+.big-card input, .big-card .date-trigger{font-size:16px;}   /* no zoom on iOS */
+.big-btn{width:100%;margin-top:12px;padding:14px;font-size:16px;}
+
+.progress-line{margin:0 0 6px;font-size:15px;color:var(--muted);line-height:1.7;}
+.progress-now{font-family:'Poppins',sans-serif;font-size:34px;font-weight:700;
+  color:var(--tipfa-green);font-variant-numeric:tabular-nums;}
+.progress-of{font-size:17px;color:var(--muted);}
+.progress-track{height:18px;border-radius:9px;background:var(--field-cream);
+  overflow:hidden;margin:10px 0 8px;box-shadow:inset 0 1px 3px rgba(35,40,31,.12);}
+.progress-fill{height:100%;border-radius:9px;transition:width .7s cubic-bezier(.2,.9,.3,1);}
+.progress-fill.low{background:var(--red);}
+.progress-fill.mid{background:var(--gold);}
+.progress-fill.near{background:var(--leaf-green);}
+.progress-fill.met{background:var(--tipfa-green);}
+.progress-pct{margin:0;font-family:'Poppins',sans-serif;font-size:26px;font-weight:700;
+  font-variant-numeric:tabular-nums;}
+.progress-status{margin:2px 0 0;font-size:16px;font-weight:600;}
+.progress-pct.low, .progress-status.low{color:var(--red);}
+.progress-pct.mid, .progress-status.mid{color:var(--gold);}
+.progress-pct.near, .progress-status.near{color:var(--leaf-green);}
+.progress-pct.met, .progress-status.met{color:var(--tipfa-green);}
+.pace{margin:12px 0 0;font-size:14px;color:var(--muted);line-height:1.6;}
+
+.hist-row{display:flex;align-items:center;gap:10px;padding:11px 0;
+  border-bottom:1px solid var(--line-soft);}
+.hist-row:last-child{border-bottom:0;}
+.hist-date{flex:1;font-size:14px;}
+.hist-amt{font-weight:600;font-variant-numeric:tabular-nums;}
+@media (max-width:520px){
+  .big-total{font-size:26px;}
+  .progress-now{font-size:30px;}
+  .big-row{padding:11px 0;}
+}
+@media (prefers-reduced-motion: reduce){ .progress-fill{transition:none;} }
 .refresh-btn{display:inline-flex;align-items:center;gap:6px;margin-left:8px;}
 .refresh-btn .rf-icon{display:inline-flex;}
 .refresh-btn .rf-icon svg{width:14px;height:14px;}
@@ -1058,6 +1106,110 @@ function defaultCatalogue(){
   ];
 }
 
+/* ============================================================
+   Seasonal yield, per crop
+   One figure per crop: what a single plant — or tree — yields over
+   the season. It lives on the crop in the Secretariat's catalogue and
+   nowhere else, and every member-facing figure is that number times
+   the count the farm entered. Nothing on the member side carries a
+   yield of its own.
+   ============================================================ */
+const SEASON_WEEKS = 24;
+
+/* The confirmed figures. A crop already in the catalogue keeps whatever an
+   operator has set — only fields it does not yet have are filled in. */
+const SEED_YIELDS = [
+  { name:'Cherry Tomatoes',        avgYieldPerPlant:4.20,  firstHarvestWeek:11, countUnit:'plant', was:'Cherry Tomato' },
+  { name:'Capsicum (Bell Pepper)', avgYieldPerPlant:2.00,  firstHarvestWeek:15, countUnit:'plant', was:'Capsicum (Sweet Pepper)' },
+  { name:'Paprika',                avgYieldPerPlant:2.40,  firstHarvestWeek:19, countUnit:'plant' },
+  { name:'Habanero (Loleza)',      avgYieldPerPlant:1.65,  firstHarvestWeek:14, countUnit:'plant', was:'Habanero' },
+  { name:'Sweet Melon',            avgYieldPerPlant:6.00,  firstHarvestWeek:13, countUnit:'plant' },
+  { name:'Broccoli',               avgYieldPerPlant:1.75,  firstHarvestWeek:11, countUnit:'plant' },
+  { name:'Cauliflower',            avgYieldPerPlant:1.15,  firstHarvestWeek:11, countUnit:'plant' },
+  { name:'Avocado',                avgYieldPerPlant:36.00, firstHarvestWeek:1,  countUnit:'tree'  },
+  { name:'Herbs',                  avgYieldPerPlant:1.80,  firstHarvestWeek:null, countUnit:'plant' }
+];
+
+// "plant" or "tree", said correctly for a count. Driven by countUnit, so a
+// future tree crop needs no code change.
+function countWord(unit, n){ return (unit === 'tree' ? 'tree' : 'plant') + (n === 1 ? '' : 's'); }
+function countLabel(unit){ return unit === 'tree' ? 'Number of trees' : 'Number of seedlings'; }
+
+function cropCountUnit(cropName){
+  const c = catalogueCrop(cropName);
+  return (c && c.countUnit) || 'plant';
+}
+
+/* THE shared calculation. Both member screens call this and nothing else
+   works out an expected total. It reports why it cannot answer rather than
+   returning a number that would render as NaN. */
+function expectedHarvest(cr){
+  const crop = catalogueCrop(cr && cr.crop);
+  const yieldPer = crop && crop.avgYieldPerPlant != null ? Number(crop.avgYieldPerPlant) : null;
+  const count = Number(cr && cr.seedlings) || 0;
+  const unit = (crop && crop.countUnit) || 'plant';
+  const yieldUnit = (crop && crop.yieldUnit) || 'kg';
+  const out = { crop: cr ? cr.crop : '', yieldPer, count, unit, yieldUnit,
+                firstHarvestWeek: crop && crop.firstHarvestWeek != null ? Number(crop.firstHarvestWeek) : null,
+                seasonWeeks: (crop && Number(crop.seasonWeeks)) || SEASON_WEEKS,
+                total: 0, ok: false, why: '' };
+  if(yieldPer == null || !(yieldPer > 0)){
+    out.why = 'no-yield';
+    return out;
+  }
+  if(!count){
+    out.why = 'no-count';
+    return out;
+  }
+  out.total = yieldPer * count;
+  out.ok = true;
+  return out;
+}
+
+/* Fill in the confirmed figures without touching anything an operator has
+   already set, and match a crop that is here under an earlier name rather
+   than adding a second one beside it. */
+function seedCatalogueYields(list){
+  const crops = Array.isArray(list) ? list : [];
+  const find = n=> crops.find(c=> (c.name||'').trim().toLowerCase() === String(n).trim().toLowerCase());
+  SEED_YIELDS.forEach(seed=>{
+    let crop = find(seed.name);
+    if(!crop && seed.was){
+      crop = find(seed.was);
+      if(crop){
+        const from = crop.name;
+        crop.name = seed.name;
+        renameCropEverywhere(from, seed.name);
+      }
+    }
+    if(!crop){
+      crop = { name: seed.name, varieties: [] };
+      crops.push(crop);
+    }
+    if(crop.avgYieldPerPlant == null) crop.avgYieldPerPlant = seed.avgYieldPerPlant;
+    if(crop.yieldUnit == null)        crop.yieldUnit = 'kg';
+    if(crop.countUnit == null)        crop.countUnit = seed.countUnit;
+    if(crop.firstHarvestWeek === undefined) crop.firstHarvestWeek = seed.firstHarvestWeek;
+    if(crop.seasonWeeks == null)      crop.seasonWeeks = SEASON_WEEKS;
+    if(!Array.isArray(crop.varieties) || !crop.varieties.length)
+      crop.varieties = [{ name:'Standard', unit: crop.countUnit, perSqm:0, notes:'', months:[] }];
+  });
+  return crops;
+}
+
+// A crop renamed in the catalogue must not orphan the farms already growing it.
+function renameCropEverywhere(from, to){
+  Object.keys(MEMBERS).forEach(id=>{
+    let touched = false;
+    (MEMBERS[id].crops||[]).forEach(cr=>{
+      if((cr.crop||'').trim().toLowerCase() === String(from).trim().toLowerCase()){
+        cr.crop = to; touched = true;
+      }
+    });
+    if(touched) renameCropRecords(id, from, to);
+  });
+}
+
 /* ---- Carrying older varieties forward -------------------------------
    Before the calculator's figures were adopted, a variety was one weekly
    amount and a week to start from. Those varieties are still in the
@@ -1118,10 +1270,11 @@ function migrateVariety(v){
 
 function normaliseCatalogue(list){
   if(!Array.isArray(list)) return null;
-  return list.map(c=> ({ name: c.name, varieties: (c.varieties||[]).map(migrateVariety) }));
+  const out = list.map(c=> Object.assign({}, c, { varieties: (c.varieties||[]).map(migrateVariety) }));
+  return seedCatalogueYields(out);
 }
 
-let CATALOGUE = defaultCatalogue();
+let CATALOGUE = defaultCatalogue();   // seeded at start-up, once the register is loaded
 
 const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
 
@@ -1201,50 +1354,31 @@ function unitWord(u, n){ return (u === 'tree' ? 'tree' : 'plant') + (n === 1 ? '
 function yieldPanel(m){
   const crops = m.crops || [];
   if(!crops.length) return '';
-  const each = crops.map(cr=> ({ cr, y: yieldFor(cr) }));
-  const gLow  = each.reduce((a,x)=> a + x.y.totalLow, 0);
-  const gAvg  = each.reduce((a,x)=> a + x.y.total, 0);
-  const gHigh = each.reduce((a,x)=> a + x.y.totalHigh, 0);
+  const each = crops.map(cr=> ({ cr, e: expectedHarvest(cr) }));
+  const grand = each.reduce((a,x)=> a + x.e.total, 0);
   return `
     <div class="section-label">Expected yield</div>
     <div class="card" style="overflow-x:auto;">
-      <p class="helper" style="margin:0 0 10px;">From the association's seasonal yield figures for the variety you chose, multiplied by the number you planted. Every crop has a low and a high — the average is the midpoint, and it is the figure your harvest plan uses.</p>
+      <p class="helper" style="margin:0 0 10px;">The Secretariat's figure for each crop, multiplied by how many you planted. This is the same figure your harvest plan uses.</p>
       <table class="grid-table"><thead><tr>
-        <th>Crop</th><th>Variety</th><th>Planted</th><th>Per plant</th>
-        <th>Harvest window</th><th>Low (kg)</th><th>Average (kg)</th><th>High (kg)</th><th>Bags (5 kg)</th>
+        <th>Crop</th><th>Variety</th><th>Planted</th><th>Per plant</th><th>Expected total</th>
       </tr></thead>
-      <tbody>${each.map(({cr, y})=> y.ok ? `<tr>
+      <tbody>${each.map(({cr, e})=> e.ok ? `<tr>
           <td><strong>${esc(cr.crop)}</strong></td>
           <td>${esc(cr.variety||'—')}</td>
-          <td>${fmt(y.seedlings)} ${esc(unitWord(y.unit, y.seedlings))}</td>
-          <td>${y.perPlantLow.toFixed(2)}–${y.perPlantHigh.toFixed(2)} kg</td>
-          <td class="helper">${esc(y.patternLabel)}${y.dated ? `<br><strong>${esc(y.firstDate)} → ${esc(y.lastDate)}</strong>` : '<br>no dates given'}</td>
-          <td>${fmt(Math.round(y.totalLow))}</td>
-          <td style="background:var(--field-cream);"><strong>${fmt(Math.round(y.total))}</strong></td>
-          <td>${fmt(Math.round(y.totalHigh))}</td>
-          <td>${fmt(bags(y.total))}</td>
+          <td>${fmt(e.count)} ${esc(countWord(e.unit, e.count))}</td>
+          <td>${e.yieldPer} ${esc(e.yieldUnit)}</td>
+          <td style="background:var(--field-cream);"><strong>${fmt(round1(e.total))} ${esc(e.yieldUnit)}</strong></td>
         </tr>` : `<tr>
           <td><strong>${esc(cr.crop)}</strong></td>
           <td>${esc(cr.variety||'—')}</td>
-          <td colspan="7" class="helper">${esc(yieldBlockedReason(cr))}</td>
+          <td colspan="3" class="helper">${e.why === 'no-yield'
+            ? 'Not set yet — contact admin.'
+            : `Enter your ${esc(countLabel(e.unit).toLowerCase())} on this tab and the total appears here.`}</td>
         </tr>`).join('')}
-        ${gAvg ? `<tr><td colspan="5" style="text-align:right;"><strong>All crops</strong></td>
-          <td><strong>${fmt(Math.round(gLow))}</strong></td>
-          <td style="background:var(--gold);color:var(--deep-green);"><strong>${fmt(Math.round(gAvg))}</strong></td>
-          <td><strong>${fmt(Math.round(gHigh))}</strong></td>
-          <td><strong>${fmt(bags(gAvg))}</strong></td></tr>` : ''}
+        ${grand ? `<tr><td colspan="4" style="text-align:right;"><strong>All crops</strong></td>
+          <td style="background:var(--gold);color:var(--deep-green);"><strong>${fmt(round1(grand))} kg</strong></td></tr>` : ''}
       </tbody></table>
-      ${each.filter(x=> x.y.ok && x.y.rows.length).map(({cr, y})=> `
-        <div class="section-label" style="margin-top:14px;">${esc(cr.crop)} — month by month</div>
-        <table class="grid-table"><thead><tr><th>Month</th><th>Stage</th><th>Low (kg)</th><th>Average (kg)</th><th>High (kg)</th></tr></thead>
-        <tbody>${monthlyBreakdown(y).map(r=>`<tr>
-          <td>Month ${r.month}${r.label ? ` <span class="helper">${esc(r.label)}</span>` : ''}</td>
-          <td class="helper">${esc(r.stage)}</td>
-          <td>${fmt(Math.round(r.low))}</td>
-          <td><strong>${fmt(Math.round(r.avg))}</strong></td>
-          <td>${fmt(Math.round(r.high))}</td></tr>`).join('')}
-        </tbody></table>`).join('')}
-      <p class="helper" style="margin-top:10px;">These are the same figures your harvest plan is generated from, counted from your first harvest through to your last, four weeks to a month.</p>
     </div>`;
 }
 
@@ -1431,7 +1565,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v42';
+const BUILD = 'v43';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1542,7 +1676,8 @@ async function cloudPushFarm(id){
     const { doc, setDoc } = CLOUD.fs;
     await setDoc(doc(CLOUD.db, 'farms', id), farmDoc(Object.assign({__id:id}, MEMBERS[id])), {merge:true});
     if(harvest[id]) await setDoc(doc(CLOUD.db, 'harvest', id),
-      JSON.parse(JSON.stringify({ plan:harvest[id].plan, actual:harvest[id].actual, updatedAt:new Date().toISOString() })), {merge:true});
+      JSON.parse(JSON.stringify({ plan:harvest[id].plan, actual:harvest[id].actual,
+        entries: harvest[id].entries || [], updatedAt:new Date().toISOString() })), {merge:true});
   }catch(e){ setCloudStatus('offline', 'Could not save to the shared database: ' + (e.message||e)); }
 }
 
@@ -1563,9 +1698,12 @@ function saveCatalogue(){
 }
 
 function loadCatalogue(){
+  // Seeding renames crops that are here under an earlier name, which reaches
+  // into the member register — so it happens here, after that is loaded, and
+  // not where CATALOGUE is first declared.
   try{
     const raw = localStorage.getItem(CATALOGUE_KEY);
-    if(!raw) return;
+    if(!raw){ CATALOGUE = seedCatalogueYields(CATALOGUE); return; }
     const d = normaliseCatalogue(JSON.parse(raw));
     if(d && d.length){
       CATALOGUE = d;
@@ -1574,6 +1712,7 @@ function loadCatalogue(){
       try{ localStorage.setItem(CATALOGUE_KEY, JSON.stringify(CATALOGUE)); }catch(_){ }
     }
   }catch(e){ /* keep the built-in list */ }
+  CATALOGUE = seedCatalogueYields(CATALOGUE);
 }
 
 async function cloudPushCatalogue(){
@@ -1818,7 +1957,8 @@ async function cloudPullAll(){
         CLOUD_STATE.cloudIds.add(d.id); count++;
       });
       const hv = await getDocs(collection(CLOUD.db, 'harvest'));
-      hv.forEach(d=>{ harvest[d.id] = { plan:d.data().plan||blankHarvestStore(), actual:d.data().actual||blankHarvestStore() }; });
+      hv.forEach(d=>{ harvest[d.id] = { plan:d.data().plan||blankHarvestStore(),
+        actual:d.data().actual||blankHarvestStore(), entries:d.data().entries||[] }; });
     } else if(CLOUD_STATE.uid){
       const f = await getDoc(doc(CLOUD.db, 'farms', CLOUD_STATE.uid));
       if(f.exists()){
@@ -1829,7 +1969,8 @@ async function cloudPullAll(){
         CLOUD_STATE.cloudIds.add(CLOUD_STATE.uid); count++;
       }
       const h = await getDoc(doc(CLOUD.db, 'harvest', CLOUD_STATE.uid));
-      if(h.exists()) harvest[CLOUD_STATE.uid] = { plan:h.data().plan||blankHarvestStore(), actual:h.data().actual||blankHarvestStore() };
+      if(h.exists()) harvest[CLOUD_STATE.uid] = { plan:h.data().plan||blankHarvestStore(),
+        actual:h.data().actual||blankHarvestStore(), entries:h.data().entries||[] };
     }
     // Bring anything pulled up to the current record shape.
     Object.keys(MEMBERS).forEach(id=>{
@@ -2003,7 +2144,7 @@ function enterSession(role, opts){
   state.loggedIn = true;
   state.role = role;
   state.rollRead = false;
-  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'profile'; }
+  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'profile'; state.harvestCrop = null; }
   else { state.adminName = opts.adminName || 'TIPFA Secretariat operator'; state.tab = state.tab || 'members'; }
   document.body.setAttribute('data-role', role);
   rememberSession();
@@ -2458,7 +2599,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', harvestCrop:null, yieldEdit:null, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -3711,7 +3852,7 @@ function renderProfile(c){
         <div><label class="f">Variety</label><div id="newcrop-variety-holder">${varietyPicker('newcrop','','')}</div></div>
         <div><label class="f">Seed company</label><input id="newcrop-seed" list="seed-companies" placeholder="Who supplied the seed"></div>
         <div><label class="f">Area covered</label>${unitField('newcrop-area','', 'm²', LAND_UNITS, '0.01', "showVarietyFacts('newcrop')")}</div>
-        <div><label class="f">Number of seedlings</label><input id="newcrop-seedlings" type="number" min="0" step="1" placeholder="How many plants went in" oninput="showVarietyFacts('newcrop')"></div>
+        <div><label class="f" id="newcrop-count-label">Number of seedlings</label><input id="newcrop-seedlings" type="number" min="0" step="1" placeholder="How many went in" oninput="showVarietyFacts('newcrop')"></div>
         <div><label class="f">Transplanting date</label>${dateField('newcrop-planted','', "showVarietyFacts('newcrop')")}</div>
         <div><label class="f">First harvest date <span class="helper" style="font-weight:400;">— when picking starts</span></label>${dateField('newcrop-firstHarvest','', "showVarietyFacts('newcrop')")}</div>
         <div><label class="f">Last harvest date <span class="helper" style="font-weight:400;">— when the crop finishes</span></label>${dateField('newcrop-expected','', "showVarietyFacts('newcrop')")}</div>
@@ -3772,6 +3913,10 @@ function onCropPicked(prefix){
   const sel = document.getElementById(`${prefix}-crop`);
   const holder = document.getElementById(`${prefix}-variety-holder`);
   if(holder) holder.innerHTML = varietyPicker(prefix, sel.value, '');
+  // Trees are not seedlings. The label follows the crop's countUnit, so a
+  // future tree crop needs nothing added here.
+  const lbl = document.getElementById(`${prefix}-count-label`);
+  if(lbl) lbl.textContent = countLabel(cropCountUnit(sel.value));
   showVarietyFacts(prefix);
 }
 function onVarietyPicked(prefix){ showVarietyFacts(prefix); }
@@ -3780,26 +3925,22 @@ function onVarietyPicked(prefix){ showVarietyFacts(prefix); }
    count means against the area entered. Filled in as soon as both are known,
    so nobody has to look any of it up. */
 function varietyFacts(cropName, varietyName, seedlings, area, unit, planted, expected, firstHarvest){
-  const v = catalogueVariety(cropName, varietyName);
-  if(!v) return '';
-  const n = Number(seedlings)||0;
-  const y = yieldFor({crop:cropName, variety:varietyName, seedlings:n, planted, expected, firstHarvest});
+  const e = expectedHarvest({ crop: cropName, seedlings });
+  if(e.why === 'no-yield') return cropName
+    ? 'The Secretariat has not set a yield for this crop yet.' : '';
   const sqm = toSqm(area, unit);
-  const grown = v.unit || 'plant';                 // `unit` is the area's unit
   const bits = [];
-  if(v.perSqm) bits.push(`Catalogue spacing <strong>${v.perSqm} ${esc(unitWord(grown, v.perSqm))} per m²</strong>`);
-  if(v.perSqm && sqm) bits.push(`that area holds about <strong>${fmt(Math.round(v.perSqm * sqm))}</strong>`);
-  if(n && sqm) bits.push(`you entered <strong>${fmt(n)}</strong>, or ${(n/sqm).toFixed(2)} per m²`);
-  const head = bits.join(' · ');
-  if(!n) return head + (head?'<br>':'') + `<em>Enter how many ${esc(unitWord(grown,2))} you planted to see the yield.</em>` + (v.notes?`<br>${esc(v.notes)}`:'');
-  return `${head}${head?'<br>':''}
-    <strong>${y.perPlantLow.toFixed(2)}–${y.perPlantHigh.toFixed(2)} kg</strong> per ${esc(unitWord(grown,1))} over ${y.weeks} weeks
-    × <strong>${fmt(n)}</strong> =
-    <strong style="font-size:15px;">${fmt(Math.round(y.total))} kg expected</strong>
-    <span class="helper">(${fmt(Math.round(y.totalLow))}–${fmt(Math.round(y.totalHigh))} kg · about ${fmt(bags(y.total))} bags of 5 kg)</span>
-    · ${esc(y.patternLabel)}${y.firstDate?` · harvest ${esc(y.firstDate)} → ${esc(y.lastDate)}`:''}
-    ${v.notes?`<br>${esc(v.notes)}`:''}`;
+  if(!e.count) bits.push(`<em>Enter your ${esc(countLabel(e.unit).toLowerCase())} to see the yield.</em>`);
+  else {
+    bits.push(`<strong>${e.yieldPer} ${esc(e.yieldUnit)}</strong> per ${esc(countWord(e.unit,1))}
+      &times; <strong>${fmt(e.count)}</strong> =
+      <strong style="font-size:15px;">${fmt(round1(e.total))} ${esc(e.yieldUnit)} expected</strong>`);
+    if(sqm) bits.push(`${(e.count/sqm).toFixed(2)} per m²`);
+  }
+  if(e.firstHarvestWeek) bits.push(`first harvest around week ${e.firstHarvestWeek}`);
+  return bits.join(' · ');
 }
+
 function showVarietyFacts(prefix){
   const el = document.getElementById(`${prefix}-facts`);
   if(!el) return;
@@ -3906,7 +4047,7 @@ function cropEditRow(cr, i){
       <div><label class="f">Variety</label><div id="ec-variety-holder">${varietyPicker('ec', cr.crop, cr.variety||'')}</div></div>
       <div><label class="f">Seed company</label><input id="ec-seed" value="${esc(cr.seedCompany||'')}" list="seed-companies"></div>
       <div><label class="f">Area covered</label>${unitField('ec-area', cr.area, cr.areaUnit || 'm²', LAND_UNITS, '0.01', "showVarietyFacts('ec')")}</div>
-      <div><label class="f">Number of seedlings</label><input id="ec-seedlings" type="number" min="0" step="1" value="${cr.seedlings||''}" oninput="showVarietyFacts('ec')"></div>
+      <div><label class="f" id="ec-count-label">${esc(countLabel(cropCountUnit(cr.crop)))}</label><input id="ec-seedlings" type="number" min="0" step="1" value="${cr.seedlings||''}" oninput="showVarietyFacts('ec')"></div>
       <div><label class="f">Transplanting date</label>${dateField('ec-planted', cr.planted||'', "showVarietyFacts('ec')")}</div>
       <div><label class="f">First harvest date <span class="helper" style="font-weight:400;">— when picking starts</span></label>${dateField('ec-firstHarvest', cr.firstHarvest||'', "showVarietyFacts('ec')")}</div>
       <div><label class="f">Last harvest date <span class="helper" style="font-weight:400;">— when the crop finishes</span></label>${dateField('ec-expected', cr.expected||'', "showVarietyFacts('ec')")}</div>
@@ -5188,8 +5329,6 @@ function yearChips(){
   // year that actually holds figures or projected harvest gets its own chip.
   const id = state.member || activeMembers()[0] || '';
   const known = new Set(harvestYears(id));
-  if(state.member && typeof projectionYears === 'function')
-    projectionYears(state.member).forEach(y=> known.add(y));
   known.add(state.selYear);
   const list = [...known].sort((a,b)=> a-b);
   return `<div class="chips year-nav"><label class="f" style="align-self:center;margin:0 4px 0 0;">Year</label>
@@ -5415,337 +5554,232 @@ function slotFor(date){
    that differed from the yield the farm was shown would be worse than none.
    Real dates are what the plan adds: a projection with no dates has nothing
    to file it under. */
-function plannedWeeks(cr){
-  const y = yieldFor(cr);
-  return (y.ok && y.dated) ? y.rows : [];
-}
 
 // Every crop that has enough entered to be planned, and what stops the rest.
-function plannableCrops(m){
-  return (m.crops||[]).map(cr=>{
-    const y = yieldFor(cr);
-    const rows = (y.ok && y.dated) ? y.rows : [];
-    let why = '';
-    if(!y.ok) why = yieldBlockedReason(cr);
-    else if(!y.dated) why = 'transplanting or expected harvest date missing';
-    else if(!rows.length) why = 'the dates leave no bearing weeks';
-    return { cr, rows, why, total: rows.reduce((a,b)=>a+b.kg, 0) };
-  });
-}
 
 /* The projection laid out on the calendar, without writing anything.
    A farm should be able to see what its seedlings come to as soon as it
    enters them, rather than having to commit them to the plan first.
    Keyed the way the plan itself is: year, month, one of four weeks. */
-function projectedYear(id, year){
-  const m = MEMBERS[id];
-  if(!m) return {};
-  const out = {};
-  (m.crops||[]).forEach(cr=>{
-    const y = yieldFor(cr);
-    if(!y.ok || !y.dated) return;
-    y.rows.forEach(r=>{
-      const slot = slotFor(r.date);
-      if(!slot || slot.year !== year) return;
-      out[slot.month] = out[slot.month] || {};
-      out[slot.month][slot.week] = out[slot.month][slot.week] || {};
-      const cell = out[slot.month][slot.week];
-      cell[cr.crop] = (cell[cr.crop] || 0) + r.kg;
-    });
-  });
-  return out;
-}
-function projectedWeek(id, year, month, week, crop){
-  const y = projectedYear(id, year);
-  const cell = y[month] && y[month][week];
-  return cell ? (cell[crop] || 0) : 0;
-}
-function projectedMonthCrop(id, year, month, crop){
-  const y = projectedYear(id, year);
-  let sum = 0;
-  Object.keys(y[month] || {}).forEach(w=>{ sum += (y[month][w][crop] || 0); });
-  return sum;
-}
 
 /* The projection as its own year table, shown whether or not it has been
    written into the plan, so the figures are visible the moment the crop
    profile has enough in it. */
-function projectionTable(id, year){
-  const crops = memberCrops(id);
-  const proj = projectedYear(id, year);
-  const cropTotals = {}; crops.forEach(c=> cropTotals[c] = 0);
-  let any = false;
-  const body = MONTHS.map((name, mi)=>{
-    const month = mi + 1;
-    let rowTotal = 0;
-    const cells = crops.map(cr=>{
-      let v = 0;
-      Object.keys(proj[month] || {}).forEach(w=>{ v += (proj[month][w][cr] || 0); });
-      v = Math.round(v);
-      if(v){ any = true; rowTotal += v; cropTotals[cr] += v; }
-      return `<td>${v ? fmt(v) : '<span style="color:var(--muted);">—</span>'}</td>`;
-    }).join('');
-    return `<tr class="${month===state.selMonth?'row-done':''}"><td>${name}</td>${cells}<td><strong>${rowTotal?fmt(rowTotal):'—'}</strong></td></tr>`;
-  }).join('');
-  if(!any) return '';
-  const grand = crops.reduce((t,c)=> t + cropTotals[c], 0);
-  return `<table class="grid-table">
-    <thead><tr><th>Month</th>${crops.map(cr=>`<th>${esc(cr)} (kg)</th>`).join('')}<th>Total (kg)</th></tr></thead>
-    <tbody>${body}</tbody>
-    <tfoot><tr><td><strong>Year total</strong></td>${crops.map(cr=>`<td><strong>${cropTotals[cr]?fmt(cropTotals[cr]):'—'}</strong></td>`).join('')}
-      <td><strong>${grand?fmt(grand):'—'}</strong></td></tr></tfoot>
-  </table>`;
-}
 
 /* Write the generated figures into the plan. Only the weeks the plan
    covers are touched, so an entry made by hand outside them survives. */
-function generateHarvestPlan(){
-  const id = state.member, m = MEMBERS[id];
-  const plans = plannableCrops(m).filter(p=> p.rows.length);
-  if(!plans.length){
-    state.planGenMsg = 'Nothing to generate yet. A crop needs a catalogue variety, a number of seedlings, and both of its dates.';
-    render(); return;
-  }
-  // Set each week to the projection rather than adding to what is there.
-  // Adding would double the plan the second time this is pressed, and would
-  // double a week already taken with "Use it".
-  let cells = 0;
-  const years = {};
-  plans.forEach(p=> p.rows.forEach(r=>{
-    const slot = slotFor(r.date);
-    if(!slot) return;
-    const key = `${slot.year}|${slot.month}|${slot.week}`;
-    years[key] = years[key] || {};
-    years[key][p.cr.crop] = (years[key][p.cr.crop] || 0) + r.kg;
-  }));
-  Object.keys(years).forEach(key=>{
-    const [year, month, week] = key.split('|').map(Number);
-    const wk = harvestWeek(id, 'plan', year, month, week);
-    if(!wk) return;
-    Object.keys(years[key]).forEach(crop=>{
-      wk[crop] = Math.round(years[key][crop] * 10) / 10;
-      cells++;
-    });
-  });
-  const names = plans.map(p=> p.cr.crop);
-  logAction(`${m.name} generated a harvest plan from the crop profile for ${names.join(', ')}.`);
-  state.planGenMsg = `Planned ${fmt(cells)} week${cells===1?'':'s'} across ${plans.length} crop${plans.length===1?'':'s'}, from the catalogue and your seedling counts.`;
-  render();
-}
 
-function clearGeneratedPlan(){
-  const id = state.member, m = MEMBERS[id];
-  const plans = plannableCrops(m).filter(p=> p.rows.length);
-  plans.forEach(p=> p.rows.forEach(r=>{
-    const slot = slotFor(r.date);
-    if(!slot) return;
-    const wk = harvestWeek(id, 'plan', slot.year, slot.month, slot.week);
-    if(wk) delete wk[p.cr.crop];
-  }));
-  logAction(`${m.name} cleared the generated harvest plan.`);
-  state.planGenMsg = 'The generated weeks have been cleared. Anything you typed in yourself outside them is untouched.';
-  render();
-}
 
 /* The workings, shown rather than hidden: what each crop contributes and,
    where one cannot be planned, exactly what is missing from it. */
-function harvestPlanSource(m){
-  const rows = plannableCrops(m);
-  if(!rows.length) return '';
-  return `
-    <div class="section-label">Where these figures come from</div>
-    <div class="card">
-      <p class="helper" style="margin:0 0 10px;">The Secretariat's catalogue holds what one plant of each variety yields week by week. Multiplied by your seedlings and laid across your own transplanting and harvest dates, that is your plan.</p>
-      <table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>Planted</th><th>Harvest</th><th>Per plant</th><th>Low</th><th>Expected</th><th>High</th></tr></thead>
-      <tbody>${rows.map(r=>{
-        const v = catalogueVariety(r.cr.crop, r.cr.variety);
-        const y = yieldFor(r.cr);
-        return `<tr>
-          <td>${esc(r.cr.crop)}</td>
-          <td>${esc(r.cr.variety||'—')}${v ? '' : ' <span class="helper">(not in the catalogue)</span>'}</td>
-          <td>${r.cr.seedlings ? `${fmt(r.cr.seedlings)} ${esc(unitWord(y.unit, r.cr.seedlings))}` : '—'}</td>
-          <td class="helper">${r.rows.length ? esc(y.patternLabel) : `<span style="color:var(--red);">${esc(r.why)}</span>`}</td>
-          <td>${y.perPlant ? `${y.perPlantLow.toFixed(2)}–${y.perPlantHigh.toFixed(2)} kg` : '—'}</td>
-          <td>${r.total ? fmt(Math.round(y.totalLow)) : '—'}</td>
-          <td><strong>${r.total ? fmt(Math.round(r.total))+' kg' : '—'}</strong></td>
-          <td>${r.total ? fmt(Math.round(y.totalHigh)) : '—'}</td>
-        </tr>`;
-      }).join('')}</tbody></table>
-    </div>`;
-}
 
 // Which years a farm's projected harvests actually land in. A season that
 // runs into the next year, or a crop transplanted last year, otherwise
 // disappears from a plan showing only the year that happens to be selected.
-function projectionYears(id){
-  const m = MEMBERS[id];
-  const years = {};
-  if(m) (m.crops||[]).forEach(cr=>{
-    const y = yieldFor(cr);
-    if(!y.ok || !y.dated) return;
-    y.rows.forEach(r=>{ const s = slotFor(r.date); if(s) years[s.year] = true; });
-  });
-  return Object.keys(years).map(Number).sort((a,b)=> a-b);
-}
 
 /* The total for whatever months are selected, projected and planned side by
    side. Selecting April and May has to answer for April and May together —
    a figure for one month while two are lit would be worse than none. */
-function selectionTotals(id, year){
-  const months = (state.selMonths && state.selMonths.length ? state.selMonths : [state.selMonth])
-    .slice().sort((a,b)=> a-b);
-  const crops = memberCrops(id);
-  const proj = projectedYear(id, year);
-  const rows = crops.map(crop=>{
-    let projected = 0, planned = 0;
-    months.forEach(m=>{
-      Object.keys(proj[m] || {}).forEach(w=>{ projected += (proj[m][w][crop] || 0); });
-      planned += memberMonthCropTotal(id, 'plan', year, m, crop);
-    });
-    return { crop, projected: Math.round(projected), planned: Math.round(planned) };
-  }).filter(r=> r.projected || r.planned);
-  const totProj = rows.reduce((t,r)=> t + r.projected, 0);
-  const totPlan = rows.reduce((t,r)=> t + r.planned, 0);
-  const span = months.length === 1
-    ? `${MONTHS[months[0]-1]} ${year}`
-    : `${months.map(m=> MONTHS[m-1].slice(0,3)).join(', ')} ${year}`;
-  return `
-    <div class="section-label">Selected: ${esc(span)}</div>
-    <div class="card">
-      <div class="grid3">
-        <div class="metric"><div class="lbl">Months selected</div><div class="val">${months.length}</div></div>
-        <div class="metric"><div class="lbl">Expected from your seedlings</div><div class="val" style="color:var(--leaf-green);">${fmt(totProj)} kg</div></div>
-        <div class="metric"><div class="lbl">In your plan</div><div class="val" style="color:var(--gold);">${fmt(totPlan)} kg</div></div>
-      </div>
-      ${rows.length ? `<table class="grid-table" style="margin-top:12px;">
-        <thead><tr><th>Crop</th><th>Expected (kg)</th><th>Planned (kg)</th><th>Difference</th></tr></thead>
-        <tbody>${rows.map(r=>{
-          const d = r.planned - r.projected;
-          return `<tr><td>${esc(r.crop)}</td><td>${fmt(r.projected)}</td><td>${fmt(r.planned)}</td>
-            <td style="color:${d===0?'var(--muted)':(d>0?'var(--gold)':'var(--red)')};">${d===0?'matches':(d>0?'+':'')+fmt(d)}</td></tr>`;
-        }).join('')}</tbody>
-        <tfoot><tr><td><strong>Total</strong></td><td><strong>${fmt(totProj)}</strong></td><td><strong>${fmt(totPlan)}</strong></td><td></td></tr></tfoot>
-      </table>` : `<p class="helper" style="margin:12px 0 0;">Nothing expected or planned across ${esc(span)}. Pick other months, or step to another year above.</p>`}
-      <p class="helper" style="margin-top:10px;">Tap a month to add or drop it. Every figure here covers exactly the months lit above.</p>
-    </div>`;
-}
 
 /* What the seedlings come to, month by month, shown without being asked
    for. Writing it into the plan stays a deliberate act — a farm may have
    typed its own figures — but seeing it does not. */
-function projectionSection(id, year){
-  const table = projectionTable(id, year);
-  const m = MEMBERS[id];
-  const waiting = (m.crops||[]).filter(cr=>{
-    const y = yieldFor(cr);
-    return !(y.ok && y.dated);
-  });
-  const missing = list=> `<table class="grid-table"><thead><tr><th>Crop</th><th>Variety</th><th>What it still needs</th></tr></thead>
-      <tbody>${list.map(cr=>`<tr><td><strong>${esc(cr.crop)}</strong></td><td>${esc(cr.variety||'—')}</td>
-        <td style="color:var(--red);">${esc(planBlockedReason(cr))}</td></tr>`).join('')}</tbody></table>`;
-  if(!table){
-    // The commonest reason for an empty year is that the harvest falls in a
-    // different one — a season running into next year, or a crop transplanted
-    // last year. Saying "nothing" there would be untrue.
-    const elsewhere = projectionYears(id).filter(y=> y !== year);
-    return `
-      <div class="section-label">What your seedlings come to</div>
-      <div class="card" style="overflow-x:auto;">
-        ${elsewhere.length ? `
-          <p class="helper" style="margin:0 0 10px;">Your crops are projected, but none of the harvest falls in ${year}. It lands in ${esc(elsewhere.join(' and '))}.</p>
-          <div class="chips">${elsewhere.map(y=>`<span class="chip" onclick="selectYear(${y})">Show ${y}</span>`).join('')}</div>`
-        : `<p class="helper" style="margin:0 0 10px;">Nothing can be placed on the calendar yet. ${waiting.length ? 'Each crop below says what it is waiting for.' : ''}</p>
-          ${waiting.length ? '' : '<p class="helper" style="margin:0;">Add a crop on your Profile tab, with the number of seedlings you planted and the date you transplanted.</p>'}`}
-        ${waiting.length ? missing(waiting) : ''}
-      </div>`;
-  }
-  return `
-    <div class="section-label">What your seedlings come to — ${year}</div>
-    <div class="card" style="overflow-x:auto;">
-      <p class="helper" style="margin:0 0 10px;">Worked out from the variety you chose and the seedlings you planted, laid out on your own transplanting dates. This is a projection — nothing here is written into your plan until you say so.</p>
-      ${table}
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button class="btn" onclick="generateHarvestPlan()">Copy these figures into my plan</button>
-        <button class="btn small ghost" onclick="clearGeneratedPlan()">Clear them from the plan again</button>
-        <button class="btn small ghost" onclick="exportProjection()">Download this table (CSV)</button>
-      </div>
-      ${state.planGenMsg ? `<p class="helper" style="margin-top:10px;color:var(--deep-green);">${CHECK_ICON} ${esc(state.planGenMsg)}</p>` : ''}
-      ${(state.planGenMsg = '') || ''}
-      ${(()=>{ const other = projectionYears(id).filter(y=> y !== year);
-        return other.length ? `<p class="helper" style="margin-top:10px;">More of this harvest falls in ${esc(other.join(' and '))}: <span class="chips" style="display:inline-flex;">${other.map(y=>`<span class="chip" onclick="selectYear(${y})">Show ${y}</span>`).join('')}</span></p>` : ''; })()}
-      ${waiting.length ? `<p class="helper" style="margin-top:14px;">Not counted here: ${esc(waiting.map(cr=>cr.crop).join(', '))}.</p>${missing(waiting)}` : ''}
-    </div>`;
-}
 
 // One week's projected figure, put into the plan where it is being typed.
-function useProjection(month, week, crop){
-  const id = state.member, year = state.selYear;
-  const kg = Math.round(projectedWeek(id, year, month, week, crop));
-  const wk = harvestWeek(id, 'plan', year, month, week);
-  if(!wk) return;
-  wk[crop] = kg;
-  logAction(`${MEMBERS[id].name} planned ${kg} kg of ${crop} for week ${week} of ${MONTHS[month-1]} ${year} from the seedling projection.`);
+
+
+/* ============================================================
+   Harvest plan — one card per crop, three numbers, nothing else
+   The calendar this screen used to carry is gone. What a farm wants
+   to know is what its seedlings come to; the month grid asked it to
+   work that out for itself.
+   ============================================================ */
+function renderHarvestForm(c, kind){
+  if(kind === 'plan') return renderHarvestPlan(c);
+  return renderActualHarvest(c);
+}
+
+// The three numbers, said the same way wherever they appear.
+function expectedCard(cr, opts){
+  opts = opts || {};
+  const e = expectedHarvest(cr);
+  const nameLine = `<div class="big-row"><span class="big-lbl">Crop</span><span class="big-val">${esc(cr.crop)}</span></div>`;
+  if(e.why === 'no-yield'){
+    return `<div class="card big-card">${nameLine}
+      <p class="big-note">Not set yet — contact admin.</p>
+      <p class="helper">The Secretariat has not recorded what one ${esc(countWord(e.unit,1))} of this crop yields.</p>
+    </div>`;
+  }
+  if(e.why === 'no-count'){
+    return `<div class="card big-card">${nameLine}
+      <div class="big-row"><span class="big-lbl">Average yield per ${esc(countWord(e.unit,1))}</span>
+        <span class="big-val">${e.yieldPer} ${esc(e.yieldUnit)}</span></div>
+      <p class="big-note">Enter your ${esc(countLabel(e.unit).toLowerCase())} first.</p>
+      <button class="btn" onclick="switchTab('profile')">Go to ${esc(countLabel(e.unit))}</button>
+    </div>`;
+  }
+  return `<div class="card big-card">${nameLine}
+    <div class="big-row"><span class="big-lbl">Average yield per ${esc(countWord(e.unit,1))}</span>
+      <span class="big-val">${e.yieldPer} ${esc(e.yieldUnit)}</span></div>
+    <div class="big-row"><span class="big-lbl">${esc(countLabel(e.unit))}</span>
+      <span class="big-val">${fmt(e.count)}</span></div>
+    <div class="big-rule"></div>
+    <div class="big-row total"><span class="big-lbl">Expected total harvest</span>
+      <span class="big-total">${fmt(round1(e.total))} ${esc(e.yieldUnit)}</span></div>
+    ${e.firstHarvestWeek ? `<p class="big-note">First harvest expected around week ${e.firstHarvestWeek}.</p>` : ''}
+    ${opts.extra || ''}
+  </div>`;
+}
+
+function round1(n){ return Math.round(Number(n) * 10) / 10; }
+
+function renderHarvestPlan(c){
+  const m = MEMBERS[state.member];
+  const crops = (m.crops || []);
+  c.innerHTML = `
+    <h1 class="page-title">Harvest plan</h1>
+    <p class="page-sub">${esc(m.name)}</p>
+    ${crops.length
+      ? crops.map(cr=> expectedCard(cr)).join('')
+      : emptyState('Add your crops first',
+          'Add the crops you grow on the Profile tab, with how many you planted, and your expected harvest appears here.')}`;
+}
+
+/* ============================================================
+   Actual harvest
+   The same three numbers, then one form, then how far along the
+   farm is. Everything on this screen is one idea to a line.
+   ============================================================ */
+function harvestEntries(id){
+  if(!harvest[id]) return [];
+  if(!Array.isArray(harvest[id].entries)) harvest[id].entries = [];
+  return harvest[id].entries;
+}
+function entriesForCrop(id, crop){
+  return harvestEntries(id).filter(e=> e.crop === crop);
+}
+function actualTotal(id, crop){
+  return entriesForCrop(id, crop).reduce((t,e)=> t + (Number(e.amount) || 0), 0);
+}
+
+function statusBand(pct){
+  if(pct >= 100) return { label:'Standard met \ud83c\udf89', cls:'met' };
+  if(pct >= 80)  return { label:'Almost at standard', cls:'near' };
+  if(pct >= 50)  return { label:'Getting there', cls:'mid' };
+  return { label:'Below standard', cls:'low' };
+}
+
+/* One line on pace, so a farm halfway through its season is not told it is
+   behind for having harvested half. Skipped entirely with no transplanting
+   date, and it never touches the percentage above it. */
+function paceLine(cr, e, totalActual){
+  if(!cr.planted) return '';
+  const start = new Date(cr.planted);
+  if(isNaN(start)) return '';
+  const weeksElapsed = Math.max(0, Math.min(e.seasonWeeks,
+    Math.floor((Date.now() - start.getTime()) / (7*24*60*60*1000))));
+  const expectedByNow = e.total * (weeksElapsed / e.seasonWeeks);
+  const diff = totalActual - expectedByNow;
+  const near = Math.max(1, expectedByNow * 0.05);
+  const how = Math.abs(diff) <= near ? 'you are on track'
+            : (diff > 0 ? 'you are ahead' : 'you are behind');
+  return `<p class="pace">Expected by now: <strong>${fmt(round1(expectedByNow))} ${esc(e.yieldUnit)}</strong> — ${how}
+    <span class="helper">(week ${weeksElapsed} of ${e.seasonWeeks})</span></p>`;
+}
+
+function renderActualHarvest(c){
+  const m = MEMBERS[state.member];
+  const id = state.member;
+  const crops = (m.crops || []);
+  if(!crops.length){
+    c.innerHTML = `
+      <h1 class="page-title">Actual harvest</h1>
+      <p class="page-sub">${esc(m.name)}</p>
+      ${emptyState('Add your crops first',
+        'Add the crops you grow on the Profile tab, with how many you planted, and you can record your harvest here.')}`;
+    return;
+  }
+  const pick = state.harvestCrop && crops.some(cr=> cr.crop === state.harvestCrop)
+             ? state.harvestCrop : crops[0].crop;
+  state.harvestCrop = pick;
+  const cr = crops.find(x=> x.crop === pick);
+  const e = expectedHarvest(cr);
+  const total = actualTotal(id, pick);
+  const pct = e.ok ? (total / e.total) * 100 : 0;
+  const band = statusBand(pct);
+  const rows = entriesForCrop(id, pick)
+    .slice().sort((a,b)=> String(b.date).localeCompare(String(a.date)));
+
+  c.innerHTML = `
+    <h1 class="page-title">Actual harvest</h1>
+    <p class="page-sub">${esc(m.name)}</p>
+    ${crops.length > 1 ? `<div class="chips">${crops.map(x=>
+      `<span class="chip ${x.crop===pick?'active':''}" onclick="pickHarvestCrop('${esc(x.crop).replace(/'/g,"\\'")}')">${esc(x.crop)}</span>`).join('')}</div>` : ''}
+
+    ${expectedCard(cr)}
+
+    ${e.ok ? `
+    <div class="card big-card">
+      <div class="big-row"><span class="big-lbl">Record a harvest</span></div>
+      <label class="f">Date</label>
+      ${dateField('ah-date', todayStr(), '')}
+      <label class="f">Amount harvested (${esc(e.yieldUnit)})</label>
+      <input id="ah-amount" type="number" min="0" step="0.1" placeholder="0">
+      <button class="btn big-btn" onclick="addHarvestEntry()">Add harvest</button>
+      <p class="helper" id="ah-error" style="color:var(--red);"></p>
+    </div>
+
+    <div class="card big-card">
+      <p class="progress-line">You have harvested<br>
+        <strong class="progress-now">${fmt(round1(total))} ${esc(e.yieldUnit)}</strong>
+        <span class="progress-of">of ${fmt(round1(e.total))} ${esc(e.yieldUnit)}</span></p>
+      <div class="progress-track"><div class="progress-fill ${band.cls}" style="width:${Math.min(100, pct)}%;"></div></div>
+      <p class="progress-pct ${band.cls}">${round1(pct)}%</p>
+      <p class="progress-status ${band.cls}">Status: ${band.label}</p>
+      ${paceLine(cr, e, total)}
+    </div>
+
+    <div class="section-label">What you have recorded</div>
+    <div class="card">
+      ${rows.length ? rows.map(r=>`
+        <div class="hist-row">
+          <span class="hist-date">${esc(prettyDate(r.date))}</span>
+          <span class="hist-amt">${fmt(round1(r.amount))} ${esc(r.unit || e.yieldUnit)}</span>
+          <button class="btn small ghost hist-del" onclick="removeHarvestEntry('${esc(r.id)}')">Delete</button>
+        </div>`).join('')
+        : '<p class="helper" style="margin:0;">Nothing recorded yet. Add your first harvest above.</p>'}
+    </div>` : ''}`;
+}
+
+function pickHarvestCrop(crop){ state.harvestCrop = crop; render(); }
+
+function addHarvestEntry(){
+  const id = state.member;
+  const err = document.getElementById('ah-error');
+  const date = document.getElementById('ah-date').value;
+  const amount = Number(document.getElementById('ah-amount').value);
+  if(!date){ if(err) err.textContent = 'Choose the date you harvested.'; return; }
+  if(!(amount > 0)){ if(err) err.textContent = 'Enter how much you harvested.'; return; }
+  const cr = (MEMBERS[id].crops||[]).find(x=> x.crop === state.harvestCrop);
+  const e = expectedHarvest(cr);
+  harvestEntries(id).push({
+    id: 'h-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
+    crop: state.harvestCrop, date, amount, unit: e.yieldUnit,
+    createdAt: new Date().toISOString()
+  });
+  logAction(`${MEMBERS[id].name} recorded ${amount} ${e.yieldUnit} of ${state.harvestCrop} harvested on ${date}.`);
   render();
 }
 
-function exportProjection(){
-  const id = state.member, year = state.selYear, m = MEMBERS[id];
-  const crops = memberCrops(id);
-  const rows = [['Month', ...crops.map(c=>c+' (kg)'), 'Total (kg)']];
-  const proj = projectedYear(id, year);
-  MONTHS.forEach((name, mi)=>{
-    const month = mi + 1;
-    let total = 0;
-    const cells = crops.map(cr=>{
-      let v = 0;
-      Object.keys(proj[month]||{}).forEach(w=>{ v += (proj[month][w][cr]||0); });
-      v = Math.round(v); total += v;
-      return v || '';
-    });
-    rows.push([name, ...cells, total || '']);
-  });
-  downloadCSV(`${m.name.replace(/\W+/g,'-').toLowerCase()}-projected-harvest-${year}.csv`, rows);
-}
-
-function renderHarvestForm(c, kind){
-  const m = MEMBERS[state.member];
-  const label = kind==='plan' ? 'Harvest plan' : 'Actual harvest';
-  const id = state.member, month = state.selMonth, week = state.selWeek;
-  const year = state.selYear;
-  const weekData = harvestWeek(id, kind, year, month, week) || {};
-  const monthTotal = memberMonthTotal(id, kind, year, month);
-  const crops = memberCrops(id);
-  c.innerHTML = `
-    <h1 class="page-title">${label}</h1>
-    <p class="page-sub">${esc(m.name)} · ${kind==='plan' ? 'pick any months — the totals below follow whatever you select' : 'click a month, then a week, and fill in kilograms for each of your crops'}</p>
-    ${crops.length ? `
-    ${yearChips()}
-    ${monthWeekChips({multi: kind==='plan', weeks: kind!=='plan'})}
-    ${kind==='plan' ? '' : `
-    <div class="card">
-      <table class="grid-table"><thead><tr><th>Crop</th><th style="width:160px;">${MONTHS[month-1]} ${year}, Week ${week} (kg)</th></tr></thead>
-      <tbody>${crops.map(crop=>`<tr><td>${esc(crop)}</td>
-        <td><input type="number" value="${weekData[crop]||0}" data-crop="${esc(crop)}" onchange="setHarvest('${kind}', ${month}, ${week}, this.dataset.crop, this.value)"></td></tr>`).join('')}</tbody></table>
-      <div style="margin-top:12px;"><button class="btn" onclick="saveHarvest('${kind}')">Save week ${week}</button>
-        <span class="helper" id="save-msg" style="margin-left:10px;">${state.harvestSaved ? `<span class="added-flash">${CHECK_ICON} Saved — the year table below is updated</span>` : ''}</span></div>
-      ${(state.harvestSaved = false) || ''}
-      <p class="helper" style="margin-top:10px;">${MONTHS[month-1]} ${year} total so far (all 4 weeks): <strong>${fmt(monthTotal)} kg</strong></p>
-    </div>`}
-    ${kind==='plan' ? selectionTotals(id, year) : ''}
-    ${kind==='plan' ? projectionSection(id, year) : ''}
-    <div class="section-label">${label} for ${year} — full year</div>
-    <div class="card" style="overflow-x:auto;">
-      ${yearTable(id, kind, year)}
-      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;">
-        <button class="btn small" onclick="exportYearTable('${kind}')">Download this table (CSV)</button>
-        <button class="btn small ghost" onclick="archiveSection('${kind==='plan'?'Harvest plan':'Actual harvest'}')">Archive this year</button>
-      </div>
-      <p class="helper" style="margin-top:8px;">Every month of ${year}, by crop. The highlighted row is the month you are entering above.</p>
-    </div>
-    ${kind==='plan' ? harvestPlanSource(m) : ''}
-    ${kind==='actual' ? renderPlanVsActual(m) : ''}`
-    : emptyState('Add your crops first',
-        'This table lists the crops from your crop profile. Add the crops you grow on the Profile tab and they appear here to record against.')}`;
+function removeHarvestEntry(entryId){
+  const id = state.member;
+  const list = harvestEntries(id);
+  const at = list.findIndex(x=> x.id === entryId);
+  if(at === -1) return;
+  const gone = list[at];
+  list.splice(at, 1);
+  logAction(`${MEMBERS[id].name} deleted a harvest record of ${gone.amount} ${gone.unit||'kg'} of ${gone.crop}.`);
+  render();
 }
 
 function renderPlanVsActual(m){
@@ -6052,15 +6086,16 @@ function renderCatalogue(c){
     </div>
     ${CATALOGUE.map((crop, ci)=>`
       <div class="section-label">${esc(crop.name)}</div>
+      ${cropYieldCard(crop, ci)}
       <div class="card" style="overflow-x:auto;">
-        <table class="grid-table"><thead><tr><th>Variety</th><th>Counted as</th><th>Per m²</th><th>Season figures</th><th>Note</th><th style="min-width:140px;"></th></tr></thead>
+        <table class="grid-table"><thead><tr><th>Variety</th><th>Counted as</th><th>Per m²</th><th>Note</th><th></th><th style="min-width:140px;"></th></tr></thead>
         <tbody>${(crop.varieties||[]).length ? crop.varieties.map((v, vi)=>
           (ed && ed.ci===ci && ed.vi===vi) ? catalogueEditRow(crop, v, ci, vi) : `<tr>
             <td><strong>${esc(v.name)}</strong></td>
-            <td>${esc(unitWord(v.unit||'plant', 2))}</td>
+            <td>${esc(countWord(crop.countUnit||'plant', 2))}</td>
             <td>${v.perSqm || '—'}</td>
             <td class="helper">${catalogueFigures(v)}</td>
-            <td class="helper">${esc(v.notes||'')}</td>
+            <td></td>
             <td><button class="btn small ghost" onclick="editCatalogueVariety(${ci},${vi})">Edit</button>
                 <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeCatalogueVariety(${ci},${vi})">Remove</button></td>
           </tr>`).join('')
@@ -6076,12 +6111,80 @@ function renderCatalogue(c){
       </div>`).join('')}`;
 }
 
+/* The figures every member screen reads. One card per crop, above its
+   varieties, because this is what a farm's whole harvest plan is built on. */
+function cropYieldCard(crop, ci){
+  const editing = state.yieldEdit === ci;
+  const unit = crop.countUnit || 'plant';
+  if(!editing){
+    return `<div class="card">
+      <div class="grid3">
+        <div class="metric"><div class="lbl">Average yield per ${esc(countWord(unit,1))}</div>
+          <div class="val">${crop.avgYieldPerPlant != null
+            ? `${crop.avgYieldPerPlant} ${esc(crop.yieldUnit||'kg')}`
+            : '<span style="color:var(--red);font-size:15px;">not set</span>'}</div></div>
+        <div class="metric"><div class="lbl">Counted as</div><div class="val" style="font-size:19px;">${esc(countWord(unit,2))}</div></div>
+        <div class="metric"><div class="lbl">First harvest</div><div class="val" style="font-size:19px;">${
+          crop.firstHarvestWeek != null ? 'week ' + crop.firstHarvestWeek : '—'}</div></div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button class="btn small" onclick="editCropYield(${ci})">Edit these figures</button>
+        <span class="helper">Season ${crop.seasonWeeks || SEASON_WEEKS} weeks · ${esc(farmsGrowing(crop.name))}</span>
+      </div>
+    </div>`;
+  }
+  return `<div class="card">
+    <div class="ce-head">Yield figures for <strong>${esc(crop.name)}</strong></div>
+    <div class="grid2">
+      <div><label class="f">Average yield per ${esc(countWord(unit,1))}</label>
+        <input id="cy-avg" type="number" step="0.01" min="0" value="${crop.avgYieldPerPlant != null ? crop.avgYieldPerPlant : ''}" placeholder="e.g. 4.20"></div>
+      <div><label class="f">Yield unit</label><input id="cy-yunit" value="${esc(crop.yieldUnit || 'kg')}"></div>
+      <div><label class="f">Counted as</label>
+        <select id="cy-cunit">
+          <option value="plant" ${unit==='plant'?'selected':''}>Plants — the farm enters seedlings</option>
+          <option value="tree" ${unit==='tree'?'selected':''}>Trees — the farm enters trees</option>
+        </select></div>
+      <div><label class="f">First harvest week <span class="helper" style="font-weight:400;">— optional</span></label>
+        <input id="cy-fhw" type="number" min="1" step="1" value="${crop.firstHarvestWeek != null ? crop.firstHarvestWeek : ''}" placeholder="e.g. 11"></div>
+      <div><label class="f">Season length in weeks</label>
+        <input id="cy-season" type="number" min="1" step="1" value="${crop.seasonWeeks || SEASON_WEEKS}"></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px;">
+      <button class="btn small" onclick="saveCropYield(${ci})">Save figures</button>
+      <button class="btn small ghost" onclick="state.yieldEdit=null;render();">Cancel</button>
+      <span class="helper" id="cy-msg" style="color:var(--red);"></span>
+    </div>
+    <p class="helper">Every farm growing ${esc(crop.name)} sees this the moment it is saved. Nothing on the member side carries a yield of its own.</p>
+  </div>`;
+}
+
+function editCropYield(ci){ state.yieldEdit = ci; render(); }
+
+function saveCropYield(ci){
+  const crop = CATALOGUE[ci];
+  const msg = document.getElementById('cy-msg');
+  if(!crop) return;
+  const avg = Number(document.getElementById('cy-avg').value);
+  if(!(avg > 0)){
+    if(msg) msg.textContent = 'The average yield must be more than zero — a farm cannot plan a harvest from nothing.';
+    return;
+  }
+  const season = Number(document.getElementById('cy-season').value) || SEASON_WEEKS;
+  const fhwRaw = document.getElementById('cy-fhw').value;
+  crop.avgYieldPerPlant = avg;
+  crop.yieldUnit = document.getElementById('cy-yunit').value.trim() || 'kg';
+  crop.countUnit = document.getElementById('cy-cunit').value;
+  crop.firstHarvestWeek = fhwRaw === '' ? null : Number(fhwRaw);
+  crop.seasonWeeks = season;
+  state.yieldEdit = null;
+  state.catMsg = `${crop.name}: ${avg} ${crop.yieldUnit} per ${countWord(crop.countUnit,1)}. ${farmsGrowing(crop.name)}.`;
+  logAction(`Operator set ${crop.name} to ${avg} ${crop.yieldUnit} per ${countWord(crop.countUnit,1)} over ${season} weeks.`);
+  saveCatalogue();
+  render();
+}
+
 function catalogueFigures(v){
-  const t = seasonTotals(v, seasonWeeksOf(v));
-  if(!t.avg) return '<span style="color:var(--red);">no harvest set</span>';
-  const b = bearingMonths(v);
-  return `Season <strong>${t.low.toFixed(2)}–${t.high.toFixed(2)} kg</strong> per ${esc(unitWord(v.unit||'plant',1))}
-    <br>average <strong>${t.avg.toFixed(2)} kg</strong> · months ${b.first}–${b.last}`;
+  return v.notes ? esc(v.notes) : '<span class="helper">—</span>';
 }
 
 // Who this change reaches, said plainly before it is made.
@@ -6098,80 +6201,28 @@ function farmsGrowing(cropName){
 const MONTH_ROWS = 12;
 
 function catalogueEditRow(crop, v, ci, vi){
-  v = v || { unit:'plant', months:[] };
-  const months = v.months || [];
-  const row = m=> months.find(x=> Number(x.month) === m) || {};
+  v = v || {};
   return `<tr class="crop-edit"><td colspan="6">
     <div class="ce-head">${vi===-1 ? `New variety of <strong>${esc(crop.name)}</strong>` : `Editing <strong>${esc(v.name)}</strong>`}</div>
     <div class="grid2">
-      <div><label class="f">Variety name</label><input id="cv-name" value="${esc(v.name||'')}" placeholder="e.g. Greenhouse cherry"></div>
-      <div><label class="f">Counted as</label>
-        <select id="cv-unit">
-          <option value="plant" ${(v.unit||'plant')==='plant'?'selected':''}>Plants — a farm enters seedlings</option>
-          <option value="tree" ${v.unit==='tree'?'selected':''}>Trees — a farm enters trees</option>
-        </select></div>
-      <div><label class="f">Per m²</label><input id="cv-persqm" type="number" step="0.01" value="${v.perSqm||''}" placeholder="e.g. 2.5"></div>
-      <div><label class="f">Note for farms</label><input id="cv-notes" value="${esc(v.notes||'')}" placeholder="e.g. Peak in months 4–5"></div>
+      <div><label class="f">Variety name</label><input id="cv-name" value="${esc(v.name||'')}" placeholder="e.g. Anna F1"></div>
+      <div><label class="f">Per m² <span class="helper" style="font-weight:400;">— optional spacing</span></label>
+        <input id="cv-persqm" type="number" step="0.01" min="0" value="${v.perSqm||''}" placeholder="e.g. 2.5"></div>
+      <div><label class="f">Note for farms</label><input id="cv-notes" value="${esc(v.notes||'')}" placeholder="e.g. Indoor, trellised"></div>
     </div>
-    <p class="helper" style="margin:12px 0 6px;">Months are counted from transplanting, ${WEEKS_PER_MONTH} weeks to a month. Fill in only the months this variety bears in; leave the rest empty.</p>
-    <div style="overflow-x:auto;">
-      <table class="grid-table"><thead><tr>
-        <th>Month</th><th>Stage</th>
-        <th>Weekly low (kg)</th><th>Weekly high (kg)</th>
-        <th>One-off low (kg)</th><th>One-off high (kg)</th>
-      </tr></thead>
-      <tbody>${Array.from({length:MONTH_ROWS}, (_,i)=>{
-        const m = i + 1, r = row(m);
-        return `<tr>
-          <td><strong>${m}</strong></td>
-          <td><input id="cvm-stage-${m}" value="${esc(r.stage||'')}" placeholder="e.g. Peak production" oninput="previewVarietyTotals()"></td>
-          <td><input id="cvm-low-${m}" type="number" step="0.01" min="0" value="${r.low!==undefined?r.low:''}" oninput="previewVarietyTotals()"></td>
-          <td><input id="cvm-high-${m}" type="number" step="0.01" min="0" value="${r.high!==undefined?r.high:''}" oninput="previewVarietyTotals()"></td>
-          <td><input id="cvm-onceLow-${m}" type="number" step="0.01" min="0" value="${r.onceLow||''}" oninput="previewVarietyTotals()"></td>
-          <td><input id="cvm-onceHigh-${m}" type="number" step="0.01" min="0" value="${r.onceHigh||''}" oninput="previewVarietyTotals()"></td>
-        </tr>`;
-      }).join('')}</tbody></table>
-    </div>
-    <p class="helper cat-facts" id="cv-total">${esc(varietyTotalLine(v))}</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
       <button class="btn small" onclick="saveCatalogueVariety(${ci},${vi})">Save variety</button>
       <button class="btn small ghost" onclick="cancelCatalogueEdit()">Cancel</button>
       <span class="helper" id="cv-msg" style="color:var(--red);"></span>
     </div>
-    <p class="helper">Every farm growing this variety plans against these figures the next time it opens its harvest plan.</p>
+    <p class="helper">A variety is what the farm grew. The yield every farm plans against is the crop figure above, not this.</p>
   </td></tr>`;
 }
 
-// The variety as the form currently holds it, before anything is saved.
 function readVarietyForm(){
-  const v = {
-    name: (document.getElementById('cv-name')||{}).value ? document.getElementById('cv-name').value.trim() : '',
-    unit: (document.getElementById('cv-unit')||{}).value || 'plant',
-    perSqm: Number((document.getElementById('cv-persqm')||{}).value) || 0,
-    notes: (document.getElementById('cv-notes')||{}).value ? document.getElementById('cv-notes').value.trim() : '',
-    months: []
-  };
-  for(let m = 1; m <= MONTH_ROWS; m++){
-    const get = k=>{ const el = document.getElementById(`cvm-${k}-${m}`); return el ? el.value : ''; };
-    const low = Number(get('low')) || 0, high = Number(get('high')) || 0;
-    const onceLow = Number(get('onceLow')) || 0, onceHigh = Number(get('onceHigh')) || 0;
-    const stage = (get('stage') || '').trim();
-    if(low || high || onceLow || onceHigh || stage)
-      v.months.push({ month:m, stage, low, high, onceLow, onceHigh });
-  }
-  return v;
-}
-
-function varietyTotalLine(v){
-  const t = seasonTotals(v, seasonWeeksOf(v));
-  if(!t.avg) return 'No harvest set yet — fill in at least one month.';
-  const b = bearingMonths(v);
-  const u = unitWord(v.unit||'plant', 1);
-  return `Season total ${t.low.toFixed(2)}–${t.high.toFixed(2)} kg per ${u}, average ${t.avg.toFixed(2)} kg · bears in months ${b.first}–${b.last} · ${patternLabelOf(v)}`;
-}
-function previewVarietyTotals(){
-  const el = document.getElementById('cv-total');
-  if(el) el.textContent = varietyTotalLine(readVarietyForm());
+  const val = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
+  return { name: val('cv-name').trim(), unit: (CATALOGUE[state.catEdit ? state.catEdit.ci : 0]||{}).countUnit || 'plant',
+           perSqm: Number(val('cv-persqm')) || 0, notes: val('cv-notes').trim(), months: [] };
 }
 
 function editCatalogueVariety(ci, vi){ state.catEdit = {ci, vi}; render(); }
@@ -6186,14 +6237,10 @@ function saveCatalogueVariety(ci, vi){
   if(!v.name){ if(msg) msg.textContent = 'Give the variety a name.'; return; }
   const clash = (crop.varieties||[]).some((x, xi)=> xi !== vi && x.name.toLowerCase() === v.name.toLowerCase());
   if(clash){ if(msg) msg.textContent = 'That variety is already listed under this crop.'; return; }
-  // A variety whose months come to nothing is worse than no variety: farms
-  // choose it, enter their seedlings, and get a blank plan with no idea why.
-  if(seasonTotals(v, seasonWeeksOf(v)).avg <= 0){
-    if(msg) msg.textContent = 'No month carries a harvest, so no farm could plan from this. Fill in what one plant gives in a week, or a one-off cut, for at least one month.';
-    return;
-  }
-  const bad = v.months.find(m=> Number(m.high) < Number(m.low) || Number(m.onceHigh) < Number(m.onceLow));
-  if(bad){ if(msg) msg.textContent = `Month ${bad.month}: the high figure is below the low one.`; return; }
+  // The months a variety used to carry are kept if it already had them; they
+  // no longer drive anything a member sees, and the crop's own figure does.
+  const prev = vi === -1 ? null : (crop.varieties||[])[vi];
+  if(prev && Array.isArray(prev.months)) v.months = prev.months;
 
   crop.varieties = crop.varieties || [];
   const was = vi === -1 ? null : crop.varieties[vi];
@@ -6201,8 +6248,7 @@ function saveCatalogueVariety(ci, vi){
   // A renamed variety would orphan every farm that chose it by name.
   if(was && was.name !== v.name) renameFarmVariety(crop.name, was.name, v.name);
   state.catEdit = null;
-  const t = seasonTotals(v, seasonWeeksOf(v));
-  state.catMsg = `${v.name} saved — ${t.low.toFixed(2)}–${t.high.toFixed(2)} kg per ${unitWord(v.unit,1)}, average ${t.avg.toFixed(2)} kg. ${farmsGrowing(crop.name)}.`;
+  state.catMsg = `${v.name} saved under ${crop.name}. ${farmsGrowing(crop.name)}.`;
   logAction(`Operator ${vi===-1?'added':'updated'} catalogue variety ${crop.name} — ${v.name}.`);
   saveCatalogue();
   render();
