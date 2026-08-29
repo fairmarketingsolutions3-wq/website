@@ -1119,16 +1119,29 @@ const SEASON_WEEKS = 24;
 /* The confirmed figures. A crop already in the catalogue keeps whatever an
    operator has set — only fields it does not yet have are filled in. */
 const SEED_YIELDS = [
-  { name:'Cherry Tomatoes',        avgYieldPerPlant:4.20,  firstHarvestWeek:11, countUnit:'plant', was:'Cherry Tomato' },
-  { name:'Capsicum (Bell Pepper)', avgYieldPerPlant:2.00,  firstHarvestWeek:15, countUnit:'plant', was:'Capsicum (Sweet Pepper)' },
-  { name:'Paprika',                avgYieldPerPlant:2.40,  firstHarvestWeek:19, countUnit:'plant' },
-  { name:'Habanero (Loleza)',      avgYieldPerPlant:1.65,  firstHarvestWeek:14, countUnit:'plant', was:'Habanero' },
-  { name:'Sweet Melon',            avgYieldPerPlant:6.00,  firstHarvestWeek:13, countUnit:'plant' },
-  { name:'Broccoli',               avgYieldPerPlant:1.75,  firstHarvestWeek:11, countUnit:'plant' },
-  { name:'Cauliflower',            avgYieldPerPlant:1.15,  firstHarvestWeek:11, countUnit:'plant' },
-  { name:'Avocado',                avgYieldPerPlant:36.00, firstHarvestWeek:1,  countUnit:'tree'  },
-  { name:'Herbs',                  avgYieldPerPlant:1.80,  firstHarvestWeek:null, countUnit:'plant' }
+  { name:'Cherry Tomatoes',        avgYieldPerPlant:4.20, countUnit:'plant', was:'Cherry Tomato' },
+  { name:'Capsicum (Bell Pepper)', avgYieldPerPlant:2.00, countUnit:'plant', was:'Capsicum (Sweet Pepper)' },
+  { name:'Paprika',                avgYieldPerPlant:2.40, countUnit:'plant' },
+  { name:'Habanero (Loleza)',      avgYieldPerPlant:1.65, countUnit:'plant', was:'Habanero' },
+  { name:'Sweet Melon',            avgYieldPerPlant:6.00, countUnit:'plant' },
+  { name:'Broccoli',               avgYieldPerPlant:1.75, countUnit:'plant' },
+  { name:'Cauliflower',            avgYieldPerPlant:1.15, countUnit:'plant' },
+  { name:'Avocado',                avgYieldPerPlant:36.00,  countUnit:'tree'  },
+  { name:'Herbs',                  avgYieldPerPlant:1.80, countUnit:'plant' }
 ];
+
+/* A crop's figure may be entered in grams or kilograms — 300 g is easier to
+   read than 0.3 kg — but everything is added up in kilograms underneath, so
+   crops entered in different units still total correctly. What is shown back
+   is whichever reads better for the size of the number. */
+const MASS_UNITS = ['kg','g'];
+function toKg(value, unit){ const n = Number(value)||0; return unit === 'g' ? n/1000 : n; }
+function fromKg(kg, unit){ return unit === 'g' ? kg*1000 : kg; }
+function massText(kg){
+  const n = Number(kg) || 0;
+  if(n && n < 1) return `${Math.round(n*1000)} g`;
+  return `${fmt(round1(n))} kg`;
+}
 
 // "plant" or "tree", said correctly for a count. Driven by countUnit, so a
 // future tree crop needs no code change.
@@ -1150,7 +1163,7 @@ function expectedHarvest(cr){
   const unit = (crop && crop.countUnit) || 'plant';
   const yieldUnit = (crop && crop.yieldUnit) || 'kg';
   const out = { crop: cr ? cr.crop : '', yieldPer, count, unit, yieldUnit,
-                firstHarvestWeek: crop && crop.firstHarvestWeek != null ? Number(crop.firstHarvestWeek) : null,
+                perKg: yieldPer == null ? null : toKg(yieldPer, yieldUnit),
                 seasonWeeks: (crop && Number(crop.seasonWeeks)) || SEASON_WEEKS,
                 total: 0, ok: false, why: '' };
   if(yieldPer == null || !(yieldPer > 0)){
@@ -1161,7 +1174,7 @@ function expectedHarvest(cr){
     out.why = 'no-count';
     return out;
   }
-  out.total = yieldPer * count;
+  out.total = out.perKg * count;      // always kilograms
   out.ok = true;
   return out;
 }
@@ -1189,7 +1202,6 @@ function seedCatalogueYields(list){
     if(crop.avgYieldPerPlant == null) crop.avgYieldPerPlant = seed.avgYieldPerPlant;
     if(crop.yieldUnit == null)        crop.yieldUnit = 'kg';
     if(crop.countUnit == null)        crop.countUnit = seed.countUnit;
-    if(crop.firstHarvestWeek === undefined) crop.firstHarvestWeek = seed.firstHarvestWeek;
     if(crop.seasonWeeks == null)      crop.seasonWeeks = SEASON_WEEKS;
     if(!Array.isArray(crop.varieties) || !crop.varieties.length)
       crop.varieties = [{ name:'Standard', unit: crop.countUnit, perSqm:0, notes:'', months:[] }];
@@ -1368,7 +1380,7 @@ function yieldPanel(m){
           <td>${esc(cr.variety||'—')}</td>
           <td>${fmt(e.count)} ${esc(countWord(e.unit, e.count))}</td>
           <td>${e.yieldPer} ${esc(e.yieldUnit)}</td>
-          <td style="background:var(--field-cream);"><strong>${fmt(round1(e.total))} ${esc(e.yieldUnit)}</strong></td>
+          <td style="background:var(--field-cream);"><strong>${massText(e.total)}</strong></td>
         </tr>` : `<tr>
           <td><strong>${esc(cr.crop)}</strong></td>
           <td>${esc(cr.variety||'—')}</td>
@@ -1377,7 +1389,7 @@ function yieldPanel(m){
             : `Enter your ${esc(countLabel(e.unit).toLowerCase())} on this tab and the total appears here.`}</td>
         </tr>`).join('')}
         ${grand ? `<tr><td colspan="4" style="text-align:right;"><strong>All crops</strong></td>
-          <td style="background:var(--gold);color:var(--deep-green);"><strong>${fmt(round1(grand))} kg</strong></td></tr>` : ''}
+          <td style="background:var(--gold);color:var(--deep-green);"><strong>${massText(grand)}</strong></td></tr>` : ''}
       </tbody></table>
     </div>`;
 }
@@ -1565,7 +1577,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v43';
+const BUILD = 'v44';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3934,10 +3946,9 @@ function varietyFacts(cropName, varietyName, seedlings, area, unit, planted, exp
   else {
     bits.push(`<strong>${e.yieldPer} ${esc(e.yieldUnit)}</strong> per ${esc(countWord(e.unit,1))}
       &times; <strong>${fmt(e.count)}</strong> =
-      <strong style="font-size:15px;">${fmt(round1(e.total))} ${esc(e.yieldUnit)} expected</strong>`);
+      <strong style="font-size:15px;">${massText(e.total)} expected</strong>`);
     if(sqm) bits.push(`${(e.count/sqm).toFixed(2)} per m²`);
   }
-  if(e.firstHarvestWeek) bits.push(`first harvest around week ${e.firstHarvestWeek}`);
   return bits.join(' · ');
 }
 
@@ -5612,21 +5623,20 @@ function expectedCard(cr, opts){
   }
   if(e.why === 'no-count'){
     return `<div class="card big-card">${nameLine}
-      <div class="big-row"><span class="big-lbl">Average yield per ${esc(countWord(e.unit,1))}</span>
+      <div class="big-row"><span class="big-lbl">Total harvest per ${esc(countWord(e.unit,1))}</span>
         <span class="big-val">${e.yieldPer} ${esc(e.yieldUnit)}</span></div>
       <p class="big-note">Enter your ${esc(countLabel(e.unit).toLowerCase())} first.</p>
       <button class="btn" onclick="switchTab('profile')">Go to ${esc(countLabel(e.unit))}</button>
     </div>`;
   }
   return `<div class="card big-card">${nameLine}
-    <div class="big-row"><span class="big-lbl">Average yield per ${esc(countWord(e.unit,1))}</span>
+    <div class="big-row"><span class="big-lbl">Total harvest per ${esc(countWord(e.unit,1))}</span>
       <span class="big-val">${e.yieldPer} ${esc(e.yieldUnit)}</span></div>
     <div class="big-row"><span class="big-lbl">${esc(countLabel(e.unit))}</span>
       <span class="big-val">${fmt(e.count)}</span></div>
     <div class="big-rule"></div>
     <div class="big-row total"><span class="big-lbl">Expected total harvest</span>
-      <span class="big-total">${fmt(round1(e.total))} ${esc(e.yieldUnit)}</span></div>
-    ${e.firstHarvestWeek ? `<p class="big-note">First harvest expected around week ${e.firstHarvestWeek}.</p>` : ''}
+      <span class="big-total">${massText(e.total)}</span></div>
     ${opts.extra || ''}
   </div>`;
 }
@@ -5659,7 +5669,8 @@ function entriesForCrop(id, crop){
   return harvestEntries(id).filter(e=> e.crop === crop);
 }
 function actualTotal(id, crop){
-  return entriesForCrop(id, crop).reduce((t,e)=> t + (Number(e.amount) || 0), 0);
+  // entries may be recorded in grams or kilograms; the total is kilograms
+  return entriesForCrop(id, crop).reduce((t,e)=> t + toKg(e.amount, e.unit || 'kg'), 0);
 }
 
 function statusBand(pct){
@@ -5683,7 +5694,7 @@ function paceLine(cr, e, totalActual){
   const near = Math.max(1, expectedByNow * 0.05);
   const how = Math.abs(diff) <= near ? 'you are on track'
             : (diff > 0 ? 'you are ahead' : 'you are behind');
-  return `<p class="pace">Expected by now: <strong>${fmt(round1(expectedByNow))} ${esc(e.yieldUnit)}</strong> — ${how}
+  return `<p class="pace">Expected by now: <strong>${massText(expectedByNow)}</strong> — ${how}
     <span class="helper">(week ${weeksElapsed} of ${e.seasonWeeks})</span></p>`;
 }
 
@@ -5723,16 +5734,19 @@ function renderActualHarvest(c){
       <div class="big-row"><span class="big-lbl">Record a harvest</span></div>
       <label class="f">Date</label>
       ${dateField('ah-date', todayStr(), '')}
-      <label class="f">Amount harvested (${esc(e.yieldUnit)})</label>
-      <input id="ah-amount" type="number" min="0" step="0.1" placeholder="0">
+      <label class="f">Amount harvested</label>
+      <div class="unit-field">
+        <input id="ah-amount" type="number" min="0" step="0.1" placeholder="0">
+        <select id="ah-unit" aria-label="Unit">${MASS_UNITS.map(u=>`<option>${u}</option>`).join('')}</select>
+      </div>
       <button class="btn big-btn" onclick="addHarvestEntry()">Add harvest</button>
       <p class="helper" id="ah-error" style="color:var(--red);"></p>
     </div>
 
     <div class="card big-card">
       <p class="progress-line">You have harvested<br>
-        <strong class="progress-now">${fmt(round1(total))} ${esc(e.yieldUnit)}</strong>
-        <span class="progress-of">of ${fmt(round1(e.total))} ${esc(e.yieldUnit)}</span></p>
+        <strong class="progress-now">${massText(total)}</strong>
+        <span class="progress-of">of ${massText(e.total)}</span></p>
       <div class="progress-track"><div class="progress-fill ${band.cls}" style="width:${Math.min(100, pct)}%;"></div></div>
       <p class="progress-pct ${band.cls}">${round1(pct)}%</p>
       <p class="progress-status ${band.cls}">Status: ${band.label}</p>
@@ -5744,7 +5758,7 @@ function renderActualHarvest(c){
       ${rows.length ? rows.map(r=>`
         <div class="hist-row">
           <span class="hist-date">${esc(prettyDate(r.date))}</span>
-          <span class="hist-amt">${fmt(round1(r.amount))} ${esc(r.unit || e.yieldUnit)}</span>
+          <span class="hist-amt">${massText(toKg(r.amount, r.unit || 'kg'))}</span>
           <button class="btn small ghost hist-del" onclick="removeHarvestEntry('${esc(r.id)}')">Delete</button>
         </div>`).join('')
         : '<p class="helper" style="margin:0;">Nothing recorded yet. Add your first harvest above.</p>'}
@@ -5758,16 +5772,17 @@ function addHarvestEntry(){
   const err = document.getElementById('ah-error');
   const date = document.getElementById('ah-date').value;
   const amount = Number(document.getElementById('ah-amount').value);
+  const unit = (document.getElementById('ah-unit')||{}).value || 'kg';
   if(!date){ if(err) err.textContent = 'Choose the date you harvested.'; return; }
   if(!(amount > 0)){ if(err) err.textContent = 'Enter how much you harvested.'; return; }
   const cr = (MEMBERS[id].crops||[]).find(x=> x.crop === state.harvestCrop);
   const e = expectedHarvest(cr);
   harvestEntries(id).push({
     id: 'h-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
-    crop: state.harvestCrop, date, amount, unit: e.yieldUnit,
+    crop: state.harvestCrop, date, amount, unit,
     createdAt: new Date().toISOString()
   });
-  logAction(`${MEMBERS[id].name} recorded ${amount} ${e.yieldUnit} of ${state.harvestCrop} harvested on ${date}.`);
+  logAction(`${MEMBERS[id].name} recorded ${amount} ${unit} of ${state.harvestCrop} harvested on ${date}.`);
   render();
 }
 
@@ -6119,13 +6134,13 @@ function cropYieldCard(crop, ci){
   if(!editing){
     return `<div class="card">
       <div class="grid3">
-        <div class="metric"><div class="lbl">Average yield per ${esc(countWord(unit,1))}</div>
+        <div class="metric"><div class="lbl">Total harvest per ${esc(countWord(unit,1))}</div>
           <div class="val">${crop.avgYieldPerPlant != null
             ? `${crop.avgYieldPerPlant} ${esc(crop.yieldUnit||'kg')}`
             : '<span style="color:var(--red);font-size:15px;">not set</span>'}</div></div>
         <div class="metric"><div class="lbl">Counted as</div><div class="val" style="font-size:19px;">${esc(countWord(unit,2))}</div></div>
-        <div class="metric"><div class="lbl">First harvest</div><div class="val" style="font-size:19px;">${
-          crop.firstHarvestWeek != null ? 'week ' + crop.firstHarvestWeek : '—'}</div></div>
+        <div class="metric"><div class="lbl">In kilograms</div><div class="val" style="font-size:19px;">${
+          crop.avgYieldPerPlant != null ? esc(massText(toKg(crop.avgYieldPerPlant, crop.yieldUnit||'kg'))) : '—'}</div></div>
       </div>
       <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn small" onclick="editCropYield(${ci})">Edit these figures</button>
@@ -6136,16 +6151,17 @@ function cropYieldCard(crop, ci){
   return `<div class="card">
     <div class="ce-head">Yield figures for <strong>${esc(crop.name)}</strong></div>
     <div class="grid2">
-      <div><label class="f">Average yield per ${esc(countWord(unit,1))}</label>
-        <input id="cy-avg" type="number" step="0.01" min="0" value="${crop.avgYieldPerPlant != null ? crop.avgYieldPerPlant : ''}" placeholder="e.g. 4.20"></div>
-      <div><label class="f">Yield unit</label><input id="cy-yunit" value="${esc(crop.yieldUnit || 'kg')}"></div>
+      <div><label class="f">Total harvest per ${esc(countWord(unit,1))} <span class="helper" style="font-weight:400;">— over the whole season</span></label>
+        <div class="unit-field">
+          <input id="cy-avg" type="number" step="0.01" min="0" value="${crop.avgYieldPerPlant != null ? crop.avgYieldPerPlant : ''}" placeholder="e.g. 4.20">
+          <select id="cy-yunit" aria-label="Unit">${MASS_UNITS.map(u=>
+            `<option ${ (crop.yieldUnit||'kg')===u ? 'selected' : '' }>${u}</option>`).join('')}</select>
+        </div></div>
       <div><label class="f">Counted as</label>
         <select id="cy-cunit">
           <option value="plant" ${unit==='plant'?'selected':''}>Plants — the farm enters seedlings</option>
           <option value="tree" ${unit==='tree'?'selected':''}>Trees — the farm enters trees</option>
         </select></div>
-      <div><label class="f">First harvest week <span class="helper" style="font-weight:400;">— optional</span></label>
-        <input id="cy-fhw" type="number" min="1" step="1" value="${crop.firstHarvestWeek != null ? crop.firstHarvestWeek : ''}" placeholder="e.g. 11"></div>
       <div><label class="f">Season length in weeks</label>
         <input id="cy-season" type="number" min="1" step="1" value="${crop.seasonWeeks || SEASON_WEEKS}"></div>
     </div>
@@ -6166,15 +6182,13 @@ function saveCropYield(ci){
   if(!crop) return;
   const avg = Number(document.getElementById('cy-avg').value);
   if(!(avg > 0)){
-    if(msg) msg.textContent = 'The average yield must be more than zero — a farm cannot plan a harvest from nothing.';
+    if(msg) msg.textContent = 'The total harvest must be more than zero — a farm cannot plan a harvest from nothing.';
     return;
   }
   const season = Number(document.getElementById('cy-season').value) || SEASON_WEEKS;
-  const fhwRaw = document.getElementById('cy-fhw').value;
   crop.avgYieldPerPlant = avg;
-  crop.yieldUnit = document.getElementById('cy-yunit').value.trim() || 'kg';
+  crop.yieldUnit = document.getElementById('cy-yunit').value || 'kg';
   crop.countUnit = document.getElementById('cy-cunit').value;
-  crop.firstHarvestWeek = fhwRaw === '' ? null : Number(fhwRaw);
   crop.seasonWeeks = season;
   state.yieldEdit = null;
   state.catMsg = `${crop.name}: ${avg} ${crop.yieldUnit} per ${countWord(crop.countUnit,1)}. ${farmsGrowing(crop.name)}.`;
