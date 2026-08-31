@@ -13,12 +13,14 @@ rules_version = '2';
  *                        check a code, so a code is never exposed to the
  *                        browser, only checked against it.
  *
- *   users/{uid}          one document per person, keyed by their Firebase
- *                        Auth user id: which role they hold, which farms
- *                        they speak for, and whether the account is still
- *                        active. Only the system owner may change any of
- *                        those three; everyone else may correct their own
- *                        name, phone and regions and nothing more.
+ *   users/{uid}          one document per operator, keyed by their Firebase
+ *                        Auth user id: which role they hold in the console,
+ *                        and whether the account is still active. Roles
+ *                        belong to the association's own staff — a farm
+ *                        signs in as a farm and never has one. Only the
+ *                        system owner may change a role or a status;
+ *                        everyone else may correct their own name and phone
+ *                        and nothing more.
  *
  *   operators/{uid}      one document per Secretariat operator, keyed by
  *                        their Firebase Auth user id. The presence of the
@@ -157,41 +159,40 @@ service cloud.firestore {
       allow write: if isSecretariat();
     }
 
-    // ---- Roles and people ------------------------------------------------
+    // ---- Roles ------------------------------------------------------------
+    // One document per operator. Farms are not in here: a role is what an
+    // operator holds in the console, and a farm's rights come from owning
+    // its own farms/{uid} record, not from a role.
     match /users/{uid} {
       // Your own record, or anyone's if you are staff.
       allow read: if owns(uid) || isStaff();
 
-      // A record is written by the account it belongs to, straight after
-      // sign-up — but only the role that sign-up actually earned. A farm
-      // document exists only if the farm sign-up code was given, and an
-      // operator document only if the operator code was, so the code check
-      // that guarded those creates guards this one too. Everything above
-      // Secretariat is the system owner's to grant, and ownership itself is
-      // claimed in settings/ownership before it can be written here.
+      // A record is written by the operator it belongs to, straight after
+      // sign-up — but only the role that sign-up actually earned. An
+      // operators document exists only if the operator code was given, so
+      // the code check that guarded that create guards this one too, and a
+      // farm — which has no operators document — cannot write one at all.
+      // Everything above Secretariat is the system owner's to grant, and
+      // ownership itself is claimed in settings/ownership first.
       allow create: if isOwner()
                     || (owns(uid)
+                        && exists(/databases/$(database)/documents/operators/$(uid))
                         && request.resource.data.get('status', '') == 'active'
                         && (
-                          (request.resource.data.get('role', '') == 'farmMember'
-                           && exists(/databases/$(database)/documents/farms/$(uid)))
-                          || (request.resource.data.get('role', '') == 'secretariat'
-                              && exists(/databases/$(database)/documents/operators/$(uid)))
+                          request.resource.data.get('role', '') == 'secretariat'
                           // Ownership is not a role you may write for
                           // yourself: it is a role you may write only once
                           // you already hold the claim.
                           || (request.resource.data.get('role', '') == 'superAdmin'
-                              && exists(/databases/$(database)/documents/operators/$(uid))
                               && ownerIsClaimed() && ownerUid() == uid)
                         ));
 
-      // The three fields that decide what an account may do are the system
+      // The two fields that decide what an operator may do are the system
       // owner's to set. Everyone else may correct their own name, phone and
       // regions, and nothing else — including their own role.
       allow update: if isOwner()
                     || (owns(uid)
                         && request.resource.data.get('role', '') == resource.data.get('role', '')
-                        && request.resource.data.get('farmIds', []) == resource.data.get('farmIds', [])
                         && request.resource.data.get('status', '') == resource.data.get('status', ''));
 
       // Suspend by setting status, rather than deleting. Removing the record

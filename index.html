@@ -1689,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v46';
+const BUILD = 'v47';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -2140,24 +2140,28 @@ async function cloudPullAll(){
 }
 
 /* ============================================================
-   Roles and permissions
+   Roles and permissions — the administrator console only
+
+   A role says which parts of the console an operator may open and
+   what they may change there. It belongs to the association's own
+   staff and to nobody else: a farm signs in as a farm, holds its
+   own records, and is never given a role or measured against one.
+
    A role lives in one place — users/{uid} — and the rules read it
    from there. What the browser knows is only for deciding what to
    draw; every restriction that matters is enforced in
    firestore.rules, because a hidden button is not a permission.
    ============================================================ */
-const ROLES = ['superAdmin','secretariat','qualityOfficer','agronomist',
-               'farmMember','logistics','auditor','customer'];
+const ROLES = ['superAdmin','secretariat','qualityOfficer',
+               'agronomist','logistics','auditor'];
 
 const ROLE_LABELS = {
   superAdmin:    'System owner',
   secretariat:   'Secretariat',
   qualityOfficer:'Quality officer',
   agronomist:    'Agronomist',
-  farmMember:    'Farm member',
   logistics:     'Logistics',
-  auditor:       'Auditor',
-  customer:      'Customer'
+  auditor:       'Auditor'
 };
 
 const PERMS = {
@@ -2168,10 +2172,8 @@ const PERMS = {
   qualityOfficer:['batches.*','complaints.*','reports.read','members.read','calendars.read','dashboard.read'],
   agronomist:    ['advisory.*','knowledge.write','farms.read','batches.read','members.read',
                   'calendars.read','reports.read'],
-  farmMember:    ['ownFarm.*','orders.respond','batches.create','inputs.read','suggestions.create'],
   logistics:     ['consignments.*','orders.read'],
-  auditor:       ['*.read'],
-  customer:      ['ownOrders.read','trace.read']
+  auditor:       ['*.read']
 };
 
 // Who this browser is signed in as, for drawing the page only.
@@ -2201,8 +2203,8 @@ function roleLabel(r){ return ROLE_LABELS[r] || r || '—'; }
 
 function userDocFor(uid, fields){
   return Object.assign({
-    displayName:'', phone:'', email:'', role:'farmMember',
-    farmIds:[], regions:[], status:'active',
+    displayName:'', phone:'', email:'', role:'secretariat',
+    regions:[], status:'active',
     createdAt: new Date().toISOString(), createdBy: CLOUD_STATE.uid || uid
   }, fields || {});
 }
@@ -2238,10 +2240,10 @@ async function claimOwnership(uid){
   }catch(e){ return false; }      // somebody already owns it
 }
 
-/* Read the role for whoever is signed in, and write one where an account
-   predates this collection. Accounts made before roles existed are not
-   locked out: an operator becomes Secretariat, a farm becomes a farm
-   member holding its own farm. */
+/* Read the role for whoever is signed in, and write one where an operator
+   predates this collection. Nobody is locked out over a missing record: an
+   operator from before roles existed becomes Secretariat. Called with no
+   fallback — as it is for a farm — it simply leaves USER empty. */
 async function loadUserRole(uid, fallback){
   USER = null;
   if(!cloudOn() || !uid) return null;
@@ -2292,12 +2294,6 @@ async function cloudRegisterFarm(vals, password, code){
     await setDoc(doc(CLOUD.db, 'farms', uid), record);
     await updateDoc(doc(CLOUD.db, 'farms', uid), { signupCode: deleteField() });  // not kept
     await setDoc(doc(CLOUD.db, 'harvest', uid), { plan:blankHarvestStore(), actual:blankHarvestStore() });
-    // A database still running the older rules has no users collection, and a
-    // farm must not be turned away over a record that signing in will write.
-    try{
-      await cloudCreateUserDoc(uid, { displayName: vals.name, email: vals.email, phone: vals.phone || '',
-        role:'farmMember', farmIds:[uid], regions: vals.location ? [vals.location] : [], createdBy: uid });
-    }catch(e){ /* loadUserRole writes it at the first sign-in instead */ }
     CLOUD_STATE.cloudIds.add(uid);
     return uid;
   });
@@ -2409,11 +2405,11 @@ async function cloudSignIn(email, password){
   CLOUD_STATE.email = email;
   CLOUD_STATE.role = role;
   const name = (op && op.exists()) ? (op.data().name||email) : null;
-  // An account made before roles existed still has one: an operator is
-  // Secretariat, a farm holds its own farm.
-  await loadUserRole(uid, role === 'farm'
-    ? { displayName: (farm.data()||{}).name || email, email, role:'farmMember', farmIds:[uid] }
-    : (role === 'operator' ? { displayName: name || email, email, role:'secretariat' } : null));
+  // Only an operator carries a role. A farm signs in as a farm, and USER is
+  // left empty so nothing on the member side is drawn from a role it does
+  // not have. An operator from before roles existed is given Secretariat.
+  await loadUserRole(uid, role === 'operator'
+    ? { displayName: name || email, email, role:'secretariat' } : null);
   return { uid, role, name };
 }
 
@@ -2475,8 +2471,7 @@ async function restoreSession(){
       const farm = await getDoc(doc(CLOUD.db, 'farms', user.uid));
       if(farm.exists()){
         CLOUD_STATE.role = 'farm';
-        await loadUserRole(user.uid, { displayName:(farm.data()||{}).name||user.email, email:user.email,
-                                       role:'farmMember', farmIds:[user.uid] });
+        USER = null;                       // a farm holds no role
         await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions();
         enterSession('member', { member: user.uid });
       } else {

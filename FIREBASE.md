@@ -49,8 +49,11 @@ without the code. No manual step is needed.
 
 ## Roles
 
-Every account also has a record in `users/{uid}` saying what it may do. It is
-written by the platform at sign-up; nothing has to be created by hand.
+Roles are the administrator console's. They say which tabs an operator may
+open and what they may change there. **Farms have no role** — a farm signs in
+as a farm, holds its own records, and its rights come from owning them, not
+from a role. Only operators get a record in `users/{uid}`, and the platform
+writes it at sign-up; nothing has to be created by hand.
 
 | Role | What it is for |
 |---|---|
@@ -58,10 +61,8 @@ written by the platform at sign-up; nothing has to be created by hand.
 | `secretariat` | the association's staff: members, codes, catalogue, orders, reports |
 | `qualityOfficer` | harvest batches and complaints |
 | `agronomist` | advisory work and the knowledge library |
-| `farmMember` | one farm, its own records only |
 | `logistics` | consignments |
 | `auditor` | reads everything, writes nothing |
-| `customer` | their own orders, and public traceability |
 
 **The system owner is the first operator to arrive.** Rules cannot count a
 collection, so being first is not something the platform can prove by looking:
@@ -81,6 +82,9 @@ If you need to move ownership to a different account, edit the `owner` field of
 `settings/ownership` in the console and set that account's `role` in
 `users/{uid}` to `superAdmin`.
 
+Nothing on the member side reads a role, so there is no farm-facing effect to
+any of this.
+
 ## The data
 
 | Collection | Holds | Who can read | Who can write |
@@ -90,7 +94,7 @@ If you need to move ownership to a different account, edit the `owner` field of
 | `farms/{uid}` | profile, crops, crop calendar, prices, archives | that farm, and operators | that farm, and operators |
 | `harvest/{uid}` | that farm's harvest figures | that farm, and operators | that farm, and operators |
 | `submissions/{id}` | requests and complaints | the farm that raised it, and operators | the farm creates; operators resolve |
-| `users/{uid}` | role, farms held, active or suspended | that person, and staff | that person may correct their name and phone; only the system owner may change a role, a farm list or a status |
+| `users/{uid}` | an operator's role, active or suspended | that operator, and staff | that operator may correct their name and phone; only the system owner may change a role or a status |
 | `settings/ownership` | which account owns the settings | anyone signed in | written once, by the first operator; only the owner after that |
 
 Harvest is kept apart from the farm document because a season of weekly entries
