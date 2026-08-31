@@ -47,6 +47,40 @@ operator code. The rules allow it only when the code matches and only against
 the operator's own user id, so operator status still cannot be self-granted
 without the code. No manual step is needed.
 
+## Roles
+
+Every account also has a record in `users/{uid}` saying what it may do. It is
+written by the platform at sign-up; nothing has to be created by hand.
+
+| Role | What it is for |
+|---|---|
+| `superAdmin` | the system owner — the only account that may change anyone's role |
+| `secretariat` | the association's staff: members, codes, catalogue, orders, reports |
+| `qualityOfficer` | harvest batches and complaints |
+| `agronomist` | advisory work and the knowledge library |
+| `farmMember` | one farm, its own records only |
+| `logistics` | consignments |
+| `auditor` | reads everything, writes nothing |
+| `customer` | their own orders, and public traceability |
+
+**The system owner is the first operator to arrive.** Rules cannot count a
+collection, so being first is not something the platform can prove by looking:
+it is claimed instead. The first operator to sign up — or, on an association
+already running, the first existing operator to sign in after this version is
+deployed — writes their user id into `settings/ownership`. Because a create
+rule applies only to a document that does not yet exist, every later claim is
+refused. Nobody can take ownership afterwards, and nobody can grant it to
+themselves.
+
+Everyone else who registers with the operator code is `secretariat`. The system
+owner changes that on the **Governance** tab: each account on the roll has a
+role control and a **Suspend** button. Both are refused by the database for
+anyone else, so hiding the control is a courtesy, not the protection.
+
+If you need to move ownership to a different account, edit the `owner` field of
+`settings/ownership` in the console and set that account's `role` in
+`users/{uid}` to `superAdmin`.
+
 ## The data
 
 | Collection | Holds | Who can read | Who can write |
@@ -56,6 +90,8 @@ without the code. No manual step is needed.
 | `farms/{uid}` | profile, crops, crop calendar, prices, archives | that farm, and operators | that farm, and operators |
 | `harvest/{uid}` | that farm's harvest figures | that farm, and operators | that farm, and operators |
 | `submissions/{id}` | requests and complaints | the farm that raised it, and operators | the farm creates; operators resolve |
+| `users/{uid}` | role, farms held, active or suspended | that person, and staff | that person may correct their name and phone; only the system owner may change a role, a farm list or a status |
+| `settings/ownership` | which account owns the settings | anyone signed in | written once, by the first operator; only the owner after that |
 
 Harvest is kept apart from the farm document because a season of weekly entries
 grows steadily, and a Firestore document is capped at 1 MiB.
