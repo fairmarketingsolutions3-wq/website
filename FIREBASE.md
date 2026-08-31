@@ -78,9 +78,20 @@ owner changes that on the **Governance** tab: each account on the roll has a
 role control and a **Suspend** button. Both are refused by the database for
 anyone else, so hiding the control is a courtesy, not the protection.
 
-If you need to move ownership to a different account, edit the `owner` field of
-`settings/ownership` in the console and set that account's `role` in
-`users/{uid}` to `superAdmin`.
+### Handing ownership to somebody else
+
+`settings/ownership` decides who becomes the owner at the start, and nothing
+after that: from then on the role in `users/{uid}` is what counts. So the owner
+hands over from inside the platform — **Governance**, set that operator's role
+to **System owner**. There can be two owners for as long as you want; the new
+one can then set the old one back to Secretariat, since nobody may change their
+own row.
+
+If the owner's account is lost altogether, nobody is left who can promote
+anyone, and the Firebase console is the way back in: **Firestore Database →
+Data → `users` →** the account's document **→** set `role` to `superAdmin`.
+Writes made in the console are not subject to the rules, which is exactly why
+that route always works.
 
 Nothing on the member side reads a role, so there is no farm-facing effect to
 any of this.
@@ -96,14 +107,50 @@ any of this.
 | `submissions/{id}` | requests and complaints | the farm that raised it, and operators | the farm creates; operators resolve |
 | `users/{uid}` | an operator's role, active or suspended | that operator, and staff | that operator may correct their name and phone; only the system owner may change a role or a status |
 | `settings/ownership` | which account owns the settings | anyone signed in | written once, by the first operator; only the owner after that |
+| `orders/{id}` | what a customer asked the association for | staff | the Secretariat |
+| `orderAllocations/{id}` | one farm's share of one order | that farm, and staff | the Secretariat places it; the farm may only accept or decline |
+| `harvestBatches/{id}` | one farm's pick of one crop on one day, under its lot code | that farm, and staff | that farm, and staff |
+| `inputApplications/{id}` | what was applied, and the days before picking is safe | that farm, and staff | that farm |
+| `consignments/{id}` | which batches went to which customer | that farm, and staff | staff |
+| `lotComplaints/{id}` | what came back, against which lot | that farm, and staff | staff |
+| `publicTrace/{lotCode}` | crop, farm name, region, harvest date | **anyone, signed in or not** | that farm, and staff |
+| `advisoryCases/{id}` | a question from a farm, and its answers | that farm, and staff | the farm asks; only staff may add an answer |
+| `knowledge/{id}` | answers worth keeping | every signed-in member | staff |
 
 Harvest is kept apart from the farm document because a season of weekly entries
 grows steadily, and a Firestore document is capped at 1 MiB.
+
+### Why some of these are split in two
+
+**An order and a farm's share of it are separate documents.** The order names
+the customer, the price, and every farm that was offered part of it. A farm
+must be able to answer for its own share without seeing what its neighbours
+were offered or paid, so its allocation carries its own copy of the crop,
+quantity, price and date. That duplication is the point: it is what lets the
+rules close the order to farms entirely.
+
+**The public trace is a mirror, not an opening.** A lot code printed on a box
+has to be readable by a stranger, and `harvestBatches` carries farm contacts
+and weights beside the crop. So a second document holds only what is safe to
+show — crop, farm name, region, harvest date — and that is the only one the
+public route can read. Nothing else exists on that route to leak.
 
 The sign-up codes are never sent to a browser. Security rules can read
 documents a client cannot, so a code is *checked* against the stored value
 without ever being *revealed* to the page — which is what the current
 browser-only version cannot do.
+
+### If a farm's tab comes up empty
+
+Firestore needs an index for a query that filters on a field. Single-field
+filters are normally served automatically, so most of these need nothing at
+all — but if a farm opens Orders, Batches or Ask an agronomist and sees
+nothing when it should see something, open the browser console. A
+`failed-precondition` error there carries a link that creates the missing
+index in one click. The queries that could ask for one are:
+
+- `orderAllocations`, `harvestBatches`, `inputApplications`, `consignments`,
+  `lotComplaints` and `advisoryCases`, each filtered on `farmUid`
 
 ## The config file
 
