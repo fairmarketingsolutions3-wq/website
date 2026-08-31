@@ -711,6 +711,39 @@ input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
 .restoring-card .es-mark{margin:0 auto;}
 .restoring-card .es-mark svg{animation:spin 1.4s linear infinite;}
 @media (prefers-reduced-motion: reduce){ .restoring-card .es-mark svg{animation:none;} }
+/* ---- Picking which crop to log against ------------------------------
+   Green means selected by the farm, right now, and nothing else. How many
+   records a chip already holds is a count on the chip, so that fact is not
+   carried by the colour. */
+.crop-pick{margin:0 0 14px;}
+.pick-group{margin-bottom:10px;}
+.pick-head{
+  font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.18em;
+  color:var(--muted);font-family:'Poppins',sans-serif;margin:0 0 5px 2px;
+}
+.chip.crop-chip{
+  display:inline-flex;align-items:center;gap:7px;
+  white-space:normal;text-align:left;line-height:1.35;
+  max-width:100%;padding:10px 14px;font-size:14px;
+  border:1px solid var(--line);background:#fff;color:var(--ink);
+}
+.chip.crop-chip:hover{border-color:var(--leaf-green);}
+.chip.crop-chip.active{
+  background:var(--tipfa-green);border-color:var(--tipfa-green);color:#fff;font-weight:600;
+  box-shadow:0 6px 16px -8px rgba(44,68,35,.7);
+}
+.chip-count{
+  display:inline-flex;align-items:center;justify-content:center;
+  min-width:19px;height:19px;padding:0 5px;border-radius:10px;
+  background:var(--field-cream);color:var(--soil-ink);
+  font-size:11px;font-weight:700;font-variant-numeric:tabular-nums;flex:0 0 auto;
+}
+.chip.crop-chip.active .chip-count{background:rgba(255,255,255,.24);color:#fff;}
+.pick-prompt{text-align:center;padding:30px 20px;}
+.pick-prompt p{margin:0;font-size:17px;color:var(--muted);}
+@media (max-width:520px){
+  .chip.crop-chip{padding:12px 15px;font-size:15px;}
+}
 /* ---- Harvest plan and actual harvest --------------------------------
    Mobile first, one idea to a line, and the numbers that matter the
    largest thing on the screen. */
@@ -1153,18 +1186,97 @@ function cropCountUnit(cropName){
   return (c && c.countUnit) || 'plant';
 }
 
+/* ============================================================
+   A crop profile entry is the unit, not the crop name
+   Two profiles of the same crop with different varieties are two
+   different things: their own seedling count, their own expected
+   total, their own harvest. Keyed by name they shared all of it, so
+   each entry carries an id of its own and everything hangs off that.
+   ============================================================ */
+function newProfileId(){
+  return 'cp-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7);
+}
+
+/* Older records have no id, and their harvest entries were filed under the
+   crop name. Both are brought forward here: every profile entry gets an id,
+   and every entry is attached to the profile it belongs to. Where one crop
+   name covers several profiles the entry cannot say which was meant, so it
+   goes to the first and the farm is told. */
+function migrateProfileIds(id){
+  const m = MEMBERS[id];
+  if(!m) return { ids:0, entries:0, ambiguous:[] };
+  let ids = 0, moved = 0;
+  const ambiguous = [];
+  (m.crops||[]).forEach(cr=>{ if(!cr.id){ cr.id = newProfileId(); ids++; } });
+  const list = (harvest[id] && Array.isArray(harvest[id].entries)) ? harvest[id].entries : [];
+  list.forEach(e=>{
+    if(e.profileId) return;
+    const matches = (m.crops||[]).filter(cr=> cr.crop === e.crop);
+    if(!matches.length) return;                 // the crop is gone; history keeps the name
+    e.profileId = matches[0].id;
+    moved++;
+    if(matches.length > 1 && ambiguous.indexOf(e.crop) === -1) ambiguous.push(e.crop);
+  });
+  return { ids, entries:moved, ambiguous };
+}
+
+// What a profile entry is called on a chip and in its history.
+function profileLabel(cr){
+  return cr.variety ? `${cr.crop} · ${cr.variety}` : cr.crop;
+}
+
+/* The member's profile entries, grouped by crop so several varieties of one
+   crop sit under a single heading and a lone one needs none. */
+function profileGroups(m){
+  const groups = [];
+  (m.crops||[]).forEach(cr=>{
+    let g = groups.find(x=> x.crop === cr.crop);
+    if(!g){ g = { crop: cr.crop, items: [] }; groups.push(g); }
+    g.items.push(cr);
+  });
+  return groups;
+}
+
+/* A variety may carry its own figures. Where it does not, it inherits the
+   crop's — so one variety that genuinely out-yields another can be set
+   without repeating everything else on it. */
+function varietyOf(cropName, varietyName){
+  const crop = catalogueCrop(cropName);
+  if(!crop || !varietyName) return null;
+  const n = String(varietyName).trim().toLowerCase();
+  return (crop.varieties||[]).find(v=> (v.name||'').trim().toLowerCase() === n) || null;
+}
+function yieldSettings(cropName, varietyName){
+  const crop = catalogueCrop(cropName);
+  const v = varietyOf(cropName, varietyName);
+  const pick = (key, dflt)=>{
+    if(v && v[key] != null && v[key] !== '') return v[key];
+    if(crop && crop[key] != null && crop[key] !== '') return crop[key];
+    return dflt;
+  };
+  return {
+    exists: !!crop,
+    avgYieldPerPlant: pick('avgYieldPerPlant', null),
+    yieldUnit: pick('yieldUnit', 'kg'),
+    countUnit: pick('countUnit', 'plant'),
+    seasonWeeks: Number(pick('seasonWeeks', SEASON_WEEKS)) || SEASON_WEEKS,
+    fromVariety: !!(v && v.avgYieldPerPlant != null && v.avgYieldPerPlant !== '')
+  };
+}
+
 /* THE shared calculation. Both member screens call this and nothing else
    works out an expected total. It reports why it cannot answer rather than
    returning a number that would render as NaN. */
 function expectedHarvest(cr){
-  const crop = catalogueCrop(cr && cr.crop);
-  const yieldPer = crop && crop.avgYieldPerPlant != null ? Number(crop.avgYieldPerPlant) : null;
+  const set = yieldSettings(cr && cr.crop, cr && cr.variety);
+  const yieldPer = set.avgYieldPerPlant != null ? Number(set.avgYieldPerPlant) : null;
   const count = Number(cr && cr.seedlings) || 0;
-  const unit = (crop && crop.countUnit) || 'plant';
-  const yieldUnit = (crop && crop.yieldUnit) || 'kg';
-  const out = { crop: cr ? cr.crop : '', yieldPer, count, unit, yieldUnit,
+  const unit = set.countUnit, yieldUnit = set.yieldUnit;
+  const out = { crop: cr ? cr.crop : '', variety: cr ? (cr.variety||'') : '',
+                label: cr ? profileLabel(cr) : '', fromVariety: set.fromVariety,
+                yieldPer, count, unit, yieldUnit,
                 perKg: yieldPer == null ? null : toKg(yieldPer, yieldUnit),
-                seasonWeeks: (crop && Number(crop.seasonWeeks)) || SEASON_WEEKS,
+                seasonWeeks: set.seasonWeeks,
                 total: 0, ok: false, why: '' };
   if(yieldPer == null || !(yieldPer > 0)){
     out.why = 'no-yield';
@@ -1577,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v44';
+const BUILD = 'v45';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -2156,7 +2268,7 @@ function enterSession(role, opts){
   state.loggedIn = true;
   state.role = role;
   state.rollRead = false;
-  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'profile'; state.harvestCrop = null; }
+  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'profile'; state.harvestPick = null; }
   else { state.adminName = opts.adminName || 'TIPFA Secretariat operator'; state.tab = state.tab || 'members'; }
   document.body.setAttribute('data-role', role);
   rememberSession();
@@ -2611,7 +2723,7 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', harvestCrop:null, yieldEdit:null, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', harvestPick:null, yieldEdit:null, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -4152,7 +4264,7 @@ function addCrop(){
   if(m.crops.some(cr=> (cr.crop||'').toLowerCase()===crop.toLowerCase() && (cr.variety||'').toLowerCase()===variety.toLowerCase())){
     fail('That crop and variety are already in your crop profile.'); return;
   }
-  m.crops.push({crop, variety, seedCompany, area, areaUnit, seedlings, planted, firstHarvest, expected,
+  m.crops.push({id:newProfileId(), crop, variety, seedCompany, area, areaUnit, seedlings, planted, firstHarvest, expected,
                 stage:CROP_STAGES[0], stageInputs:'', programme:blankProgramme()});
   logAction(`${m.name} added a crop profile entry: ${crop} (${variety})${seedCompany ? ' from '+seedCompany : ''}.`);
   render();
@@ -5614,7 +5726,10 @@ function renderHarvestForm(c, kind){
 function expectedCard(cr, opts){
   opts = opts || {};
   const e = expectedHarvest(cr);
-  const nameLine = `<div class="big-row"><span class="big-lbl">Crop</span><span class="big-val">${esc(cr.crop)}</span></div>`;
+  // The variety, not just the crop: two profiles of one crop are two different
+  // things and must never read the same on screen.
+  const nameLine = `<div class="big-row"><span class="big-lbl">Crop</span><span class="big-val">${esc(cr.crop)}</span></div>` +
+    (cr.variety ? `<div class="big-row"><span class="big-lbl">Variety</span><span class="big-val">${esc(cr.variety)}</span></div>` : '');
   if(e.why === 'no-yield'){
     return `<div class="card big-card">${nameLine}
       <p class="big-note">Not set yet — contact admin.</p>
@@ -5665,12 +5780,12 @@ function harvestEntries(id){
   if(!Array.isArray(harvest[id].entries)) harvest[id].entries = [];
   return harvest[id].entries;
 }
-function entriesForCrop(id, crop){
-  return harvestEntries(id).filter(e=> e.crop === crop);
+function entriesForProfile(id, profileId){
+  return harvestEntries(id).filter(e=> e.profileId === profileId);
 }
-function actualTotal(id, crop){
+function actualTotal(id, profileId){
   // entries may be recorded in grams or kilograms; the total is kilograms
-  return entriesForCrop(id, crop).reduce((t,e)=> t + toKg(e.amount, e.unit || 'kg'), 0);
+  return entriesForProfile(id, profileId).reduce((t,e)=> t + toKg(e.amount, e.unit || 'kg'), 0);
 }
 
 function statusBand(pct){
@@ -5710,22 +5825,48 @@ function renderActualHarvest(c){
         'Add the crops you grow on the Profile tab, with how many you planted, and you can record your harvest here.')}`;
     return;
   }
-  const pick = state.harvestCrop && crops.some(cr=> cr.crop === state.harvestCrop)
-             ? state.harvestCrop : crops[0].crop;
-  state.harvestCrop = pick;
-  const cr = crops.find(x=> x.crop === pick);
+  const mig = migrateProfileIds(id);
+  const groups = profileGroups(m);
+
+  // Nothing is chosen until the farm chooses it. Green means selected and
+  // nothing else, so on arrival no chip carries it.
+  const cr = state.harvestPick ? crops.find(x=> x.id === state.harvestPick) : null;
+  if(state.harvestPick && !cr) state.harvestPick = null;
+
+  const picker = `
+    <div class="crop-pick">
+      ${groups.map(g=> g.items.length > 1 ? `
+        <div class="pick-group">
+          <div class="pick-head">${esc(g.crop)}</div>
+          <div class="chips">${g.items.map(it=> chipFor(id, it)).join('')}</div>
+        </div>`
+        : `<div class="chips">${g.items.map(it=> chipFor(id, it, true)).join('')}</div>`).join('')}
+    </div>`;
+
+  if(!cr){
+    c.innerHTML = `
+      <h1 class="page-title">Actual harvest</h1>
+      <p class="page-sub">${esc(m.name)}</p>
+      ${picker}
+      <div class="card pick-prompt">
+        <p>Pick a crop to log your harvest.</p>
+      </div>
+      ${orphanHistory(id, crops)}`;
+    return;
+  }
+
   const e = expectedHarvest(cr);
-  const total = actualTotal(id, pick);
+  const total = actualTotal(id, cr.id);
   const pct = e.ok ? (total / e.total) * 100 : 0;
   const band = statusBand(pct);
-  const rows = entriesForCrop(id, pick)
+  const rows = entriesForProfile(id, cr.id)
     .slice().sort((a,b)=> String(b.date).localeCompare(String(a.date)));
 
   c.innerHTML = `
     <h1 class="page-title">Actual harvest</h1>
     <p class="page-sub">${esc(m.name)}</p>
-    ${crops.length > 1 ? `<div class="chips">${crops.map(x=>
-      `<span class="chip ${x.crop===pick?'active':''}" onclick="pickHarvestCrop('${esc(x.crop).replace(/'/g,"\\'")}')">${esc(x.crop)}</span>`).join('')}</div>` : ''}
+    ${picker}
+    ${mig.ambiguous.length ? `<p class="helper cat-local">Earlier records of ${esc(mig.ambiguous.join(', '))} were kept under one name. They have been attached to the first ${mig.ambiguous.length===1?'variety':'varieties'} of that crop — move any that belong elsewhere by deleting and re-entering them.</p>` : ''}
 
     ${expectedCard(cr)}
 
@@ -5753,7 +5894,7 @@ function renderActualHarvest(c){
       ${paceLine(cr, e, total)}
     </div>
 
-    <div class="section-label">What you have recorded</div>
+    <div class="section-label">What you have recorded for ${esc(profileLabel(cr))}</div>
     <div class="card">
       ${rows.length ? rows.map(r=>`
         <div class="hist-row">
@@ -5761,11 +5902,46 @@ function renderActualHarvest(c){
           <span class="hist-amt">${massText(toKg(r.amount, r.unit || 'kg'))}</span>
           <button class="btn small ghost hist-del" onclick="removeHarvestEntry('${esc(r.id)}')">Delete</button>
         </div>`).join('')
-        : '<p class="helper" style="margin:0;">Nothing recorded yet. Add your first harvest above.</p>'}
-    </div>` : ''}`;
+        : '<p class="helper" style="margin:0;">Nothing recorded yet for this one. Add your first harvest above.</p>'}
+    </div>` : ''}
+    ${orphanHistory(id, crops)}`;
 }
 
-function pickHarvestCrop(crop){ state.harvestCrop = crop; render(); }
+// One chip. Its identity is the profile entry, never the crop name, so two
+// profiles of one crop can never share a selection or a total.
+function chipFor(id, cr, withCrop){
+  const on = state.harvestPick === cr.id;
+  const n = entriesForProfile(id, cr.id).length;
+  const label = withCrop ? profileLabel(cr) : (cr.variety || cr.crop);
+  return `<span class="chip crop-chip ${on?'active':''}" onclick="pickHarvestProfile('${esc(cr.id)}')">${esc(label)}${
+    n ? `<span class="chip-count" title="${n} record${n===1?'':'s'}">${n}</span>` : ''}</span>`;
+}
+
+/* Records kept against a crop the farm has since removed from its profile.
+   Deleting a crop must not take its harvest with it. */
+function orphanHistory(id, crops){
+  const live = {};
+  crops.forEach(cr=> live[cr.id] = true);
+  const gone = harvestEntries(id).filter(e=> !e.profileId || !live[e.profileId]);
+  if(!gone.length) return '';
+  const byName = {};
+  gone.forEach(e=>{ (byName[e.crop || 'Unnamed crop'] = byName[e.crop || 'Unnamed crop'] || []).push(e); });
+  return `
+    <div class="section-label">Records for crops no longer in your profile</div>
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">These stay here for your records. They count towards nothing above.</p>
+      ${Object.keys(byName).map(name=>`
+        <div class="pick-head" style="margin-top:8px;">${esc(name)}</div>
+        ${byName[name].sort((a,b)=> String(b.date).localeCompare(String(a.date))).map(r=>`
+          <div class="hist-row">
+            <span class="hist-date">${esc(prettyDate(r.date))}</span>
+            <span class="hist-amt">${massText(toKg(r.amount, r.unit || 'kg'))}</span>
+            <button class="btn small ghost hist-del" onclick="removeHarvestEntry('${esc(r.id)}')">Delete</button>
+          </div>`).join('')}`).join('')}
+    </div>`;
+}
+
+function pickHarvestProfile(pid){ state.harvestPick = pid; render(); }
 
 function addHarvestEntry(){
   const id = state.member;
@@ -5775,14 +5951,14 @@ function addHarvestEntry(){
   const unit = (document.getElementById('ah-unit')||{}).value || 'kg';
   if(!date){ if(err) err.textContent = 'Choose the date you harvested.'; return; }
   if(!(amount > 0)){ if(err) err.textContent = 'Enter how much you harvested.'; return; }
-  const cr = (MEMBERS[id].crops||[]).find(x=> x.crop === state.harvestCrop);
-  const e = expectedHarvest(cr);
+  const cr = (MEMBERS[id].crops||[]).find(x=> x.id === state.harvestPick);
+  if(!cr){ if(err) err.textContent = 'Pick a crop first.'; return; }
   harvestEntries(id).push({
     id: 'h-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,7),
-    crop: state.harvestCrop, date, amount, unit,
+    profileId: cr.id, crop: cr.crop, variety: cr.variety || '', date, amount, unit,
     createdAt: new Date().toISOString()
   });
-  logAction(`${MEMBERS[id].name} recorded ${amount} ${unit} of ${state.harvestCrop} harvested on ${date}.`);
+  logAction(`${MEMBERS[id].name} recorded ${amount} ${unit} of ${profileLabel(cr)} harvested on ${date}.`);
   render();
 }
 
@@ -5793,7 +5969,7 @@ function removeHarvestEntry(entryId){
   if(at === -1) return;
   const gone = list[at];
   list.splice(at, 1);
-  logAction(`${MEMBERS[id].name} deleted a harvest record of ${gone.amount} ${gone.unit||'kg'} of ${gone.crop}.`);
+  logAction(`${MEMBERS[id].name} deleted a harvest record of ${gone.amount} ${gone.unit||'kg'} of ${gone.crop}${gone.variety?' · '+gone.variety:''}.`);
   render();
 }
 
@@ -6103,13 +6279,13 @@ function renderCatalogue(c){
       <div class="section-label">${esc(crop.name)}</div>
       ${cropYieldCard(crop, ci)}
       <div class="card" style="overflow-x:auto;">
-        <table class="grid-table"><thead><tr><th>Variety</th><th>Counted as</th><th>Per m²</th><th>Note</th><th></th><th style="min-width:140px;"></th></tr></thead>
+        <table class="grid-table"><thead><tr><th>Variety</th><th>Counted as</th><th>Per m²</th><th>Yield</th><th></th><th style="min-width:140px;"></th></tr></thead>
         <tbody>${(crop.varieties||[]).length ? crop.varieties.map((v, vi)=>
           (ed && ed.ci===ci && ed.vi===vi) ? catalogueEditRow(crop, v, ci, vi) : `<tr>
             <td><strong>${esc(v.name)}</strong></td>
             <td>${esc(countWord(crop.countUnit||'plant', 2))}</td>
             <td>${v.perSqm || '—'}</td>
-            <td class="helper">${catalogueFigures(v)}</td>
+            <td class="helper">${catalogueFigures(v, crop)}</td>
             <td></td>
             <td><button class="btn small ghost" onclick="editCatalogueVariety(${ci},${vi})">Edit</button>
                 <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeCatalogueVariety(${ci},${vi})">Remove</button></td>
@@ -6197,8 +6373,14 @@ function saveCropYield(ci){
   render();
 }
 
-function catalogueFigures(v){
-  return v.notes ? esc(v.notes) : '<span class="helper">—</span>';
+function catalogueFigures(v, crop){
+  const own = v.avgYieldPerPlant != null && v.avgYieldPerPlant !== '';
+  const bits = [];
+  bits.push(own
+    ? `<strong>${v.avgYieldPerPlant} ${esc(v.yieldUnit || 'kg')}</strong> per ${esc(countWord((crop&&crop.countUnit)||'plant',1))} <span class="helper">(its own)</span>`
+    : `<span class="helper">uses ${esc((crop&&crop.name)||'the crop')}'s figure</span>`);
+  if(v.notes) bits.push(esc(v.notes));
+  return bits.join('<br>');
 }
 
 // Who this change reaches, said plainly before it is made.
@@ -6222,6 +6404,14 @@ function catalogueEditRow(crop, v, ci, vi){
       <div><label class="f">Variety name</label><input id="cv-name" value="${esc(v.name||'')}" placeholder="e.g. Anna F1"></div>
       <div><label class="f">Per m² <span class="helper" style="font-weight:400;">— optional spacing</span></label>
         <input id="cv-persqm" type="number" step="0.01" min="0" value="${v.perSqm||''}" placeholder="e.g. 2.5"></div>
+      <div><label class="f">Total harvest per ${esc(countWord(crop.countUnit||'plant',1))}
+          <span class="helper" style="font-weight:400;">— leave blank to use ${esc(crop.name)}'s figure</span></label>
+        <div class="unit-field">
+          <input id="cv-avg" type="number" step="0.01" min="0" value="${v.avgYieldPerPlant != null ? v.avgYieldPerPlant : ''}"
+                 placeholder="${crop.avgYieldPerPlant != null ? crop.avgYieldPerPlant : ''}">
+          <select id="cv-yunit" aria-label="Unit">${MASS_UNITS.map(u=>
+            `<option ${ (v.yieldUnit || crop.yieldUnit || 'kg')===u ? 'selected' : '' }>${u}</option>`).join('')}</select>
+        </div></div>
       <div><label class="f">Note for farms</label><input id="cv-notes" value="${esc(v.notes||'')}" placeholder="e.g. Indoor, trellised"></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -6235,8 +6425,13 @@ function catalogueEditRow(crop, v, ci, vi){
 
 function readVarietyForm(){
   const val = id=>{ const el = document.getElementById(id); return el ? el.value : ''; };
+  const avg = val('cv-avg').trim();
   return { name: val('cv-name').trim(), unit: (CATALOGUE[state.catEdit ? state.catEdit.ci : 0]||{}).countUnit || 'plant',
-           perSqm: Number(val('cv-persqm')) || 0, notes: val('cv-notes').trim(), months: [] };
+           perSqm: Number(val('cv-persqm')) || 0, notes: val('cv-notes').trim(),
+           // Blank means inherit. Only a figure actually entered overrides the crop.
+           avgYieldPerPlant: avg === '' ? null : Number(avg),
+           yieldUnit: avg === '' ? null : (val('cv-yunit') || 'kg'),
+           months: [] };
 }
 
 function editCatalogueVariety(ci, vi){ state.catEdit = {ci, vi}; render(); }
