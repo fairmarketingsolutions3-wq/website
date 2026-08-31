@@ -1689,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v45';
+const BUILD = 'v46';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -2036,6 +2036,37 @@ async function cloudPullOperators(){
   }
 }
 
+/* ---- The roll of roles ------------------------------------------------
+   Roles live in users/{uid}. Staff may read the whole collection; only the
+   system owner may write a role, a farm list or a status, and that is
+   enforced by the rules rather than by hiding the control here. */
+async function cloudPullUsers(){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator') return 0;
+  try{
+    const { collection, getDocs } = CLOUD.fs;
+    const snap = await getDocs(collection(CLOUD.db, 'users'));
+    const next = {};
+    snap.forEach(d=>{ next[d.id] = Object.assign({uid:d.id}, d.data() || {}); });
+    USERS = next;
+    if(CLOUD_STATE.uid && USERS[CLOUD_STATE.uid]) USER = USERS[CLOUD_STATE.uid];
+    return Object.keys(USERS).length;
+  }catch(e){
+    // Not fatal: Governance still lists the roll, it just cannot say which
+    // role each account holds.
+    return 0;
+  }
+}
+
+/* Change what someone may do. The database refuses this from anyone but the
+   system owner, so a refusal here is the rule working, not a fault. */
+async function cloudSetUserField(uid, field, value){
+  if(!cloudOn() || !uid) throw new Error('Not connected to the shared database.');
+  const { doc, updateDoc } = CLOUD.fs;
+  await updateDoc(doc(CLOUD.db, 'users', uid), { [field]: value });
+  if(USERS[uid]) USERS[uid][field] = value;
+  if(CLOUD_STATE.uid === uid && USER) USER[field] = value;
+}
+
 async function checkStillAnOperator(){
   if(!cloudOn() || !CLOUD_STATE.uid) return true;
   try{
@@ -2108,6 +2139,132 @@ async function cloudPullAll(){
   return count;
 }
 
+/* ============================================================
+   Roles and permissions
+   A role lives in one place — users/{uid} — and the rules read it
+   from there. What the browser knows is only for deciding what to
+   draw; every restriction that matters is enforced in
+   firestore.rules, because a hidden button is not a permission.
+   ============================================================ */
+const ROLES = ['superAdmin','secretariat','qualityOfficer','agronomist',
+               'farmMember','logistics','auditor','customer'];
+
+const ROLE_LABELS = {
+  superAdmin:    'System owner',
+  secretariat:   'Secretariat',
+  qualityOfficer:'Quality officer',
+  agronomist:    'Agronomist',
+  farmMember:    'Farm member',
+  logistics:     'Logistics',
+  auditor:       'Auditor',
+  customer:      'Customer'
+};
+
+const PERMS = {
+  superAdmin:    ['*'],
+  secretariat:   ['members.read','members.write','orders.*','inputs.*','batches.read','reports.*',
+                  'catalogue.*','codes.*','comms.*','calendars.read','bulk.*','dashboard.read',
+                  'growth.read','archive.read'],
+  qualityOfficer:['batches.*','complaints.*','reports.read','members.read','calendars.read','dashboard.read'],
+  agronomist:    ['advisory.*','knowledge.write','farms.read','batches.read','members.read',
+                  'calendars.read','reports.read'],
+  farmMember:    ['ownFarm.*','orders.respond','batches.create','inputs.read','suggestions.create'],
+  logistics:     ['consignments.*','orders.read'],
+  auditor:       ['*.read'],
+  customer:      ['ownOrders.read','trace.read']
+};
+
+// Who this browser is signed in as, for drawing the page only.
+let USER = null;
+
+/* Everyone's role record, keyed by user id, read by staff for Governance.
+   The signed-in person's own record is USER; this is the roll. */
+let USERS = {};
+
+/* One wildcard match, so a screen asks can('orders.write') and nothing
+   scatters role names through the rendering code. */
+function can(perm){
+  const role = USER && USER.status === 'active' ? USER.role : null;
+  const list = PERMS[role];
+  if(!list) return false;
+  const [group, action] = String(perm).split('.');
+  return list.some(p=>{
+    if(p === '*') return true;
+    const [g, a] = p.split('.');
+    if(g === '*') return a === action || a === '*';
+    if(g !== group) return false;
+    return a === '*' || a === action;
+  });
+}
+function roleIs(){ return USER ? USER.role : null; }
+function roleLabel(r){ return ROLE_LABELS[r] || r || '—'; }
+
+function userDocFor(uid, fields){
+  return Object.assign({
+    displayName:'', phone:'', email:'', role:'farmMember',
+    farmIds:[], regions:[], status:'active',
+    createdAt: new Date().toISOString(), createdBy: CLOUD_STATE.uid || uid
+  }, fields || {});
+}
+
+/* Write the role record beside the account, filling in what a new record
+   holds so no screen has to cope with a half-written one. */
+async function cloudCreateUserDoc(uid, fields){
+  if(!cloudOn()) return null;
+  const { doc, setDoc } = CLOUD.fs;
+  const rec = userDocFor(uid, fields);
+  await setDoc(doc(CLOUD.db, 'users', uid), rec);
+  return rec;
+}
+
+/* Who owns the association's settings is claimed, not counted. Rules cannot
+   count a collection, and listing the operators is itself something only
+   staff may do — so the first operator to arrive writes settings/ownership,
+   and the rules refuse every later claim because the document is already
+   there. First come, once only, and no way to take it from whoever holds it.
+   An association already running gets its owner the first time one of its
+   operators signs in. */
+async function claimOwnership(uid){
+  if(!cloudOn() || !uid) return false;
+  const { doc, getDoc, setDoc } = CLOUD.fs;
+  try{
+    const d = await getDoc(doc(CLOUD.db, 'settings', 'ownership'));
+    if(d.exists()) return (d.data() || {}).owner === uid;
+  }catch(e){ /* cannot read it; the claim below is the real test anyway */ }
+  try{
+    await setDoc(doc(CLOUD.db, 'settings', 'ownership'),
+                 { owner: uid, claimedAt: new Date().toISOString() });
+    return true;
+  }catch(e){ return false; }      // somebody already owns it
+}
+
+/* Read the role for whoever is signed in, and write one where an account
+   predates this collection. Accounts made before roles existed are not
+   locked out: an operator becomes Secretariat, a farm becomes a farm
+   member holding its own farm. */
+async function loadUserRole(uid, fallback){
+  USER = null;
+  if(!cloudOn() || !uid) return null;
+  const { doc, getDoc } = CLOUD.fs;
+  try{
+    const d = await getDoc(doc(CLOUD.db, 'users', uid));
+    if(d.exists()){ USER = Object.assign({uid}, d.data()); return USER; }
+  }catch(e){ /* fall through and try to write one */ }
+  if(!fallback) return null;
+  // An operator arriving before anyone owned the settings becomes the owner.
+  if(fallback.role === 'secretariat' && await claimOwnership(uid))
+    fallback = Object.assign({}, fallback, { role:'superAdmin' });
+  try{
+    USER = Object.assign({uid}, await cloudCreateUserDoc(uid, fallback));
+    logAction(`A role record was created for this account (${roleLabel(USER.role)}).`);
+  }catch(e){
+    // The rules would not allow it. Carry on with what the account is,
+    // rather than refusing to sign in over a record that can wait.
+    USER = Object.assign({uid, status:'active'}, fallback);
+  }
+  return USER;
+}
+
 /* ---- Account creation and sign-in ---------------------------------- */
 
 /* Creating an account is two steps: the Authentication user, then the record
@@ -2135,6 +2292,12 @@ async function cloudRegisterFarm(vals, password, code){
     await setDoc(doc(CLOUD.db, 'farms', uid), record);
     await updateDoc(doc(CLOUD.db, 'farms', uid), { signupCode: deleteField() });  // not kept
     await setDoc(doc(CLOUD.db, 'harvest', uid), { plan:blankHarvestStore(), actual:blankHarvestStore() });
+    // A database still running the older rules has no users collection, and a
+    // farm must not be turned away over a record that signing in will write.
+    try{
+      await cloudCreateUserDoc(uid, { displayName: vals.name, email: vals.email, phone: vals.phone || '',
+        role:'farmMember', farmIds:[uid], regions: vals.location ? [vals.location] : [], createdBy: uid });
+    }catch(e){ /* loadUserRole writes it at the first sign-in instead */ }
     CLOUD_STATE.cloudIds.add(uid);
     return uid;
   });
@@ -2148,6 +2311,16 @@ async function cloudRegisterOperator(name, email, password, code){
   return await withRollback(cred, async ()=>{
     await setDoc(doc(CLOUD.db, 'operators', uid), { name, email, signupCode:code, since:todayStr() });
     await updateDoc(doc(CLOUD.db, 'operators', uid), { signupCode: deleteField() });
+    // Only an operator may claim ownership, so the claim comes after the
+    // record that proves they are one.
+    const owner = await claimOwnership(uid);
+    // The first operator owns the association's settings; the rest are
+    // Secretariat until an owner decides otherwise. As with a farm, a
+    // database on the older rules simply has nowhere to put this yet.
+    try{
+      await cloudCreateUserDoc(uid, { displayName:name, email,
+        role: owner ? 'superAdmin' : 'secretariat', createdBy: uid });
+    }catch(e){ /* written at the first sign-in instead */ }
     return uid;
   });
 }
@@ -2235,7 +2408,13 @@ async function cloudSignIn(email, password){
   CLOUD_STATE.uid = uid;
   CLOUD_STATE.email = email;
   CLOUD_STATE.role = role;
-  return { uid, role, name: (op && op.exists()) ? (op.data().name||email) : null };
+  const name = (op && op.exists()) ? (op.data().name||email) : null;
+  // An account made before roles existed still has one: an operator is
+  // Secretariat, a farm holds its own farm.
+  await loadUserRole(uid, role === 'farm'
+    ? { displayName: (farm.data()||{}).name || email, email, role:'farmMember', farmIds:[uid] }
+    : (role === 'operator' ? { displayName: name || email, email, role:'secretariat' } : null));
+  return { uid, role, name };
 }
 
 /* ---- Staying signed in ----------------------------------------------
@@ -2296,12 +2475,16 @@ async function restoreSession(){
       const farm = await getDoc(doc(CLOUD.db, 'farms', user.uid));
       if(farm.exists()){
         CLOUD_STATE.role = 'farm';
+        await loadUserRole(user.uid, { displayName:(farm.data()||{}).name||user.email, email:user.email,
+                                       role:'farmMember', farmIds:[user.uid] });
         await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions();
         enterSession('member', { member: user.uid });
       } else {
         const op = await getDoc(doc(CLOUD.db, 'operators', user.uid));
         if(!op.exists()){ CLOUD_STATE.uid = null; forgetSession(); state.restoring = false; return false; }
         CLOUD_STATE.role = 'operator';
+        await loadUserRole(user.uid, { displayName:(op.data()||{}).name||user.email, email:user.email,
+                                       role:'secretariat' });
         await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOperators();
         enterSession('admin', { adminName: (op.data() || {}).name || user.email });
       }
@@ -2344,6 +2527,7 @@ async function cloudSignOut(){
   if(pending) await cloudPushFarm(pending);
   try{ await CLOUD.authApi.signOut(CLOUD.auth); }catch(e){ /* already out */ }
   CLOUD_STATE.uid = null; CLOUD_STATE.role = null; CLOUD_STATE.email = null;
+  USER = null;
 }
 
 async function cloudResetEmail(email){
@@ -3725,7 +3909,15 @@ function renderTopbarRight(){
     </div>`;
 }
 
-function switchTab(tab){ state.tab = tab; render(); }
+function switchTab(tab){
+  // A hidden button is not a permission, but nor should a stale tab name
+  // open a screen this role may not see.
+  if(state.role === 'admin' && USER){
+    const t = ADMIN_TABS_ALL.find(x=> x[0] === tab);
+    if(t && !can(t[2])) return;
+  }
+  state.tab = tab; render();
+}
 function selectMember(id){ state.member = id; render(); }
 function selectPeriod(p){ state.period = p; render(); }
 
@@ -3734,11 +3926,23 @@ const MEMBER_TABS = [
   ['plan','Harvest plan'], ['actual','Actual harvest'], ['market','Market prices'],
   ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
 ];
-const ADMIN_TABS = [
-  ['members','Member management'], ['catalogue','Crop catalogue'], ['calendarsA','Crop calendars'], ['bulk','Bulk data entry'],
-  ['dashboard','Central dashboard'], ['growth','Growth planning'], ['reportsA','Reports'],
-  ['commsA','Communication'], ['gov','Governance']
+// Each tab names the permission that opens it. A role that cannot do the
+// thing does not see the tab — and the rules refuse it besides.
+const ADMIN_TABS_ALL = [
+  ['members','Member management','members.read'],
+  ['catalogue','Crop catalogue','catalogue.read'],
+  ['calendarsA','Crop calendars','calendars.read'],
+  ['bulk','Bulk data entry','bulk.write'],
+  ['dashboard','Central dashboard','dashboard.read'],
+  ['growth','Growth planning','growth.read'],
+  ['reportsA','Reports','reports.read'],
+  ['commsA','Communication','comms.read'],
+  ['gov','Governance','codes.read']
 ];
+function adminTabs(){
+  if(!USER) return ADMIN_TABS_ALL.map(([k,l])=> [k,l]);   // no roles in use yet
+  return ADMIN_TABS_ALL.filter(([,,perm])=> can(perm)).map(([k,l])=> [k,l]);
+}
 
 // Shown wherever a view has nothing to work with until farms have joined.
 function emptyState(title, body, action){
@@ -3752,7 +3956,7 @@ function emptyState(title, body, action){
 function noMembersYet(){ return Object.keys(MEMBERS).length === 0; }
 
 function renderSidebar(){
-  const tabs = state.role==='member' ? MEMBER_TABS : ADMIN_TABS;
+  const tabs = state.role==='member' ? MEMBER_TABS : adminTabs();
   document.getElementById('sidebar').innerHTML = tabs.map(([k,label],i)=>
     `<button class="tabbtn ${state.tab===k?'active':''}" style="animation-delay:${i*35}ms" onclick="switchTab('${k}')">${label}</button>`
   ).join('');
@@ -3769,7 +3973,9 @@ async function refreshNow(btn){
       await cloudPullAll();
       await cloudPullCatalogue();
       await cloudPullSubmissions();
-      if(CLOUD_STATE.role === 'operator'){ state.rollRead = true; await cloudPullOperators(); }
+      if(CLOUD_STATE.role === 'operator'){
+        state.rollRead = true; await cloudPullOperators(); await cloudPullUsers();
+      }
     }
     state.lastRefresh = Date.now();
   }catch(e){ /* whatever failed reports itself */ }
@@ -7426,7 +7632,7 @@ function renderGovernance(c){
   // since would otherwise be missing until the next sign-in.
   if(cloudOn() && !state.rollRead){
     state.rollRead = true;
-    cloudPullOperators().then(()=> render());
+    cloudPullOperators().then(()=> cloudPullUsers()).then(()=> render());
   }
   c.innerHTML = `
     <h1 class="page-title">Governance</h1>
@@ -7437,9 +7643,10 @@ function renderGovernance(c){
     <div class="section-label">Administrator accounts (${ADMINS.length}/${MAX_ADMINS})</div>
     <div class="card">
       ${state.govError ? `<p class="helper cat-local">${esc(state.govError)}</p>${(state.govError='')||''}` : ''}
-      <table class="grid-table"><thead><tr><th>Name</th><th>Operator ID / email</th><th>Account</th><th></th></tr></thead>
+      <table class="grid-table"><thead><tr><th>Name</th><th>Operator ID / email</th><th>Role</th><th>Account</th><th></th></tr></thead>
       <tbody>${ADMINS.map((a,i)=>`<tr>
         <td>${esc(a.name)}</td><td>${esc(a.username)}</td>
+        <td>${roleCell(a)}</td>
         <td>${a.localOnly
               ? '<span class="helper" style="color:var(--red);">this device only</span>'
               : `<span class="helper">shared${a.since?` · since ${esc(a.since)}`:''}</span>`}</td>
@@ -7447,6 +7654,7 @@ function renderGovernance(c){
               ? '<span class="helper">signed in now</span>'
               : `<button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeAdmin(${i})">Remove</button>`}</td>
       </tr>`).join('')}</tbody></table>
+      ${roleNote()}
       ${cloudOn() ? `
         <p class="helper" style="margin-top:12px;">This is the association's roll, read from the shared database, so an operator who signed up on any device appears here.
         A new operator creates their own account from the Administrator tab of the sign-in screen, quoting the operator sign-up code below — an account cannot be made for someone else from here, because only they can set their own password.</p>
@@ -7470,10 +7678,63 @@ function renderGovernance(c){
       `<div class="log-item" style="animation-delay:${Math.min(i,10)*40}ms"><span class="t">${l.time}</span><span>${esc(l.text)}</span></div>`
     ).join('')}</div>`;
 }
+/* What an operator may do, and — for the system owner alone — a way to
+   change it. Everyone else sees the role as a plain word: the control is
+   hidden because it would only be refused, not because hiding it is what
+   stops them. The database is what stops them. */
+const STAFF_ROLES = ['superAdmin','secretariat','qualityOfficer','agronomist','logistics','auditor'];
+
+function roleCell(a){
+  const rec = a.uid ? USERS[a.uid] : null;
+  const role = rec ? rec.role : '';
+  const suspended = rec && rec.status && rec.status !== 'active';
+  if(!a.uid) return '<span class="helper">\u2014</span>';
+  if(!rec) return '<span class="helper">not recorded yet</span>';
+  if(!can('roles.write') || roleIs() !== 'superAdmin'){
+    return `<span class="helper">${esc(roleLabel(role))}${suspended ? ' \u00b7 suspended' : ''}</span>`;
+  }
+  const mine = a.uid === CLOUD_STATE.uid;
+  return `<select class="small" onchange="setAdminRole('${esc(a.uid)}', this.value)"${mine?' disabled':''}>
+      ${STAFF_ROLES.map(r=>`<option value="${r}"${r===role?' selected':''}>${esc(roleLabel(r))}</option>`).join('')}
+      ${STAFF_ROLES.indexOf(role) === -1 && role ? `<option value="${esc(role)}" selected>${esc(roleLabel(role))}</option>` : ''}
+    </select>
+    ${mine ? '' : `<button class="btn small ghost" style="margin-left:6px;" onclick="setAdminStatus('${esc(a.uid)}', '${suspended ? 'active' : 'suspended'}')">${suspended ? 'Restore' : 'Suspend'}</button>`}`;
+}
+
+function roleNote(){
+  if(!cloudOn()) return '';
+  if(roleIs() === 'superAdmin')
+    return '<p class="helper" style="margin-top:10px;">You are the system owner, so you are the only account that may change a role or suspend an operator. Your own row is fixed \u2014 an owner cannot demote themselves and leave the association with none.</p>';
+  return `<p class="helper" style="margin-top:10px;">Roles are set by the system owner. Yours is <strong>${esc(roleLabel(roleIs()))}</strong>.</p>`;
+}
+
+function setAdminRole(uid, role){
+  cloudSetUserField(uid, 'role', role).then(()=>{
+    const who = (USERS[uid] && USERS[uid].displayName) || uid;
+    logAction(`Operator ${state.adminName||''} set ${who}'s role to ${roleLabel(role)}.`);
+    render();
+  }).catch(e=>{
+    state.govError = 'That role could not be changed: ' + ((e && e.message) || e);
+    render();
+  });
+}
+
+function setAdminStatus(uid, status){
+  cloudSetUserField(uid, 'status', status).then(()=>{
+    const who = (USERS[uid] && USERS[uid].displayName) || uid;
+    logAction(`Operator ${state.adminName||''} set ${who}'s account to ${status}.`);
+    render();
+  }).catch(e=>{
+    state.govError = 'That account could not be changed: ' + ((e && e.message) || e);
+    render();
+  });
+}
+
 // Read the roll again without signing out and back in.
 function refreshOperators(){
   state.rollRead = true;
-  cloudPullOperators().then(n=>{
+  cloudPullOperators().then(async n=>{
+    await cloudPullUsers();
     state.govError = '';
     logAction(`Operator ${state.adminName||''} refreshed the administrator roll (${n} account${n===1?'':'s'}).`);
     render();

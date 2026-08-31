@@ -13,6 +13,13 @@ rules_version = '2';
  *                        check a code, so a code is never exposed to the
  *                        browser, only checked against it.
  *
+ *   users/{uid}          one document per person, keyed by their Firebase
+ *                        Auth user id: which role they hold, which farms
+ *                        they speak for, and whether the account is still
+ *                        active. Only the system owner may change any of
+ *                        those three; everyone else may correct their own
+ *                        name, phone and regions and nothing more.
+ *
  *   operators/{uid}      one document per Secretariat operator, keyed by
  *                        their Firebase Auth user id. The presence of the
  *                        document is what makes someone an operator.
@@ -27,9 +34,10 @@ rules_version = '2';
  *
  *   submissions/{id}     requests and complaints raised by farms.
  *
- * The rule throughout: a farm reads and writes only its own records; an
- * operator reads everything and may correct anything; nobody may create an
- * account without the matching code from the Secretariat.
+ * The rule throughout: a farm reads and writes only its own records; staff
+ * read everything and may correct anything their role covers; nobody may
+ * create an account without the matching code from the Secretariat; and no
+ * one may hand themselves a role.
  */
 
 service cloud.firestore {
@@ -39,16 +47,70 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Operator status is a document that only an operator can create, so it
-    // cannot be self-granted. The very first operator is added by hand in the
-    // Firebase console; every later one is added from inside the platform.
-    function isOperator() {
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // ---- Roles ----------------------------------------------------------
+    // A role lives in users/{uid} and only the system owner may write it, so
+    // it cannot be self-granted. Firestore caches the result of a get() on
+    // the same path for the whole of one rule evaluation, so the helpers
+    // below cost one read no matter how many of them a rule calls.
+    function userRec() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function hasUserRec() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    // .get(key, default) rather than a bare field, so a record written before
+    // a field existed is treated as not holding it rather than erroring the
+    // whole evaluation — which would read as a refusal with no cause.
+    function hasRole(roles) {
+      return hasUserRec()
+        && userRec().get('status', '') == 'active'
+        && userRec().get('role', '') in roles;
+    }
+
+    // Accounts made before roles existed are still operators: the presence of
+    // an operators/{uid} document is the older proof, and it keeps working.
+    function hasOperatorDoc() {
       return signedIn()
         && exists(/databases/$(database)/documents/operators/$(request.auth.uid));
     }
 
-    function owns(uid) {
-      return signedIn() && request.auth.uid == uid;
+    // Anyone on the association's side of the platform. Reading only.
+    function isStaff() {
+      return hasOperatorDoc()
+        || hasRole(['superAdmin','secretariat','qualityOfficer','agronomist',
+                    'logistics','auditor']);
+    }
+
+    // Staff who may change members' records. An auditor is deliberately not
+    // here: an auditor sees everything and touches nothing.
+    function isOperator() {
+      return hasOperatorDoc()
+        || hasRole(['superAdmin','secretariat','qualityOfficer','agronomist',
+                    'logistics']);
+    }
+
+    // The Secretariat's own settings — the catalogue and the sign-up codes.
+    function isSecretariat() {
+      return hasOperatorDoc() || hasRole(['superAdmin','secretariat']);
+    }
+
+    function isOwner() {
+      return hasRole(['superAdmin']);
+    }
+
+    // Who claimed the association's settings. Written once, by the first
+    // operator to arrive, and never again — which is what makes 'superAdmin'
+    // something that cannot be handed to yourself.
+    function ownerIsClaimed() {
+      return exists(/databases/$(database)/documents/settings/ownership);
+    }
+    function ownerUid() {
+      return get(/databases/$(database)/documents/settings/ownership).data.get('owner', '');
     }
 
     // Rules may read documents the client cannot, which is what keeps the
@@ -64,10 +126,25 @@ service cloud.firestore {
     }
 
     // ---- Sign-up codes -------------------------------------------------
-    // Never readable by a client. Operators change them through the platform.
+    // Never readable by a client. The Secretariat changes them through the
+    // platform.
     match /settings/signup {
       allow read: if false;
-      allow write: if isOperator();
+      allow write: if isSecretariat();
+    }
+
+    // ---- Ownership -------------------------------------------------------
+    // Rules cannot count a collection, so being the first operator is not
+    // something the platform can prove by looking. It is claimed instead: an
+    // operator writes their own user id here, and because create applies only
+    // to a document that does not exist, the second claim is refused. Reading
+    // it tells a signed-in person only which account owns the settings.
+    match /settings/ownership {
+      allow read:   if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.get('owner', '') == request.auth.uid
+                    && exists(/databases/$(database)/documents/operators/$(request.auth.uid));
+      allow update, delete: if isOwner();
     }
 
     // ---- Crop catalogue --------------------------------------------------
@@ -77,15 +154,57 @@ service cloud.firestore {
     // meant to see all of it.
     match /settings/catalogue {
       allow read: if signedIn();
-      allow write: if isOperator();
+      allow write: if isSecretariat();
+    }
+
+    // ---- Roles and people ------------------------------------------------
+    match /users/{uid} {
+      // Your own record, or anyone's if you are staff.
+      allow read: if owns(uid) || isStaff();
+
+      // A record is written by the account it belongs to, straight after
+      // sign-up — but only the role that sign-up actually earned. A farm
+      // document exists only if the farm sign-up code was given, and an
+      // operator document only if the operator code was, so the code check
+      // that guarded those creates guards this one too. Everything above
+      // Secretariat is the system owner's to grant, and ownership itself is
+      // claimed in settings/ownership before it can be written here.
+      allow create: if isOwner()
+                    || (owns(uid)
+                        && request.resource.data.get('status', '') == 'active'
+                        && (
+                          (request.resource.data.get('role', '') == 'farmMember'
+                           && exists(/databases/$(database)/documents/farms/$(uid)))
+                          || (request.resource.data.get('role', '') == 'secretariat'
+                              && exists(/databases/$(database)/documents/operators/$(uid)))
+                          // Ownership is not a role you may write for
+                          // yourself: it is a role you may write only once
+                          // you already hold the claim.
+                          || (request.resource.data.get('role', '') == 'superAdmin'
+                              && exists(/databases/$(database)/documents/operators/$(uid))
+                              && ownerIsClaimed() && ownerUid() == uid)
+                        ));
+
+      // The three fields that decide what an account may do are the system
+      // owner's to set. Everyone else may correct their own name, phone and
+      // regions, and nothing else — including their own role.
+      allow update: if isOwner()
+                    || (owns(uid)
+                        && request.resource.data.get('role', '') == resource.data.get('role', '')
+                        && request.resource.data.get('farmIds', []) == resource.data.get('farmIds', [])
+                        && request.resource.data.get('status', '') == resource.data.get('status', ''));
+
+      // Suspend by setting status, rather than deleting. Removing the record
+      // outright is the owner's, and never their own.
+      allow delete: if isOwner() && request.auth.uid != uid;
     }
 
     // ---- Operators -----------------------------------------------------
     match /operators/{uid} {
       // Everyone may read their own operator document — a farm signing in asks
       // whether it has one, and must be told no rather than refused. Reading
-      // anyone else's is for operators.
-      allow read: if owns(uid) || isOperator();
+      // anyone else's is for staff.
+      allow read: if owns(uid) || isStaff();
       // A new operator registers themselves, but only with the operator code
       // and only against their own user id.
       allow create: if owns(uid) && hasOperatorCode();
@@ -95,7 +214,7 @@ service cloud.firestore {
 
     // ---- Member farms --------------------------------------------------
     match /farms/{uid} {
-      allow read:   if owns(uid) || isOperator();
+      allow read:   if owns(uid) || isStaff();
       allow create: if owns(uid) && hasFarmCode()
                     && request.resource.data.name is string
                     && request.resource.data.name.size() > 0
@@ -106,13 +225,13 @@ service cloud.firestore {
 
     // ---- Harvest figures ------------------------------------------------
     match /harvest/{uid} {
-      allow read:   if owns(uid) || isOperator();
+      allow read:   if owns(uid) || isStaff();
       allow write:  if owns(uid) || isOperator();
     }
 
     // ---- Requests and complaints ----------------------------------------
     match /submissions/{id} {
-      allow read:   if isOperator()
+      allow read:   if isStaff()
                     || (signedIn() && resource.data.farmUid == request.auth.uid);
       allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
       // A farm may not reopen or reassign what the Secretariat has handled.
@@ -120,9 +239,9 @@ service cloud.firestore {
     }
 
     // A farm listing its own submissions asks for exactly those, and the read
-    // rule above is what permits it. Operators list the collection whole.
+    // rule above is what permits it. Staff list the collection whole.
     match /submissions/{document=**} {
-      allow read: if isOperator();
+      allow read: if isStaff();
     }
 
     // ---- Diagnostics ----------------------------------------------------
