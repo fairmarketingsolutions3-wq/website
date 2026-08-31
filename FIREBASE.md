@@ -96,9 +96,33 @@ any of this.
 | `submissions/{id}` | requests and complaints | the farm that raised it, and operators | the farm creates; operators resolve |
 | `users/{uid}` | an operator's role, active or suspended | that operator, and staff | that operator may correct their name and phone; only the system owner may change a role or a status |
 | `settings/ownership` | which account owns the settings | anyone signed in | written once, by the first operator; only the owner after that |
+| `orders/{id}` | what a customer asked the association for | staff | the Secretariat |
+| `orderAllocations/{id}` | one farm's share of one order | that farm, and staff | the Secretariat places it; the farm may only accept or decline |
+| `harvestBatches/{id}` | one farm's pick of one crop on one day, under its lot code | that farm, and staff | that farm, and staff |
+| `inputApplications/{id}` | what was applied, and the days before picking is safe | that farm, and staff | that farm |
+| `consignments/{id}` | which batches went to which customer | that farm, and staff | staff |
+| `lotComplaints/{id}` | what came back, against which lot | that farm, and staff | staff |
+| `publicTrace/{lotCode}` | crop, farm name, region, harvest date | **anyone, signed in or not** | that farm, and staff |
+| `advisoryCases/{id}` | a question from a farm, and its answers | that farm, and staff | the farm asks; only staff may add an answer |
+| `knowledge/{id}` | answers worth keeping | every signed-in member | staff |
 
 Harvest is kept apart from the farm document because a season of weekly entries
 grows steadily, and a Firestore document is capped at 1 MiB.
+
+### Why some of these are split in two
+
+**An order and a farm's share of it are separate documents.** The order names
+the customer, the price, and every farm that was offered part of it. A farm
+must be able to answer for its own share without seeing what its neighbours
+were offered or paid, so its allocation carries its own copy of the crop,
+quantity, price and date. That duplication is the point: it is what lets the
+rules close the order to farms entirely.
+
+**The public trace is a mirror, not an opening.** A lot code printed on a box
+has to be readable by a stranger, and `harvestBatches` carries farm contacts
+and weights beside the crop. So a second document holds only what is safe to
+show — crop, farm name, region, harvest date — and that is the only one the
+public route can read. Nothing else exists on that route to leak.
 
 The sign-up codes are never sent to a browser. Security rules can read
 documents a client cannot, so a code is *checked* against the stored value

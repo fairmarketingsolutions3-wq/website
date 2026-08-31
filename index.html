@@ -1689,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v47';
+const BUILD = 'v49';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1973,6 +1973,711 @@ async function cloudPullSubmissions(){
   }catch(e){ return 0; }
 }
 
+/* ============================================================
+   Orders and allocation
+
+   A customer orders produce from the association, not from one farm.
+   The Secretariat splits that order across the farms that can actually
+   fill it, and each farm answers for its own share.
+
+   Two documents, deliberately apart:
+
+     orders/{id}            the whole order — customer, price, what every
+                            farm was offered. Staff only.
+     orderAllocations/{id}  one farm's share of it. The farm reads this and
+                            nothing else, so it can answer without seeing
+                            what its neighbours were offered or paid.
+
+   Everything a farm needs to decide is copied onto its allocation, because
+   the alternative is letting it read the order.
+   ============================================================ */
+let ORDERS = [];
+let ALLOCS = [];
+
+const ORDER_STATUS  = ['Open','Allocated','Delivered','Closed','Cancelled'];
+const ALLOC_STATUS  = ['Offered','Accepted','Declined','Delivered'];
+
+function orderId(){
+  return `ord-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+}
+function allocId(ordId, uid){
+  return `${ordId}--${uid}`;              // one allocation per farm per order
+}
+
+function blankOrder(){
+  return { id:'', customer:'', customerContact:'', crop:'', variety:'',
+           kg:0, pricePerKg:0, needBy:'', notes:'', status:'Open',
+           created:new Date().toISOString(), createdBy: CLOUD_STATE.uid || '' };
+}
+
+function orderById(id){ return ORDERS.find(o=> o.id === id) || null; }
+function allocsFor(orderIdVal){ return ALLOCS.filter(a=> a.orderId === orderIdVal); }
+function allocsForFarm(uid){ return ALLOCS.filter(a=> a.farmUid === uid); }
+
+/* How much of an order is spoken for. Declined shares are free again, so
+   they do not count against what is still to place. */
+function orderPlaced(o){
+  return allocsFor(o.id).filter(a=> a.status !== 'Declined')
+                        .reduce((t,a)=> t + (Number(a.kg)||0), 0);
+}
+function orderAccepted(o){
+  return allocsFor(o.id).filter(a=> a.status === 'Accepted' || a.status === 'Delivered')
+                        .reduce((t,a)=> t + (Number(a.kg)||0), 0);
+}
+function orderRemaining(o){ return Math.max(0, (Number(o.kg)||0) - orderPlaced(o)); }
+
+/* ---- Which farms can fill an order ----------------------------------
+   Allocation by hand is favouritism nobody can defend at an AGM, so the
+   ranking is worked out from records the farms themselves entered and the
+   reasoning is shown beside every score. Four things matter:
+
+     what they can grow   the expected harvest of that crop, from the
+                          catalogue figure and the seedlings they planted
+     when it is ready     a harvest that lands after the customer needs it
+                          is worth nothing to this order
+     whether they deliver how much of what they have accepted before was
+                          actually delivered
+     whose turn it is     a farm that has had little lately comes first, so
+                          the same three farms do not take everything
+
+   Nothing here is secret: the breakdown is on screen for every farm. */
+function farmCropProfiles(m, crop){
+  return (m.crops || []).filter(cr=> cr.crop === crop);
+}
+
+/* The kilograms a farm should have off this crop, from its own profiles. */
+function farmExpectedKg(m, crop){
+  return farmCropProfiles(m, crop).reduce((t,cr)=>{
+    const e = expectedHarvest(cr);
+    return t + (e.ok ? e.total : 0);
+  }, 0);
+}
+
+/* The earliest date this farm expects to be picking that crop. */
+function farmHarvestFrom(m, crop){
+  let best = null;
+  farmCropProfiles(m, crop).forEach(cr=>{
+    const d = cr.firstHarvest || cr.expected || '';
+    if(d && (!best || d < best)) best = d;
+  });
+  return best;
+}
+
+/* What this farm has been given lately, so the turn can be taken into
+   account. Declined shares do not count — a farm is not penalised for an
+   order it could not take. */
+function farmAllocatedKg(uid){
+  return ALLOCS.filter(a=> a.farmUid === uid && a.status !== 'Declined')
+               .reduce((t,a)=> t + (Number(a.kg)||0), 0);
+}
+
+/* Of everything this farm accepted, how much it actually delivered. A farm
+   with no history is given the benefit of the doubt rather than a zero,
+   which would keep a new member from ever being offered anything. */
+function farmDeliveryRate(uid){
+  const done = ALLOCS.filter(a=> a.farmUid === uid &&
+                            (a.status === 'Accepted' || a.status === 'Delivered'));
+  if(!done.length) return { rate:1, known:false, n:0 };
+  const delivered = done.filter(a=> a.status === 'Delivered').length;
+  return { rate: delivered / done.length, known:true, n:done.length };
+}
+
+function scoreFarmForOrder(id, m, o){
+  const why = [];
+  if(m.status !== 'Active'){
+    return { id, name:m.name, score:0, expectedKg:0, from:null, why:['not an active member'], eligible:false };
+  }
+  const expectedKg = farmExpectedKg(m, o.crop);
+  if(expectedKg <= 0){
+    return { id, name:m.name, score:0, expectedKg:0, from:null,
+             why:[`no ${o.crop} recorded`], eligible:false };
+  }
+
+  // Capacity — measured against what is still to place, so a farm that can
+  // fill the rest on its own scores full marks rather than being compared
+  // with an order size nobody could meet alone.
+  const need = orderRemaining(o) || Number(o.kg) || 1;
+  const capacity = Math.min(1, expectedKg / need);
+  why.push(`${fmt(Math.round(expectedKg))} kg expected`);
+
+  // Timing — ready before the customer needs it, or not.
+  const from = farmHarvestFrom(m, o.crop);
+  let timing = 0.5;                         // no date recorded: neither good nor bad
+  if(from && o.needBy){
+    timing = from <= o.needBy ? 1 : 0;
+    why.push(timing ? `ready ${from}, needed by ${o.needBy}` : `not ready until ${from}`);
+  } else if(from){
+    timing = 0.75; why.push(`ready ${from}`);
+  } else {
+    why.push('no harvest date recorded');
+  }
+
+  // Delivering what they accepted.
+  const rec = farmDeliveryRate(id);
+  if(rec.known) why.push(`delivered ${Math.round(rec.rate*100)}% of ${rec.n} past share${rec.n===1?'':'s'}`);
+  else why.push('no order history yet');
+
+  // Whose turn. The busiest farm sets the scale, so this is share of the
+  // most any one farm has had, inverted.
+  const mine = farmAllocatedKg(id);
+  const busiest = Math.max(1, ...Object.keys(MEMBERS).map(x=> farmAllocatedKg(x)));
+  const turn = 1 - (mine / busiest);
+  if(mine) why.push(`${fmt(Math.round(mine))} kg allocated before now`);
+  else why.push('nothing allocated yet');
+
+  const score = Math.round(100 * (0.40*capacity + 0.25*timing + 0.20*rec.rate + 0.15*turn));
+  return { id, name:m.name, score, expectedKg, from, why, eligible:true,
+           parts:{capacity, timing, delivery:rec.rate, turn} };
+}
+
+function rankFarmsForOrder(o){
+  return Object.keys(MEMBERS)
+    .map(id=> scoreFarmForOrder(id, MEMBERS[id], o))
+    .sort((a,b)=> b.score - a.score || a.name.localeCompare(b.name));
+}
+
+/* Split what is left of an order across the farms that scored best, giving
+   each no more than it expects to harvest. A suggestion, not a decision —
+   every figure stays editable before anything is sent. */
+function suggestAllocation(o){
+  const ranked = rankFarmsForOrder(o).filter(r=> r.eligible && r.score > 0);
+  let left = orderRemaining(o);
+  const out = [];
+  ranked.forEach(r=>{
+    if(left <= 0) return;
+    if(allocsFor(o.id).some(a=> a.farmUid === r.id && a.status !== 'Declined')) return;
+    const give = Math.min(left, Math.round(r.expectedKg));
+    if(give <= 0) return;
+    out.push({ farmUid:r.id, name:r.name, kg:give, score:r.score });
+    left -= give;
+  });
+  return out;
+}
+
+/* ============================================================
+   Harvest batches, lot codes and traceability
+
+   A customer opens a box and something is wrong with it. The only
+   question that matters then is which farm picked it, on what day,
+   and what had been sprayed on it — and the answer has to come back
+   in seconds, not after a week of phone calls.
+
+   That works only if every box can be named. A batch is one farm's
+   pick of one crop on one day; its lot code is printed on whatever
+   leaves the farm. Everything else hangs off that code:
+
+     harvestBatches/{id}     who picked what, when, how much
+     inputApplications/{id}  what was applied, and the days that must
+                             pass before picking is safe
+     consignments/{id}       which batches went to which customer
+     lotComplaints/{id}      what came back, against which lot
+     publicTrace/{lotCode}   the little a stranger may see
+
+   The last one is a separate document on purpose. Opening the batch
+   records to the public would expose farm contacts and prices along
+   with them, so the public route reads a mirror holding only what is
+   safe to show.
+   ============================================================ */
+let BATCHES  = [];
+let INPUTAPP = [];
+let CONSIGN  = [];
+let LOTISSUES = [];
+
+const BATCH_STATUS = ['Recorded','Consigned','Delivered','Withdrawn'];
+const ISSUE_SEVERITY = ['Minor','Serious','Critical'];
+const ISSUE_STATUS = ['Open','Investigating','Resolved'];
+
+/* A lot code is read aloud down a phone line and typed off a printed
+   label, so it avoids the characters people confuse: no O against 0, no
+   I against 1. It carries the farm and the date in plain sight, which
+   means a code alone already narrows the search before anything is
+   looked up. */
+const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+function codeChunk(n){
+  let out = '';
+  for(let i = 0; i < n; i++)
+    out += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+  return out;
+}
+function farmTag(m){
+  const words = String((m && m.name) || 'FARM').toUpperCase().replace(/[^A-Z ]/g,'').split(/\s+/).filter(Boolean);
+  const tag = (words.length >= 2 ? words[0][0] + words[1][0] + (words[2] ? words[2][0] : words[1][1] || 'X')
+                                 : (words[0] || 'FRM').slice(0,3)).padEnd(3,'X');
+  return tag.slice(0,3);
+}
+function lotCodeFor(m, dateStr){
+  const d = (dateStr || todayStr()).replace(/-/g,'').slice(2);   // YYMMDD
+  return `TIPFA-${farmTag(m)}-${d}-${codeChunk(4)}`;
+}
+function batchId(){
+  return `bat-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+}
+
+function batchByLot(code){
+  const c = String(code || '').trim().toUpperCase();
+  return BATCHES.find(b=> String(b.lotCode||'').toUpperCase() === c) || null;
+}
+function batchById(id){ return BATCHES.find(b=> b.id === id) || null; }
+function batchesForFarm(uid){ return BATCHES.filter(b=> b.farmUid === uid); }
+
+/* ---- What was applied, and when it is safe to pick -------------------
+   A pre-harvest interval is the number of days that must pass between
+   applying something and picking. Harvesting inside it is the single
+   most common reason a consignment is rejected, so the platform works
+   it out rather than leaving a farm to count days on a calendar. */
+function addDays(iso, n){
+  const d = new Date(iso + 'T00:00:00');
+  if(isNaN(d)) return '';
+  d.setDate(d.getDate() + Number(n || 0));
+  return d.toISOString().slice(0,10);
+}
+function safeFrom(app){
+  return app && app.appliedOn ? addDays(app.appliedOn, app.phiDays || 0) : '';
+}
+
+/* Everything applied to the crop this batch came from, before it was
+   picked. Matched on the farm and the crop, and on the profile where the
+   farm recorded one, so two profiles of the same crop do not borrow each
+   other's spray records. */
+function applicationsForBatch(b){
+  if(!b) return [];
+  return INPUTAPP.filter(a=>
+    a.farmUid === b.farmUid &&
+    a.crop === b.crop &&
+    (!a.profileId || !b.profileId || a.profileId === b.profileId) &&
+    (!b.harvestedOn || !a.appliedOn || a.appliedOn <= b.harvestedOn)
+  ).sort((x,y)=> (y.appliedOn||'').localeCompare(x.appliedOn||''));
+}
+
+/* Was this batch picked before it was safe to pick? Returns the
+   applications that were still inside their interval on harvest day. */
+function phiBreaches(b){
+  if(!b || !b.harvestedOn) return [];
+  return applicationsForBatch(b).filter(a=>{
+    const safe = safeFrom(a);
+    return safe && b.harvestedOn < safe;
+  });
+}
+function batchSafety(b){
+  const bad = phiBreaches(b);
+  if(!b.harvestedOn) return { ok:true, unknown:true, text:'No harvest date recorded.' };
+  if(!applicationsForBatch(b).length)
+    return { ok:true, unknown:true, text:'Nothing recorded as applied to this crop.' };
+  if(!bad.length) return { ok:true, unknown:false, text:'Every interval was observed before picking.' };
+  return { ok:false, unknown:false, breaches:bad,
+           text:`Picked before ${bad.length} interval${bad.length===1?'':'s'} had passed.` };
+}
+
+/* ---- Where a batch went ---------------------------------------------- */
+function consignmentsForBatch(id){
+  return CONSIGN.filter(c=> (c.batchIds||[]).includes(id));
+}
+function issuesForBatch(id){
+  return LOTISSUES.filter(i=> i.batchId === id);
+}
+
+/* The recall question, and the reason batches are worth keeping at all:
+   one lot came back bad, so where else did that day's pick go? Everything
+   from the same farm, the same crop and the same harvest day is suspect,
+   not only the box that was opened. */
+function siblingBatches(b){
+  if(!b) return [];
+  return BATCHES.filter(x=> x.id !== b.id && x.farmUid === b.farmUid &&
+                            x.crop === b.crop && x.harvestedOn === b.harvestedOn);
+}
+function recallFor(b){
+  if(!b) return { batches:[], consignments:[], kg:0, customers:[] };
+  const batches = [b].concat(siblingBatches(b));
+  const cons = [];
+  batches.forEach(x=> consignmentsForBatch(x.id).forEach(c=>{
+    if(!cons.some(y=> y.id === c.id)) cons.push(c);
+  }));
+  const customers = [];
+  cons.forEach(c=>{ if(c.customer && !customers.includes(c.customer)) customers.push(c.customer); });
+  return { batches, consignments:cons, customers,
+           kg: batches.reduce((t,x)=> t + (Number(x.kg)||0), 0) };
+}
+
+/* ---- Batches in the shared database ---------------------------------- */
+async function cloudPushBatch(b){
+  if(!cloudOn() || !b || !b.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'harvestBatches', b.id), {
+      farmUid:b.farmUid, farmName:b.farmName || '', crop:b.crop, variety:b.variety || '',
+      profileId:b.profileId || '', harvestedOn:b.harvestedOn || '', kg:Number(b.kg)||0,
+      lotCode:b.lotCode, grade:b.grade || '', notes:b.notes || '',
+      status:b.status || 'Recorded', region:b.region || '', created:b.created
+    }, {merge:true});
+    await cloudPushPublicTrace(b);
+  }catch(e){
+    state.traceError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
+      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
+      : 'Saved on this device only — the shared database could not be reached.';
+  }
+}
+
+/* The public mirror. A stranger with a lot code sees the crop, where it
+   was grown and when it was picked — enough to trust the box in their
+   hands. No contact details, no price, no order. What is not written
+   here cannot leak from here. */
+async function cloudPushPublicTrace(b){
+  if(!cloudOn() || !b || !b.lotCode) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'publicTrace', b.lotCode), {
+      lotCode:b.lotCode, crop:b.crop, variety:b.variety || '',
+      farmName:b.farmName || '', region:b.region || '',
+      harvestedOn:b.harvestedOn || '', grade:b.grade || '',
+      association:'Tanzania Indoor & Professional Farmers Association'
+    }, {merge:true});
+  }catch(e){ /* the batch is recorded either way */ }
+}
+
+async function cloudPushApplication(a){
+  if(!cloudOn() || !a || !a.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'inputApplications', a.id), {
+      farmUid:a.farmUid, crop:a.crop, profileId:a.profileId || '',
+      product:a.product, kind:a.kind || '', rate:a.rate || '',
+      appliedOn:a.appliedOn, phiDays:Number(a.phiDays)||0,
+      notes:a.notes || '', created:a.created
+    }, {merge:true});
+  }catch(e){ /* kept on this device */ }
+}
+
+async function cloudPushConsignment(c){
+  if(!cloudOn() || !c || !c.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'consignments', c.id), {
+      orderId:c.orderId || '', allocationId:c.allocationId || '',
+      farmUid:c.farmUid, batchIds:c.batchIds || [], customer:c.customer || '',
+      kg:Number(c.kg)||0, dispatchedOn:c.dispatchedOn || '', notes:c.notes || '',
+      created:c.created
+    }, {merge:true});
+  }catch(e){ /* kept on this device */ }
+}
+
+async function cloudPushIssue(i){
+  if(!cloudOn() || !i || !i.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'lotComplaints', i.id), {
+      lotCode:i.lotCode, batchId:i.batchId || '', farmUid:i.farmUid || '',
+      customer:i.customer || '', contact:i.contact || '', issue:i.issue,
+      severity:i.severity || 'Minor', status:i.status || 'Open',
+      raisedOn:i.raisedOn, resolution:i.resolution || '', created:i.created
+    }, {merge:true});
+  }catch(e){ /* kept on this device */ }
+}
+
+/* Pull whatever this session may see. A farm reads its own batches, its
+   own spray records, its own consignments and the complaints raised
+   against its own produce — each query says so by name, because a
+   listing the rules cannot narrow is a listing they refuse. */
+async function cloudPullTrace(){
+  if(!cloudOn()) return 0;
+  const fs = CLOUD.fs;
+  const staff = CLOUD_STATE.role === 'operator';
+  const uid = CLOUD_STATE.uid;
+  let n = 0;
+
+  const pull = async (col, into, key)=>{
+    try{
+      let snap;
+      if(staff) snap = await fs.getDocs(fs.collection(CLOUD.db, col));
+      else if(uid && fs.query && fs.where)
+        snap = await fs.getDocs(fs.query(fs.collection(CLOUD.db, col), fs.where('farmUid','==',uid)));
+      else return;
+      const seen = {};
+      snap.forEach(d=>{
+        const v = d.data() || {};
+        seen[d.id] = true;
+        const at = into.findIndex(x=> x.id === d.id);
+        const rec = Object.assign({}, v, { id:d.id });
+        if(at === -1) into.push(rec); else into[at] = rec;
+        n++;
+      });
+      for(let i = into.length - 1; i >= 0; i--){
+        const mine = staff || into[i].farmUid === uid;
+        if(mine && !seen[into[i].id]) into.splice(i, 1);
+      }
+    }catch(e){ /* what is held stays held */ }
+  };
+
+  await pull('harvestBatches', BATCHES);
+  await pull('inputApplications', INPUTAPP);
+  await pull('consignments', CONSIGN);
+  await pull('lotComplaints', LOTISSUES);
+  return n;
+}
+
+/* A lot code typed by someone with no account. Only the mirror is read,
+   so there is nothing here that could return a farm's contact details
+   even if the code is right. */
+async function cloudLookupPublicTrace(code){
+  if(!cloudOn() || !code) return null;
+  try{
+    const { doc, getDoc } = CLOUD.fs;
+    const d = await getDoc(doc(CLOUD.db, 'publicTrace', String(code).trim().toUpperCase()));
+    return d.exists() ? d.data() : null;
+  }catch(e){ return null; }
+}
+
+/* ============================================================
+   Advisory — how a member who is not farming can still be useful
+
+   Not every member has a greenhouse. Some have thirty years of
+   knowing why the leaves are yellowing, and that is worth more to a
+   new member than another crop record.
+
+   A farm asks a question and attaches what it is seeing. Whoever
+   holds the agronomist role answers. The answer does not vanish into
+   one conversation: it joins a library the next farm can search, so
+   the same question is answered once rather than forty times.
+
+     advisoryCases/{id}   a question from one farm, and its answers
+     knowledge/{id}       an answer worth keeping, searchable by all
+
+   An agronomist reads farms and batches to answer properly, and
+   writes nothing but advice — the rules say so.
+   ============================================================ */
+let CASES = [];
+let KNOWLEDGE = [];
+
+const CASE_STATUS = ['Open','Answered','Closed'];
+const CASE_TOPICS = ['Pests','Disease','Soil and feeding','Watering','Seedlings',
+                     'Greenhouse and structures','Harvest and handling','Market','Other'];
+
+function caseId(){
+  return `case-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+}
+function casesForFarm(uid){ return CASES.filter(x=> x.farmUid === uid); }
+function openCases(){ return CASES.filter(x=> x.status === 'Open'); }
+
+/* Who can answer. An agronomist by role, and any member the Secretariat
+   has marked as one — which is how a member who no longer farms goes on
+   being useful to the association. */
+function isAdviser(){
+  return roleIs() === 'agronomist' || roleIs() === 'superAdmin'
+      || roleIs() === 'secretariat' || can('advisory.write');
+}
+
+/* Answers already given to something like this. Matching on topic and
+   crop first, then on words in the question, so a farm often finds its
+   answer before anyone has to write one. */
+function knowledgeMatches(topic, crop, text){
+  const words = String(text||'').toLowerCase().split(/[^a-z]+/).filter(w=> w.length > 3);
+  return KNOWLEDGE.map(k=>{
+    let score = 0;
+    if(topic && k.topic === topic) score += 3;
+    if(crop && k.crop === crop) score += 3;
+    const hay = `${k.title} ${k.body}`.toLowerCase();
+    words.forEach(w=>{ if(hay.includes(w)) score += 1; });
+    return { k, score };
+  }).filter(x=> x.score >= 3)
+    .sort((a,b)=> b.score - a.score)
+    .slice(0, 5)
+    .map(x=> x.k);
+}
+
+/* Several farms reporting the same thing in the same region is not
+   several problems, it is one — and worth telling everyone about before
+   it reaches them too. */
+function advisoryAlerts(){
+  const recent = CASES.filter(x=>{
+    if(!x.raisedOn) return false;
+    const days = (Date.now() - new Date(x.raisedOn + 'T00:00:00')) / 86400000;
+    return days <= 21;
+  });
+  const groups = {};
+  recent.forEach(x=>{
+    const region = (MEMBERS[x.farmUid] || {}).location || 'Unrecorded';
+    const key = `${x.topic}||${x.crop||'any crop'}||${region}`;
+    (groups[key] = groups[key] || []).push(x);
+  });
+  return Object.keys(groups)
+    .filter(k=> groups[k].length >= 3)
+    .map(k=>{
+      const [topic, crop, region] = k.split('||');
+      return { topic, crop, region, cases:groups[k], n:groups[k].length };
+    })
+    .sort((a,b)=> b.n - a.n);
+}
+
+async function cloudPushCase(x){
+  if(!cloudOn() || !x || !x.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'advisoryCases', x.id), {
+      farmUid:x.farmUid, farmName:x.farmName || '', topic:x.topic, crop:x.crop || '',
+      question:x.question, status:x.status || 'Open', raisedOn:x.raisedOn,
+      replies:x.replies || [], created:x.created
+    }, {merge:true});
+  }catch(e){
+    state.advError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
+      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
+      : 'Saved on this device only — the shared database could not be reached.';
+  }
+}
+
+async function cloudPushKnowledge(k){
+  if(!cloudOn() || !k || !k.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'knowledge', k.id), {
+      title:k.title, body:k.body, topic:k.topic || '', crop:k.crop || '',
+      author:k.author || '', created:k.created
+    }, {merge:true});
+  }catch(e){ /* kept on this device */ }
+}
+
+async function cloudPullAdvisory(){
+  if(!cloudOn()) return 0;
+  const fs = CLOUD.fs;
+  const staff = CLOUD_STATE.role === 'operator';
+  const uid = CLOUD_STATE.uid;
+  let n = 0;
+  try{
+    let snap;
+    if(staff) snap = await fs.getDocs(fs.collection(CLOUD.db, 'advisoryCases'));
+    else if(uid && fs.query && fs.where)
+      snap = await fs.getDocs(fs.query(fs.collection(CLOUD.db, 'advisoryCases'),
+                                       fs.where('farmUid','==',uid)));
+    if(snap){
+      const seen = {};
+      snap.forEach(d=>{
+        const v = d.data() || {};
+        seen[d.id] = true;
+        const at = CASES.findIndex(x=> x.id === d.id);
+        const rec = Object.assign({}, v, { id:d.id });
+        if(at === -1) CASES.push(rec); else CASES[at] = rec;
+        n++;
+      });
+      for(let i = CASES.length - 1; i >= 0; i--){
+        const mine = staff || CASES[i].farmUid === uid;
+        if(mine && !seen[CASES[i].id]) CASES.splice(i, 1);
+      }
+    }
+  }catch(e){ /* what is held stays held */ }
+  // The library is for everyone signed in — that is the point of it.
+  try{
+    const snap = await fs.getDocs(fs.collection(CLOUD.db, 'knowledge'));
+    const seen = {};
+    snap.forEach(d=>{
+      const v = d.data() || {};
+      seen[d.id] = true;
+      const at = KNOWLEDGE.findIndex(x=> x.id === d.id);
+      const rec = Object.assign({}, v, { id:d.id });
+      if(at === -1) KNOWLEDGE.push(rec); else KNOWLEDGE[at] = rec;
+      n++;
+    });
+    for(let i = KNOWLEDGE.length - 1; i >= 0; i--)
+      if(!seen[KNOWLEDGE[i].id]) KNOWLEDGE.splice(i, 1);
+  }catch(e){ /* the library stays as it was */ }
+  return n;
+}
+
+/* ---- Orders in the shared database ---------------------------------- */
+async function cloudPushOrder(o){
+  if(!cloudOn() || !o || !o.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'orders', o.id), {
+      customer:o.customer, customerContact:o.customerContact || '',
+      crop:o.crop, variety:o.variety || '', kg:Number(o.kg)||0,
+      pricePerKg:Number(o.pricePerKg)||0, needBy:o.needBy || '',
+      notes:o.notes || '', status:o.status || 'Open',
+      created:o.created, createdBy:o.createdBy || ''
+    }, {merge:true});
+  }catch(e){
+    state.orderError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
+      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
+      : 'Saved on this device only — the shared database could not be reached.';
+  }
+}
+
+/* An allocation carries its own copy of the crop, the amount, the price and
+   the date. That is deliberate duplication: it is what lets a farm read its
+   share without being given the order it came from. */
+async function cloudPushAlloc(a){
+  if(!cloudOn() || !a || !a.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'orderAllocations', a.id), {
+      orderId:a.orderId, farmUid:a.farmUid, crop:a.crop, variety:a.variety || '',
+      kg:Number(a.kg)||0, pricePerKg:Number(a.pricePerKg)||0, needBy:a.needBy || '',
+      customer:a.customer || '', status:a.status || 'Offered',
+      note:a.note || '', created:a.created, respondedAt:a.respondedAt || ''
+    }, {merge:true});
+  }catch(e){
+    state.orderError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
+      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
+      : 'Saved on this device only — the shared database could not be reached.';
+  }
+}
+
+async function cloudPullOrders(){
+  if(!cloudOn()) return 0;
+  const fs = CLOUD.fs;
+  let n = 0;
+  // The order book is the Secretariat's. A farm never reads it.
+  if(CLOUD_STATE.role === 'operator'){
+    try{
+      const snap = await fs.getDocs(fs.collection(CLOUD.db, 'orders'));
+      const seen = {};
+      snap.forEach(d=>{
+        const v = d.data() || {};
+        seen[d.id] = true;
+        const at = ORDERS.findIndex(o=> o.id === d.id);
+        const rec = Object.assign(blankOrder(), v, { id:d.id });
+        if(at === -1) ORDERS.push(rec); else ORDERS[at] = rec;
+        n++;
+      });
+      for(let i = ORDERS.length - 1; i >= 0; i--)
+        if(!seen[ORDERS[i].id]) ORDERS.splice(i, 1);
+    }catch(e){ /* the book stays as it was */ }
+  }
+  // Allocations: staff read them all, a farm asks for its own by name, which
+  // is the only listing the rules will permit it.
+  try{
+    let snap;
+    if(CLOUD_STATE.role === 'operator'){
+      snap = await fs.getDocs(fs.collection(CLOUD.db, 'orderAllocations'));
+    } else if(CLOUD_STATE.uid && fs.query && fs.where){
+      snap = await fs.getDocs(fs.query(fs.collection(CLOUD.db, 'orderAllocations'),
+                                       fs.where('farmUid', '==', CLOUD_STATE.uid)));
+    } else return n;
+    const seen = {};
+    snap.forEach(d=>{
+      const v = d.data() || {};
+      seen[d.id] = true;
+      const at = ALLOCS.findIndex(a=> a.id === d.id);
+      const rec = Object.assign({}, v, { id:d.id });
+      if(at === -1) ALLOCS.push(rec); else ALLOCS[at] = rec;
+      n++;
+    });
+    // Only prune what this session could see in the first place.
+    for(let i = ALLOCS.length - 1; i >= 0; i--){
+      const a = ALLOCS[i];
+      const mine = CLOUD_STATE.role === 'operator' || a.farmUid === CLOUD_STATE.uid;
+      if(mine && !seen[a.id]) ALLOCS.splice(i, 1);
+    }
+  }catch(e){ /* what is held stays held */ }
+  return n;
+}
+
+async function cloudDeleteOrder(id){
+  if(!cloudOn() || !id || CLOUD_STATE.role !== 'operator') return;
+  try{
+    const { doc, deleteDoc } = CLOUD.fs;
+    await deleteDoc(doc(CLOUD.db, 'orders', id));
+    for(const a of allocsFor(id)) await deleteDoc(doc(CLOUD.db, 'orderAllocations', a.id));
+  }catch(e){ /* it stays until an operator can remove it */ }
+}
+
 async function cloudDeleteSubmission(docId){
   if(!cloudOn() || !docId || CLOUD_STATE.role !== 'operator') return;
   try{ await CLOUD.fs.deleteDoc(CLOUD.fs.doc(CLOUD.db, 'submissions', docId)); }
@@ -2167,6 +2872,7 @@ const ROLE_LABELS = {
 const PERMS = {
   superAdmin:    ['*'],
   secretariat:   ['members.read','members.write','orders.*','inputs.*','batches.read','reports.*',
+                  'advisory.read','knowledge.write','complaints.read',
                   'catalogue.*','codes.*','comms.*','calendars.read','bulk.*','dashboard.read',
                   'growth.read','archive.read'],
   qualityOfficer:['batches.*','complaints.*','reports.read','members.read','calendars.read','dashboard.read'],
@@ -2472,7 +3178,7 @@ async function restoreSession(){
       if(farm.exists()){
         CLOUD_STATE.role = 'farm';
         USER = null;                       // a farm holds no role
-        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions();
+        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory();
         enterSession('member', { member: user.uid });
       } else {
         const op = await getDoc(doc(CLOUD.db, 'operators', user.uid));
@@ -2480,7 +3186,7 @@ async function restoreSession(){
         CLOUD_STATE.role = 'operator';
         await loadUserRole(user.uid, { displayName:(op.data()||{}).name||user.email, email:user.email,
                                        role:'secretariat' });
-        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOperators();
+        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory(); await cloudPullOperators();
         enterSession('admin', { adminName: (op.data() || {}).name || user.email });
       }
       state.restoring = false;
@@ -2596,7 +3302,10 @@ function saveMembers(){
   try{
     localStorage.setItem(MEMBER_STORE_KEY, JSON.stringify({
       members: MEMBERS, harvest: harvest, inputs: inputsData,
-      complaints: complaints, nextComplaintId: nextComplaintId
+      complaints: complaints, nextComplaintId: nextComplaintId,
+      orders: ORDERS, allocs: ALLOCS,
+      batches: BATCHES, inputApps: INPUTAPP, consignments: CONSIGN, lotIssues: LOTISSUES,
+      cases: CASES, knowledge: KNOWLEDGE
     }));
   }catch(e){ /* storage full or unavailable — the session still works */ }
 }
@@ -2612,6 +3321,14 @@ function loadMembers(){
     inputsData = d.inputs || {};
     complaints = Array.isArray(d.complaints) ? d.complaints : [];
     nextComplaintId = d.nextComplaintId || (complaints.length + 1);
+    ORDERS = Array.isArray(d.orders) ? d.orders : [];
+    ALLOCS = Array.isArray(d.allocs) ? d.allocs : [];
+    BATCHES = Array.isArray(d.batches) ? d.batches : [];
+    INPUTAPP = Array.isArray(d.inputApps) ? d.inputApps : [];
+    CONSIGN = Array.isArray(d.consignments) ? d.consignments : [];
+    LOTISSUES = Array.isArray(d.lotIssues) ? d.lotIssues : [];
+    CASES = Array.isArray(d.cases) ? d.cases : [];
+    KNOWLEDGE = Array.isArray(d.knowledge) ? d.knowledge : [];
     // Backfill anything a stored record predates, so an older save still opens.
     Object.keys(MEMBERS).forEach(id=>{
       const m = MEMBERS[id];
@@ -2902,7 +3619,11 @@ logAction('System initialised — TIPFA Association Platform ready.');
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
-  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', harvestPick:null, yieldEdit:null, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false };
+  calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', harvestPick:null, yieldEdit:null, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false,
+  orderError:'', orderMsg:'', newOrder:false, openOrder:null, allocDraft:null,
+  orderFilter:'Open', ordersRead:false, decline:null,
+  traceError:'', traceMsg:'', traceRead:false, traceLot:'',
+  advError:'', advRead:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -3918,7 +4639,8 @@ function selectPeriod(p){ state.period = p; render(); }
 
 const MEMBER_TABS = [
   ['profile','Profile'], ['calendar','Crop calendar'], ['standards','Market standards'],
-  ['plan','Harvest plan'], ['actual','Actual harvest'], ['market','Market prices'],
+  ['plan','Harvest plan'], ['actual','Actual harvest'], ['orders','Orders'], ['batches','Batches'], ['advice','Ask an agronomist'],
+  ['market','Market prices'],
   ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
 ];
 // Each tab names the permission that opens it. A role that cannot do the
@@ -3928,6 +4650,9 @@ const ADMIN_TABS_ALL = [
   ['catalogue','Crop catalogue','catalogue.read'],
   ['calendarsA','Crop calendars','calendars.read'],
   ['bulk','Bulk data entry','bulk.write'],
+  ['ordersA','Orders','orders.read'],
+  ['traceA','Traceability','batches.read'],
+  ['advisoryA','Advisory','advisory.read'],
   ['dashboard','Central dashboard','dashboard.read'],
   ['growth','Growth planning','growth.read'],
   ['reportsA','Reports','reports.read'],
@@ -3968,6 +4693,9 @@ async function refreshNow(btn){
       await cloudPullAll();
       await cloudPullCatalogue();
       await cloudPullSubmissions();
+      await cloudPullOrders();
+      await cloudPullTrace();
+      await cloudPullAdvisory();
       if(CLOUD_STATE.role === 'operator'){
         state.rollRead = true; await cloudPullOperators(); await cloudPullUsers();
       }
@@ -4081,6 +4809,9 @@ function renderTabContent(c){
     if(state.tab==='standards') return renderMarketStandards(c);
     if(state.tab==='plan') return renderHarvestForm(c,'plan');
     if(state.tab==='actual') return renderHarvestForm(c,'actual');
+    if(state.tab==='orders') return renderOrdersMember(c);
+    if(state.tab==='batches') return renderBatchesMember(c);
+    if(state.tab==='advice') return renderAdvisoryMember(c);
     if(state.tab==='market') return renderMarketPrices(c);
     if(state.tab==='inputs') return renderInputs(c);
     if(state.tab==='future') return renderFuturePlanning(c);
@@ -4092,6 +4823,9 @@ function renderTabContent(c){
     if(state.tab==='catalogue') return renderCatalogue(c);
     if(state.tab==='calendarsA') return renderCalendarsAdmin(c);
     if(state.tab==='bulk') return renderBulk(c);
+    if(state.tab==='ordersA') return renderOrdersAdmin(c);
+    if(state.tab==='traceA') return renderTraceAdmin(c);
+    if(state.tab==='advisoryA') return renderAdvisoryAdmin(c);
     if(state.tab==='dashboard') return renderDashboard(c);
     if(state.tab==='growth') return renderGrowth(c);
     if(state.tab==='reportsA') return renderReportsAdmin(c);
@@ -6376,6 +7110,983 @@ function exportHarvestPlanReport(id){
   logAction(`${m.name} exported harvest plan report (${MONTHS[month-1]}, week ${week}).`);
 }
 
+
+/* ============================================================
+   Advisory — the member's side
+   ============================================================ */
+function casePill(st){
+  const cls = { Open:'pending', Answered:'active', Closed:'inactive' }[st] || 'pending';
+  return `<span class="status-pill status-${cls}">${esc(st)}</span>`;
+}
+
+function renderAdvisoryMember(c){
+  const uid = state.member;
+  const m = MEMBERS[uid];
+  if(!m) return;
+  if(cloudOn() && !state.advRead){
+    state.advRead = true;
+    cloudPullAdvisory().then(()=> render());
+  }
+  const mine = casesForFarm(uid).sort((a,b)=> (b.raisedOn||'').localeCompare(a.raisedOn||''));
+  const crops = Array.from(new Set((m.crops||[]).map(x=> x.crop)));
+
+  c.innerHTML = `
+    ${farmHeader(m)}
+    <h1 class="page-title">Ask an agronomist</h1>
+    <p class="page-sub">Describe what you are seeing and someone who knows this crop will answer</p>
+    ${state.advError ? `<div class="card"><p class="helper cat-local">${esc(state.advError)}</p></div>${(state.advError='')||''}` : ''}
+
+    <div class="card">
+      <div class="grid2">
+        <div><label class="f">What is it about</label>
+          <select id="case-topic" onchange="showSimilar()">
+            ${CASE_TOPICS.map(t=>`<option>${esc(t)}</option>`).join('')}
+          </select></div>
+        <div><label class="f">Which crop <span class="helper">optional</span></label>
+          <select id="case-crop" onchange="showSimilar()">
+            <option value="">Not about one crop</option>
+            ${crops.map(x=>`<option>${esc(x)}</option>`).join('')}
+          </select></div>
+      </div>
+      <label class="f">What are you seeing?</label>
+      <textarea id="case-q" rows="4" placeholder="The lower leaves are going yellow from the edges, about three weeks after transplanting. Watering every second day."></textarea>
+      <div id="case-similar"></div>
+      <button class="btn small" style="margin-top:8px;" onclick="askCase()">Send the question</button>
+      <p class="helper" id="case-error" style="color:var(--red);margin-top:8px;"></p>
+    </div>
+
+    ${KNOWLEDGE.length ? `
+    <div class="section-label">Answers already given</div>
+    <div class="card">
+      <input id="kb-search" placeholder="Search what other farms have asked" oninput="renderKbList()">
+      <div id="kb-list" style="margin-top:10px;">${kbList('')}</div>
+    </div>` : ''}
+
+    ${mine.length ? `
+    <div class="section-label">Your questions</div>
+    ${mine.map(x=> caseCard(x, false)).join('')}` : ''}
+  `;
+}
+
+function kbList(q){
+  const term = String(q||'').toLowerCase().trim();
+  const rows = KNOWLEDGE.filter(k=> !term ||
+    `${k.title} ${k.body} ${k.crop} ${k.topic}`.toLowerCase().includes(term));
+  if(!rows.length) return '<p class="helper">Nothing matches that yet.</p>';
+  return rows.slice(0,12).map(k=>`<div class="log-item" style="display:block;">
+    <strong>${esc(k.title)}</strong>
+    <div class="helper" style="margin:2px 0 4px;">${esc(k.topic||'')}${k.crop?` · ${esc(k.crop)}`:''}${k.author?` · ${esc(k.author)}`:''}</div>
+    <div style="font-size:13.5px;line-height:1.6;">${esc(k.body)}</div>
+  </div>`).join('');
+}
+function renderKbList(){
+  const el = document.getElementById('kb-list');
+  const q = document.getElementById('kb-search');
+  if(el) el.innerHTML = kbList(q ? q.value : '');
+}
+
+/* Before a farm waits for an answer, show the answers already given. Most
+   questions have been asked before, and a library nobody is pointed at is
+   a library nobody reads. */
+function showSimilar(){
+  const el = document.getElementById('case-similar');
+  if(!el) return;
+  const topic = (document.getElementById('case-topic')||{}).value;
+  const crop  = (document.getElementById('case-crop')||{}).value;
+  const text  = (document.getElementById('case-q')||{}).value;
+  const hits = knowledgeMatches(topic, crop, text);
+  el.innerHTML = hits.length ? `<div class="card" style="margin-top:10px;background:var(--field-cream);">
+    <strong style="font-size:13px;">This may already be answered</strong>
+    ${hits.map(k=>`<p style="margin:8px 0 0;font-size:13px;line-height:1.6;"><strong>${esc(k.title)}</strong><br>${esc(k.body)}</p>`).join('')}
+  </div>` : '';
+}
+
+function askCase(){
+  const err = document.getElementById('case-error');
+  const q = document.getElementById('case-q').value.trim();
+  if(q.length < 10){ err.textContent = 'Describe what you are seeing — a sentence or two is enough.'; return; }
+  const m = MEMBERS[state.member];
+  const rec = {
+    id: caseId(), farmUid: state.member, farmName: m.name,
+    topic: document.getElementById('case-topic').value,
+    crop: document.getElementById('case-crop').value,
+    question: q, status: 'Open', raisedOn: todayStr(),
+    replies: [], created: new Date().toISOString()
+  };
+  CASES.unshift(rec);
+  saveMembers(); cloudPushCase(rec);
+  logAction(`${m.name} asked an agronomist about ${rec.topic.toLowerCase()}.`);
+  render();
+}
+
+function caseCard(x, canAnswer){
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <strong>${esc(x.topic)}</strong>${x.crop?` <span class="helper">${esc(x.crop)}</span>`:''}
+        ${canAnswer?` <span class="helper">· ${esc(x.farmName||'')}</span>`:''}
+        <div class="helper" style="margin-top:2px;">${esc(x.raisedOn||'')}</div>
+      </div>
+      ${casePill(x.status||'Open')}
+    </div>
+    <p style="margin:10px 0 0;font-size:13.5px;line-height:1.6;">${esc(x.question)}</p>
+    ${(x.replies||[]).map(r=>`
+      <div class="log-item" style="display:block;margin-top:10px;">
+        <div class="helper">${esc(r.author||'Agronomist')} · ${esc((r.at||'').slice(0,10))}</div>
+        <div style="font-size:13.5px;line-height:1.6;">${esc(r.text)}</div>
+      </div>`).join('')}
+    ${canAnswer ? `
+      <div style="margin-top:12px;">
+        <label class="f">Your answer</label>
+        <textarea id="ans-${esc(x.id)}" rows="3" placeholder="What they should do, and why"></textarea>
+        <button class="btn small" style="margin-top:8px;" onclick="answerCase('${esc(x.id)}')">Send the answer</button>
+        <button class="btn small ghost" style="margin-top:8px;" onclick="answerCase('${esc(x.id)}', true)">Answer and add to the library</button>
+      </div>` : ''}
+  </div>`;
+}
+
+/* ============================================================
+   Advisory — the adviser's side
+   ============================================================ */
+function renderAdvisoryAdmin(c){
+  if(cloudOn() && !state.advRead){
+    state.advRead = true;
+    cloudPullAdvisory().then(()=> render());
+  }
+  const open = openCases().sort((a,b)=> (a.raisedOn||'').localeCompare(b.raisedOn||''));
+  const answered = CASES.filter(x=> x.status !== 'Open')
+                        .sort((a,b)=> (b.raisedOn||'').localeCompare(a.raisedOn||''));
+  const alerts = advisoryAlerts();
+
+  c.innerHTML = `
+    <h1 class="page-title">Advisory</h1>
+    <p class="page-sub">Questions from members, and the library of answers they build</p>
+    ${state.advError ? `<div class="card"><p class="helper cat-local">${esc(state.advError)}</p></div>${(state.advError='')||''}` : ''}
+
+    <div class="grid3">
+      ${orderMetric('Waiting for an answer', String(open.length))}
+      ${orderMetric('Answered', String(answered.length))}
+      ${orderMetric('In the library', String(KNOWLEDGE.length))}
+    </div>
+
+    ${alerts.length ? `<div class="card" style="border-color:var(--harvest-orange);">
+      <strong>The same thing is being reported more than once</strong>
+      <p class="helper" style="margin-top:6px;">Three or more farms in one place asking about the same thing inside three weeks is usually one problem spreading, not three separate ones. Worth telling the others before it reaches them.</p>
+      ${alerts.map(a=>`<p style="margin:8px 0 0;"><strong>${a.n} farms</strong> · ${esc(a.topic)} · ${esc(a.crop)} · ${esc(a.region)}</p>`).join('')}
+    </div>` : ''}
+
+    ${can('advisory.write') ? '' : `<div class="card"><p class="helper">You can read what members have asked. Answering is the agronomist's — ask the system owner to give someone that role on the Governance tab.</p></div>`}
+    <div class="section-label">Waiting for an answer</div>
+    ${open.length ? open.map(x=> caseCard(x, can('advisory.write'))).join('')
+      : `<div class="card"><p class="helper">Nothing is waiting. When a member asks a question it appears here.</p></div>`}
+
+    <div class="section-label">The library</div>
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">An answer added here is shown to the next member who asks something like it, before they have to wait for anybody. This is where a member who is no longer farming is worth the most to the association.</p>
+      <div class="grid2">
+        <div><label class="f">Title</label><input id="kb-title" placeholder="Yellowing lower leaves after transplanting"></div>
+        <div><label class="f">Topic</label>
+          <select id="kb-topic">${CASE_TOPICS.map(t=>`<option>${esc(t)}</option>`).join('')}</select></div>
+      </div>
+      <label class="f">Crop <span class="helper">optional</span></label>
+      <input id="kb-crop" placeholder="Leave blank if it applies to any crop">
+      <label class="f">The answer</label>
+      <textarea id="kb-body" rows="4"></textarea>
+      <button class="btn small" style="margin-top:8px;" onclick="addKnowledge()">Add to the library</button>
+      <p class="helper" id="kb-error" style="color:var(--red);margin-top:8px;"></p>
+      ${KNOWLEDGE.length ? `<div style="margin-top:14px;">${kbList('')}</div>` : ''}
+    </div>
+
+    ${answered.length ? `<div class="section-label">Answered</div>
+      ${answered.slice(0,10).map(x=> caseCard(x, false)).join('')}` : ''}
+  `;
+}
+
+function answerCase(id, alsoLibrary){
+  const x = CASES.find(y=> y.id === id);
+  if(!x) return;
+  const el = document.getElementById('ans-' + id);
+  const text = el ? el.value.trim() : '';
+  if(text.length < 5) return;
+  x.replies = (x.replies || []).concat([{
+    text, author: state.adminName || roleLabel(roleIs()), at: new Date().toISOString()
+  }]);
+  x.status = 'Answered';
+  saveMembers(); cloudPushCase(x);
+  if(alsoLibrary){
+    const k = {
+      id: `kb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`,
+      title: x.question.slice(0, 70), body: text, topic: x.topic, crop: x.crop || '',
+      author: state.adminName || roleLabel(roleIs()), created: new Date().toISOString()
+    };
+    KNOWLEDGE.unshift(k);
+    cloudPushKnowledge(k);
+  }
+  logAction(`${state.adminName||'An adviser'} answered a question from ${x.farmName||'a member'}.`);
+  render();
+}
+
+function addKnowledge(){
+  const err = document.getElementById('kb-error');
+  const title = document.getElementById('kb-title').value.trim();
+  const body = document.getElementById('kb-body').value.trim();
+  if(!title || body.length < 10){ err.textContent = 'A title and an answer are both needed.'; return; }
+  const k = {
+    id: `kb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`,
+    title, body, topic: document.getElementById('kb-topic').value,
+    crop: document.getElementById('kb-crop').value.trim(),
+    author: state.adminName || roleLabel(roleIs()), created: new Date().toISOString()
+  };
+  KNOWLEDGE.unshift(k);
+  saveMembers(); cloudPushKnowledge(k);
+  logAction(`${state.adminName||'An adviser'} added "${title}" to the knowledge library.`);
+  render();
+}
+
+/* ============================================================
+   Batches — what a farm picked, and what was put on it
+   ============================================================ */
+function batchPill(st){
+  const cls = { Recorded:'pending', Consigned:'active', Delivered:'active', Withdrawn:'inactive' }[st] || 'pending';
+  return `<span class="status-pill status-${cls}">${esc(st)}</span>`;
+}
+function safetyBadge(b){
+  const s = batchSafety(b);
+  if(s.unknown) return `<span class="helper">${esc(s.text)}</span>`;
+  return s.ok
+    ? `<span class="status-pill status-active">Intervals observed</span>`
+    : `<span class="status-pill status-inactive" style="background:var(--red);color:#fff;">${esc(s.text)}</span>`;
+}
+
+function renderBatchesMember(c){
+  const uid = state.member;
+  const m = MEMBERS[uid];
+  if(!m) return;
+  if(cloudOn() && !state.traceRead){
+    state.traceRead = true;
+    cloudPullTrace().then(()=> render());
+  }
+  const mine = batchesForFarm(uid).sort((a,b)=> (b.harvestedOn||'').localeCompare(a.harvestedOn||''));
+  const apps = INPUTAPP.filter(a=> a.farmUid === uid)
+                       .sort((a,b)=> (b.appliedOn||'').localeCompare(a.appliedOn||''));
+  const profiles = (m.crops || []);
+  const risky = mine.filter(b=> !batchSafety(b).ok);
+
+  c.innerHTML = `
+    ${farmHeader(m)}
+    <h1 class="page-title">Batches</h1>
+    <p class="page-sub">Every pick gets a lot code, so a box can always be traced back here</p>
+    ${state.traceError ? `<div class="card"><p class="helper cat-local">${esc(state.traceError)}</p></div>${(state.traceError='')||''}` : ''}
+    ${state.traceMsg ? `<div class="card"><p class="helper">${esc(state.traceMsg)}</p></div>${(state.traceMsg='')||''}` : ''}
+
+    <div class="grid3">
+      ${orderMetric('Batches recorded', String(mine.length))}
+      ${orderMetric('Picked', fmt(Math.round(mine.reduce((t,b)=>t+(Number(b.kg)||0),0)))+' kg')}
+      ${orderMetric('Needing attention', String(risky.length))}
+    </div>
+
+    ${risky.length ? `<div class="card" style="border-color:var(--red);">
+      <strong>${risky.length} batch${risky.length===1?' was':'es were'} picked too soon after spraying.</strong>
+      <p class="helper" style="margin-top:6px;">A pre-harvest interval is the number of days that must pass between applying something and picking. Produce picked inside it can be rejected at the buyer's gate, and the association is answerable for it. Check the batches marked below.</p>
+    </div>` : ''}
+
+    ${profiles.length ? `
+    <div class="section-label">Record a pick</div>
+    <div class="card">
+      <div class="grid2">
+        <div><label class="f">Which crop</label>
+          <select id="bat-profile">
+            ${profiles.map((cr,i)=>`<option value="${i}">${esc(profileLabel(cr))}</option>`).join('')}
+          </select></div>
+        <div><label class="f">Picked on</label>${dateField('bat-date', todayStr())}</div>
+      </div>
+      <div class="grid2">
+        <div><label class="f">How much (kg)</label><input id="bat-kg" type="number" min="0" step="0.1"></div>
+        <div><label class="f">Grade <span class="helper">optional</span></label><input id="bat-grade" placeholder="Class 1, export, and so on"></div>
+      </div>
+      <label class="f">Notes <span class="helper">optional</span></label>
+      <input id="bat-notes" placeholder="Anything the buyer should know">
+      <button class="btn small" style="margin-top:8px;" onclick="addBatch()">Record this pick</button>
+      <p class="helper" id="bat-error" style="color:var(--red);margin-top:8px;"></p>
+      <p class="helper" style="margin-top:8px;">A lot code is made for you. Write it on whatever leaves the farm — it is what lets anyone trace the box back to this record.</p>
+    </div>` : emptyState('Add a crop first',
+        'A batch is a pick of one of your crops, so add a crop on the Profile tab and the pick can be recorded against it.')}
+
+    <div class="section-label">What you applied</div>
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">Record sprays and feeds here with their pre-harvest interval, and the platform will tell you when each crop is safe to pick — and warn you if a batch was picked too soon.</p>
+      <div class="grid2">
+        <div><label class="f">Crop</label>
+          <select id="app-profile">
+            ${profiles.map((cr,i)=>`<option value="${i}">${esc(profileLabel(cr))}</option>`).join('')}
+          </select></div>
+        <div><label class="f">Product</label><input id="app-product" placeholder="What was applied"></div>
+      </div>
+      <div class="grid3">
+        <div><label class="f">Applied on</label>${dateField('app-date', todayStr())}</div>
+        <div><label class="f">Pre-harvest interval (days)</label><input id="app-phi" type="number" min="0" step="1" value="0"></div>
+        <div><label class="f">Rate <span class="helper">optional</span></label><input id="app-rate" placeholder="per litre, per acre"></div>
+      </div>
+      <button class="btn small" style="margin-top:8px;" onclick="addApplication()">Record</button>
+      <p class="helper" id="app-error" style="color:var(--red);margin-top:8px;"></p>
+
+      ${apps.length ? `<table class="grid-table" style="margin-top:14px;"><thead><tr>
+        <th>Product</th><th>Crop</th><th>Applied</th><th>Safe to pick from</th><th></th></tr></thead><tbody>
+        ${apps.map(a=>`<tr>
+          <td>${esc(a.product)}</td><td>${esc(a.crop)}</td>
+          <td>${esc(a.appliedOn||'—')}</td>
+          <td>${a.phiDays ? esc(safeFrom(a)) : '<span class="helper">no interval</span>'}</td>
+          <td><button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeApplication('${esc(a.id)}')">Remove</button></td>
+        </tr>`).join('')}
+      </tbody></table>` : ''}
+    </div>
+
+    <div class="section-label">Your batches</div>
+    ${mine.length ? `<div class="card">
+      <table class="grid-table"><thead><tr>
+        <th>Lot code</th><th>Crop</th><th>Picked</th><th>Weight</th><th>Safety</th><th>Status</th></tr></thead><tbody>
+      ${mine.map(b=>`<tr>
+        <td><code>${esc(b.lotCode)}</code></td>
+        <td>${esc(b.crop)}${b.variety?` <span class="helper">${esc(b.variety)}</span>`:''}</td>
+        <td>${esc(b.harvestedOn||'—')}</td>
+        <td>${fmt(b.kg)} kg</td>
+        <td>${safetyBadge(b)}</td>
+        <td>${batchPill(b.status||'Recorded')}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>` : `<div class="card"><p class="helper">No batches recorded yet.</p></div>`}
+  `;
+}
+
+function addBatch(){
+  const err = document.getElementById('bat-error');
+  const m = MEMBERS[state.member];
+  const i = Number(document.getElementById('bat-profile').value);
+  const cr = (m.crops || [])[i];
+  const kg = Number(document.getElementById('bat-kg').value) || 0;
+  const on = document.getElementById('bat-date').value;
+  if(!cr || kg <= 0 || !on){ err.textContent = 'Choose a crop, a date and a weight.'; return; }
+  const b = {
+    id: batchId(), farmUid: state.member, farmName: m.name,
+    crop: cr.crop, variety: cr.variety || '', profileId: cr.id || '',
+    harvestedOn: on, kg, lotCode: lotCodeFor(m, on),
+    grade: document.getElementById('bat-grade').value.trim(),
+    notes: document.getElementById('bat-notes').value.trim(),
+    status: 'Recorded', region: m.location || '',
+    created: new Date().toISOString()
+  };
+  BATCHES.unshift(b);
+  saveMembers();
+  cloudPushBatch(b);
+  const safety = batchSafety(b);
+  state.traceMsg = safety.ok
+    ? `Recorded as ${b.lotCode}. Write that code on whatever leaves the farm.`
+    : `Recorded as ${b.lotCode}, but ${safety.text.toLowerCase()} Check before this batch is sold.`;
+  logAction(`${m.name} recorded ${fmt(kg)} kg of ${b.crop} as lot ${b.lotCode}.`);
+  render();
+}
+
+function addApplication(){
+  const err = document.getElementById('app-error');
+  const m = MEMBERS[state.member];
+  const i = Number(document.getElementById('app-profile').value);
+  const cr = (m.crops || [])[i];
+  const product = document.getElementById('app-product').value.trim();
+  const on = document.getElementById('app-date').value;
+  if(!cr || !product || !on){ err.textContent = 'Choose a crop, name the product and give a date.'; return; }
+  const a = {
+    id: `app-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`,
+    farmUid: state.member, crop: cr.crop, profileId: cr.id || '',
+    product, rate: document.getElementById('app-rate').value.trim(),
+    appliedOn: on, phiDays: Number(document.getElementById('app-phi').value) || 0,
+    notes: '', created: new Date().toISOString()
+  };
+  INPUTAPP.unshift(a);
+  saveMembers();
+  cloudPushApplication(a);
+  logAction(`${m.name} recorded applying ${product} to ${a.crop}.`);
+  render();
+}
+
+function removeApplication(id){
+  const at = INPUTAPP.findIndex(a=> a.id === id);
+  if(at === -1) return;
+  INPUTAPP.splice(at, 1);
+  saveMembers();
+  if(cloudOn()){
+    try{ CLOUD.fs.deleteDoc(CLOUD.fs.doc(CLOUD.db, 'inputApplications', id)); }catch(e){}
+  }
+  render();
+}
+
+/* ============================================================
+   Traceability — the Secretariat's side
+
+   One field, one lot code, and the whole history of a box.
+   ============================================================ */
+function renderTraceAdmin(c){
+  if(cloudOn() && !state.traceRead){
+    state.traceRead = true;
+    cloudPullTrace().then(()=> render());
+  }
+  const found = state.traceLot ? batchByLot(state.traceLot) : null;
+  const open = LOTISSUES.filter(i=> i.status !== 'Resolved');
+  const risky = BATCHES.filter(b=> !batchSafety(b).ok);
+
+  c.innerHTML = `
+    <h1 class="page-title">Traceability</h1>
+    <p class="page-sub">A lot code goes in; the farm, the pick and everything applied to it come back</p>
+    ${state.traceError ? `<div class="card"><p class="helper cat-local">${esc(state.traceError)}</p></div>${(state.traceError='')||''}` : ''}
+    ${state.traceMsg ? `<div class="card"><p class="helper">${esc(state.traceMsg)}</p></div>${(state.traceMsg='')||''}` : ''}
+
+    <div class="grid3">
+      ${orderMetric('Batches on record', String(BATCHES.length))}
+      ${orderMetric('Open complaints', String(open.length))}
+      ${orderMetric('Picked too soon', String(risky.length))}
+    </div>
+
+    <div class="card">
+      <label class="f">Trace a lot code</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="trace-lot" placeholder="TIPFA-NYF-260601-K4TQ" style="flex:1;min-width:220px;text-transform:uppercase;"
+               value="${esc(state.traceLot||'')}" onkeydown="if(event.key==='Enter')doTrace()">
+        <button class="btn small" onclick="doTrace()">Trace</button>
+        ${state.traceLot ? '<button class="btn small ghost" onclick="clearTrace()">Clear</button>' : ''}
+      </div>
+      ${state.traceLot && !found ? `<p class="helper" style="color:var(--red);margin-top:10px;">No batch carries that lot code. Check the code on the box — the letters avoid O and I, so a nought is a zero and a one is a one.</p>` : ''}
+    </div>
+
+    ${found ? traceResult(found) : ''}
+
+    <div class="section-label">Complaints against a lot</div>
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">When a customer reports a problem, record it against the lot code on the box. It reaches the farm that picked it, and the recall list below shows what else came off that same pick.</p>
+      <div class="grid2">
+        <div><label class="f">Lot code</label><input id="iss-lot" placeholder="Code from the box" style="text-transform:uppercase;"></div>
+        <div><label class="f">Customer</label><input id="iss-customer" placeholder="Who reported it"></div>
+      </div>
+      <div class="grid2">
+        <div><label class="f">What is wrong</label><input id="iss-issue" placeholder="Soft fruit, mould, foreign matter"></div>
+        <div><label class="f">How serious</label>
+          <select id="iss-sev">${ISSUE_SEVERITY.map(x=>`<option>${x}</option>`).join('')}</select></div>
+      </div>
+      <button class="btn small" style="margin-top:8px;" onclick="addIssue()">Record the complaint</button>
+      <p class="helper" id="iss-error" style="color:var(--red);margin-top:8px;"></p>
+    </div>
+
+    ${LOTISSUES.length ? `<div class="card">
+      <table class="grid-table"><thead><tr>
+        <th>Lot</th><th>Farm</th><th>Problem</th><th>Severity</th><th>Status</th><th></th></tr></thead><tbody>
+      ${LOTISSUES.slice().sort((a,b)=>(b.raisedOn||'').localeCompare(a.raisedOn||'')).map(i=>`<tr>
+        <td><code>${esc(i.lotCode)}</code></td>
+        <td>${esc((MEMBERS[i.farmUid]||{}).name || '—')}</td>
+        <td>${esc(i.issue)}${i.customer?` <span class="helper">${esc(i.customer)}</span>`:''}</td>
+        <td>${esc(i.severity)}</td>
+        <td>${esc(i.status)}</td>
+        <td>
+          <button class="btn small ghost" onclick="traceTo('${esc(i.lotCode)}')">Trace</button>
+          ${i.status !== 'Resolved' ? `<button class="btn small ghost" onclick="resolveIssue('${esc(i.id)}')">Resolve</button>` : ''}
+        </td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>` : ''}
+  `;
+}
+
+function traceResult(b){
+  const m = MEMBERS[b.farmUid] || {};
+  const apps = applicationsForBatch(b);
+  const safety = batchSafety(b);
+  const cons = consignmentsForBatch(b.id);
+  const issues = issuesForBatch(b.id);
+  const rec = recallFor(b);
+
+  return `
+    <div class="section-label">Lot ${esc(b.lotCode)}</div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h3 style="margin:0;">${esc(b.farmName || m.name || 'Unknown farm')}</h3>
+          <p class="helper" style="margin:4px 0 0;">
+            ${esc(b.crop)}${b.variety?` · ${esc(b.variety)}`:''} · picked ${esc(b.harvestedOn||'—')} · ${fmt(b.kg)} kg${b.grade?` · ${esc(b.grade)}`:''}
+          </p>
+          ${m.location ? `<p class="helper">${esc(m.location)}</p>` : ''}
+          ${m.contact || m.phone ? `<p class="helper">Contact: ${esc(m.contact||'')}${m.phone?` · ${esc(m.phone)}`:''}</p>` : ''}
+        </div>
+        <div style="text-align:right;">${batchPill(b.status||'Recorded')}<div style="margin-top:6px;">${safetyBadge(b)}</div></div>
+      </div>
+      ${b.notes ? `<p class="helper" style="margin-top:10px;">${esc(b.notes)}</p>` : ''}
+    </div>
+
+    <div class="card">
+      <strong>What was applied to this crop before it was picked</strong>
+      ${apps.length ? `<table class="grid-table" style="margin-top:10px;"><thead><tr>
+        <th>Product</th><th>Applied</th><th>Interval</th><th>Safe from</th><th></th></tr></thead><tbody>
+        ${apps.map(a=>{
+          const bad = safeFrom(a) && b.harvestedOn < safeFrom(a);
+          return `<tr${bad?' style="color:var(--red);"':''}>
+            <td>${esc(a.product)}</td><td>${esc(a.appliedOn)}</td>
+            <td>${a.phiDays ? a.phiDays+' days' : '—'}</td>
+            <td>${a.phiDays ? esc(safeFrom(a)) : '—'}</td>
+            <td>${bad ? '<strong>picked too soon</strong>' : ''}</td>
+          </tr>`;
+        }).join('')}
+      </tbody></table>` : '<p class="helper" style="margin-top:8px;">Nothing recorded as applied to this crop.</p>'}
+      ${!safety.ok ? `<p class="helper" style="color:var(--red);margin-top:10px;">${esc(safety.text)} This is the association's problem as much as the farm's — the buyer will hold the association to it.</p>` : ''}
+    </div>
+
+    <div class="card">
+      <strong>Where it went</strong>
+      ${cons.length ? `<table class="grid-table" style="margin-top:10px;"><thead><tr>
+        <th>Customer</th><th>Weight</th><th>Dispatched</th></tr></thead><tbody>
+        ${cons.map(x=>`<tr><td>${esc(x.customer||'—')}</td><td>${fmt(x.kg)} kg</td><td>${esc(x.dispatchedOn||'—')}</td></tr>`).join('')}
+      </tbody></table>` : '<p class="helper" style="margin-top:8px;">Not dispatched to a customer yet.</p>'}
+    </div>
+
+    ${rec.batches.length > 1 || rec.consignments.length ? `<div class="card" style="border-color:var(--harvest-orange);">
+      <strong>If this lot is bad, what else is suspect</strong>
+      <p class="helper" style="margin-top:6px;">Everything ${esc(b.farmName || m.name || 'that farm')} picked of ${esc(b.crop)} on ${esc(b.harvestedOn||'that day')} came off the same crop on the same day, so a fault in one is a fault in all of it until proven otherwise.</p>
+      <p style="margin-top:8px;"><strong>${rec.batches.length}</strong> batch${rec.batches.length===1?'':'es'} · <strong>${fmt(Math.round(rec.kg))} kg</strong>${rec.customers.length?` · went to <strong>${rec.customers.map(esc).join(', ')}</strong>`:''}</p>
+      <div style="margin-top:8px;">${rec.batches.map(x=>`<code style="margin-right:8px;">${esc(x.lotCode)}</code>`).join('')}</div>
+    </div>` : ''}
+
+    ${issues.length ? `<div class="card">
+      <strong>Complaints against this lot</strong>
+      ${issues.map(i=>`<p class="helper" style="margin-top:8px;">${esc(i.raisedOn||'')} · ${esc(i.severity)} · ${esc(i.issue)}${i.customer?` — ${esc(i.customer)}`:''} <em>${esc(i.status)}</em></p>`).join('')}
+    </div>` : ''}
+  `;
+}
+
+function doTrace(){
+  const el = document.getElementById('trace-lot');
+  state.traceLot = el ? el.value.trim().toUpperCase() : '';
+  render();
+}
+function traceTo(code){ state.traceLot = String(code||'').toUpperCase(); render(); }
+function clearTrace(){ state.traceLot = ''; render(); }
+
+function addIssue(){
+  const err = document.getElementById('iss-error');
+  const lot = document.getElementById('iss-lot').value.trim().toUpperCase();
+  const issue = document.getElementById('iss-issue').value.trim();
+  if(!lot || !issue){ err.textContent = 'A lot code and what is wrong are both needed.'; return; }
+  const b = batchByLot(lot);
+  if(!b){ err.textContent = 'No batch carries that lot code, so there is nothing to attach this to.'; return; }
+  const rec = {
+    id: `iss-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`,
+    lotCode: lot, batchId: b.id, farmUid: b.farmUid,
+    customer: document.getElementById('iss-customer').value.trim(),
+    contact: '', issue,
+    severity: document.getElementById('iss-sev').value,
+    status: 'Open', raisedOn: todayStr(), resolution: '',
+    created: new Date().toISOString()
+  };
+  LOTISSUES.unshift(rec);
+  saveMembers();
+  cloudPushIssue(rec);
+  const r = recallFor(b);
+  state.traceLot = lot;
+  state.traceMsg = r.batches.length > 1
+    ? `Recorded against ${lot}. ${r.batches.length} batches came off that same pick — check the recall list below before more of it goes out.`
+    : `Recorded against ${lot}, and traced to ${b.farmName || 'the farm'}.`;
+  logAction(`Operator ${state.adminName||''} recorded a ${rec.severity.toLowerCase()} complaint against lot ${lot}.`);
+  render();
+}
+
+function resolveIssue(id){
+  const i = LOTISSUES.find(x=> x.id === id);
+  if(!i) return;
+  i.status = 'Resolved';
+  saveMembers(); cloudPushIssue(i);
+  logAction(`Operator ${state.adminName||''} resolved the complaint against lot ${i.lotCode}.`);
+  render();
+}
+
+/* ============================================================
+   Orders — the Secretariat's book
+   ============================================================ */
+function orderMetric(label, val){
+  return `<div class="metric"><div class="lbl">${esc(label)}</div><div class="val">${val}</div></div>`;
+}
+function orderPill(st){
+  const cls = { Open:'pending', Allocated:'active', Delivered:'active',
+                Closed:'inactive', Cancelled:'inactive' }[st] || 'pending';
+  return `<span class="status-pill status-${cls}">${esc(st)}</span>`;
+}
+function allocPill(st){
+  const cls = { Offered:'pending', Accepted:'active', Delivered:'active',
+                Declined:'inactive' }[st] || 'pending';
+  return `<span class="status-pill status-${cls}">${esc(st)}</span>`;
+}
+
+function renderOrdersAdmin(c){
+  if(cloudOn() && !state.ordersRead){
+    state.ordersRead = true;
+    cloudPullOrders().then(()=> render());
+  }
+  if(state.openOrder) return renderOrderDetail(c, state.openOrder);
+
+  const shown = ORDERS.filter(o=> state.orderFilter === 'All' || o.status === state.orderFilter)
+                      .sort((a,b)=> (b.created||'').localeCompare(a.created||''));
+  const crops = CATALOGUE.map(x=> x.name);
+
+  c.innerHTML = `
+    <h1 class="page-title">Orders</h1>
+    <p class="page-sub">What customers have asked for, and which farms are filling it</p>
+    ${state.orderError ? `<div class="card"><p class="helper cat-local">${esc(state.orderError)}</p></div>${(state.orderError='')||''}` : ''}
+    ${state.orderMsg ? `<div class="card"><p class="helper">${esc(state.orderMsg)}</p></div>${(state.orderMsg='')||''}` : ''}
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div class="chips" style="margin-bottom:0;">${['Open','Allocated','Delivered','All'].map(f=>
+          `<span class="chip ${state.orderFilter===f?'active':''}" onclick="setOrderFilter('${f}')">${f}</span>`).join('')}</div>
+        <button class="btn small" onclick="toggleNewOrder()">${state.newOrder ? 'Cancel' : '+ New order'}</button>
+      </div>
+      ${state.newOrder ? newOrderForm(crops) : ''}
+    </div>
+
+    ${shown.length ? `<div class="card">
+      <table class="grid-table"><thead><tr>
+        <th>Customer</th><th>Crop</th><th>Wanted</th><th>Placed</th><th>Accepted</th><th>Needed by</th><th>Status</th><th></th>
+      </tr></thead><tbody>
+      ${shown.map(o=>`<tr>
+        <td>${esc(o.customer)}</td>
+        <td>${esc(o.crop)}${o.variety?` <span class="helper">${esc(o.variety)}</span>`:''}</td>
+        <td>${fmt(o.kg)} kg</td>
+        <td>${fmt(Math.round(orderPlaced(o)))} kg</td>
+        <td>${fmt(Math.round(orderAccepted(o)))} kg</td>
+        <td>${esc(o.needBy || '—')}</td>
+        <td>${orderPill(o.status)}</td>
+        <td><button class="btn small ghost" onclick="openOrder('${esc(o.id)}')">Open</button></td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>` : emptyState('No orders yet',
+        'When a customer asks the association for produce, record it here and the platform will show you which farms can fill it.')}
+  `;
+}
+
+function newOrderForm(crops){
+  return `
+    <div class="section-label" style="margin-top:14px;">New order</div>
+    <div class="grid2">
+      <div><label class="f">Customer</label><input id="ord-customer" placeholder="Who is buying"></div>
+      <div><label class="f">Customer contact</label><input id="ord-contact" placeholder="Phone or email"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="f">Crop</label>
+        <select id="ord-crop" onchange="orderCropChanged()">
+          <option value="">Choose a crop</option>
+          ${crops.map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('')}
+        </select></div>
+      <div><label class="f">Variety <span class="helper">optional</span></label>
+        <select id="ord-variety"><option value="">Any variety</option></select></div>
+    </div>
+    <div class="grid2">
+      <div><label class="f">Quantity (kg)</label><input id="ord-kg" type="number" min="0" step="1"></div>
+      <div><label class="f">Price per kg (TZS)</label><input id="ord-price" type="number" min="0" step="1"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="f">Needed by</label>${dateField('ord-needby','')}</div>
+      <div><label class="f">Notes</label><input id="ord-notes" placeholder="Grade, packing, anything the farms should know"></div>
+    </div>
+    <button class="btn small" style="margin-top:8px;" onclick="addOrder()">Record order</button>
+    <p class="helper" id="ord-error" style="color:var(--red);margin-top:8px;"></p>`;
+}
+
+function orderCropChanged(){
+  const crop = document.getElementById('ord-crop').value;
+  const sel = document.getElementById('ord-variety');
+  const cc = catalogueCrop(crop);
+  sel.innerHTML = '<option value="">Any variety</option>' +
+    ((cc && cc.varieties) || []).map(v=>`<option value="${esc(v.name)}">${esc(v.name)}</option>`).join('');
+}
+
+function setOrderFilter(f){ state.orderFilter = f; render(); }
+function toggleNewOrder(){ state.newOrder = !state.newOrder; render(); }
+function openOrder(id){ state.openOrder = id; state.allocDraft = null; render(); }
+function closeOrder(){ state.openOrder = null; state.allocDraft = null; render(); }
+
+function addOrder(){
+  const err = document.getElementById('ord-error');
+  const o = Object.assign(blankOrder(), {
+    id: orderId(),
+    customer: document.getElementById('ord-customer').value.trim(),
+    customerContact: document.getElementById('ord-contact').value.trim(),
+    crop: document.getElementById('ord-crop').value,
+    variety: document.getElementById('ord-variety').value,
+    kg: Number(document.getElementById('ord-kg').value) || 0,
+    pricePerKg: Number(document.getElementById('ord-price').value) || 0,
+    needBy: document.getElementById('ord-needby').value || '',
+    notes: document.getElementById('ord-notes').value.trim()
+  });
+  if(!o.customer || !o.crop || o.kg <= 0){
+    err.textContent = 'A customer, a crop and a quantity are needed.';
+    return;
+  }
+  ORDERS.unshift(o);
+  saveMembers();
+  cloudPushOrder(o);
+  logAction(`Operator ${state.adminName||''} recorded an order from ${o.customer}: ${fmt(o.kg)} kg of ${o.crop}.`);
+  state.newOrder = false;
+  state.openOrder = o.id;
+  render();
+}
+
+/* ---- One order, and who is filling it -------------------------------- */
+function renderOrderDetail(c, id){
+  const o = orderById(id);
+  if(!o){ state.openOrder = null; return renderOrdersAdmin(c); }
+  const mine = allocsFor(id);
+  const ranked = rankFarmsForOrder(o);
+  const left = orderRemaining(o);
+
+  c.innerHTML = `
+    <button class="btn small ghost" onclick="closeOrder()">&larr; All orders</button>
+    <h1 class="page-title" style="margin-top:10px;">${esc(o.customer)}</h1>
+    <p class="page-sub">${fmt(o.kg)} kg of ${esc(o.crop)}${o.variety?` · ${esc(o.variety)}`:''}${o.needBy?` · needed by ${esc(o.needBy)}`:''}</p>
+    ${state.orderError ? `<div class="card"><p class="helper cat-local">${esc(state.orderError)}</p></div>${(state.orderError='')||''}` : ''}
+
+    <div class="grid4">
+      ${orderMetric('Ordered', fmt(o.kg)+' kg')}
+      ${orderMetric('Placed with farms', fmt(Math.round(orderPlaced(o)))+' kg')}
+      ${orderMetric('Accepted', fmt(Math.round(orderAccepted(o)))+' kg')}
+      ${orderMetric('Still to place', fmt(Math.round(left))+' kg')}
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div><strong>Status</strong> ${orderPill(o.status)}</div>
+        <div>
+          ${ORDER_STATUS.map(st=> st===o.status ? '' :
+            `<button class="btn small ghost" onclick="setOrderStatus('${esc(o.id)}','${st}')">${st}</button>`).join(' ')}
+        </div>
+      </div>
+      ${o.notes ? `<p class="helper" style="margin-top:10px;">${esc(o.notes)}</p>` : ''}
+      ${o.customerContact ? `<p class="helper">Contact: ${esc(o.customerContact)}</p>` : ''}
+    </div>
+
+    <div class="section-label">Farms filling this order</div>
+    <div class="card">
+      ${mine.length ? `<table class="grid-table"><thead><tr>
+        <th>Farm</th><th>Share</th><th>Price</th><th>Status</th><th>Answered</th><th></th></tr></thead><tbody>
+        ${mine.map(a=>`<tr>
+          <td>${esc((MEMBERS[a.farmUid]||{}).name || a.farmUid)}</td>
+          <td>${fmt(a.kg)} kg</td>
+          <td>${a.pricePerKg ? fmt(a.pricePerKg)+' TZS/kg' : '—'}</td>
+          <td>${allocPill(a.status)}${a.note?` <span class="helper">${esc(a.note)}</span>`:''}</td>
+          <td>${a.respondedAt ? esc(a.respondedAt.slice(0,10)) : '<span class="helper">waiting</span>'}</td>
+          <td>${a.status === 'Accepted'
+                ? `<button class="btn small ghost" onclick="markDelivered('${esc(a.id)}')">Mark delivered</button>` : ''}
+              <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="withdrawAlloc('${esc(a.id)}')">Withdraw</button></td>
+        </tr>`).join('')}
+      </tbody></table>` : '<p class="helper">Nothing placed yet.</p>'}
+    </div>
+
+    ${left > 0 ? `
+    <div class="section-label">Who can fill the rest</div>
+    <div class="card">
+      <p class="helper" style="margin:0 0 10px;">Ranked from the farms' own records — what they expect to harvest, when it is ready, what they delivered before, and how much they have already had. Every figure is theirs, and the reasoning is beside each one.</p>
+      <button class="btn small" onclick="suggestSplit('${esc(o.id)}')">Suggest a split for the remaining ${fmt(Math.round(left))} kg</button>
+      ${state.allocDraft && state.allocDraft.orderId === o.id ? allocDraftTable(o) : ''}
+      <table class="grid-table" style="margin-top:14px;"><thead><tr>
+        <th>Farm</th><th>Score</th><th>Expected</th><th>Why</th><th></th></tr></thead><tbody>
+        ${ranked.map(r=>`<tr${r.eligible?'':' style="opacity:.55;"'}>
+          <td>${esc(r.name)}</td>
+          <td>${r.eligible ? `<strong>${r.score}</strong>` : '—'}</td>
+          <td>${r.expectedKg ? fmt(Math.round(r.expectedKg))+' kg' : '—'}</td>
+          <td><span class="helper">${r.why.map(esc).join(' · ')}</span></td>
+          <td>${r.eligible && !mine.some(a=> a.farmUid === r.id && a.status !== 'Declined')
+                ? `<button class="btn small ghost" onclick="offerTo('${esc(o.id)}','${esc(r.id)}')">Offer</button>` : ''}</td>
+        </tr>`).join('')}
+      </tbody></table>
+      ${ranked.length ? '' : '<p class="helper">No farms are registered yet.</p>'}
+    </div>` : `<div class="card"><p class="helper">The whole order is placed.</p></div>`}
+  `;
+}
+
+function allocDraftTable(o){
+  const d = state.allocDraft;
+  if(!d.rows.length) return '<p class="helper" style="margin-top:10px;">No farm has that crop recorded with a harvest to spare.</p>';
+  return `<div style="margin-top:12px;">
+    <table class="grid-table"><thead><tr><th>Farm</th><th>Score</th><th>Share (kg)</th></tr></thead><tbody>
+    ${d.rows.map((r,i)=>`<tr>
+      <td>${esc(r.name)}</td><td>${r.score}</td>
+      <td><input type="number" min="0" step="1" value="${r.kg}" style="max-width:120px;"
+           onchange="editDraftKg(${i}, this.value)"></td>
+    </tr>`).join('')}
+    </tbody></table>
+    <button class="btn small" style="margin-top:10px;" onclick="sendDraft('${esc(o.id)}')">Send these offers</button>
+    <button class="btn small ghost" style="margin-top:10px;" onclick="cancelDraft()">Discard</button>
+  </div>`;
+}
+
+function suggestSplit(id){
+  const o = orderById(id);
+  if(!o) return;
+  state.allocDraft = { orderId:id, rows: suggestAllocation(o) };
+  render();
+}
+function editDraftKg(i, v){
+  if(state.allocDraft && state.allocDraft.rows[i]) state.allocDraft.rows[i].kg = Number(v) || 0;
+}
+function cancelDraft(){ state.allocDraft = null; render(); }
+
+function newAlloc(o, farmUid, kg){
+  return { id: allocId(o.id, farmUid), orderId:o.id, farmUid,
+           crop:o.crop, variety:o.variety || '', kg:Number(kg)||0,
+           pricePerKg:Number(o.pricePerKg)||0, needBy:o.needBy || '',
+           customer:o.customer, status:'Offered', note:'',
+           created:new Date().toISOString(), respondedAt:'' };
+}
+
+function placeAlloc(o, farmUid, kg){
+  const rec = newAlloc(o, farmUid, kg);
+  const at = ALLOCS.findIndex(a=> a.id === rec.id);
+  if(at === -1) ALLOCS.push(rec); else ALLOCS[at] = rec;
+  cloudPushAlloc(rec);
+  return rec;
+}
+
+function sendDraft(id){
+  const o = orderById(id);
+  if(!o || !state.allocDraft) return;
+  let n = 0;
+  state.allocDraft.rows.forEach(r=>{
+    if(r.kg > 0){ placeAlloc(o, r.farmUid, r.kg); n++; }
+  });
+  if(o.status === 'Open' && orderPlaced(o) > 0){ o.status = 'Allocated'; cloudPushOrder(o); }
+  state.allocDraft = null;
+  saveMembers();
+  logAction(`Operator ${state.adminName||''} offered ${o.customer}'s order to ${n} farm${n===1?'':'s'}.`);
+  state.orderMsg = `${n} farm${n===1?' was':'s were'} offered a share. They answer from their own Orders tab.`;
+  render();
+}
+
+function offerTo(id, farmUid){
+  const o = orderById(id);
+  if(!o) return;
+  const kg = Math.min(orderRemaining(o), Math.round(farmExpectedKg(MEMBERS[farmUid] || {}, o.crop)) || orderRemaining(o));
+  placeAlloc(o, farmUid, kg);
+  if(o.status === 'Open'){ o.status = 'Allocated'; cloudPushOrder(o); }
+  saveMembers();
+  logAction(`Operator ${state.adminName||''} offered ${fmt(kg)} kg of ${o.crop} to ${(MEMBERS[farmUid]||{}).name||farmUid}.`);
+  render();
+}
+
+function withdrawAlloc(allocIdVal){
+  const at = ALLOCS.findIndex(a=> a.id === allocIdVal);
+  if(at === -1) return;
+  const a = ALLOCS[at];
+  ALLOCS.splice(at, 1);
+  saveMembers();
+  if(cloudOn()){
+    try{ CLOUD.fs.deleteDoc(CLOUD.fs.doc(CLOUD.db, 'orderAllocations', allocIdVal)); }catch(e){}
+  }
+  logAction(`Operator ${state.adminName||''} withdrew ${(MEMBERS[a.farmUid]||{}).name||a.farmUid}'s share of an order.`);
+  render();
+}
+
+function markDelivered(allocIdVal){
+  const a = ALLOCS.find(x=> x.id === allocIdVal);
+  if(!a) return;
+  a.status = 'Delivered';
+  saveMembers(); cloudPushAlloc(a);
+  const o = orderById(a.orderId);
+  if(o && orderAccepted(o) >= Number(o.kg)){ o.status = 'Delivered'; cloudPushOrder(o); }
+  logAction(`Operator ${state.adminName||''} recorded delivery from ${(MEMBERS[a.farmUid]||{}).name||a.farmUid}.`);
+  render();
+}
+
+function setOrderStatus(id, st){
+  const o = orderById(id);
+  if(!o) return;
+  o.status = st;
+  saveMembers(); cloudPushOrder(o);
+  logAction(`Operator ${state.adminName||''} set ${o.customer}'s order to ${st}.`);
+  render();
+}
+
+/* ============================================================
+   Orders — one farm's inbox
+
+   A farm sees its own share and nothing else: not the order, not what any
+   other farm was offered, not what anyone else was paid. That is enforced
+   by the rules, not by this screen.
+   ============================================================ */
+function renderOrdersMember(c){
+  const uid = state.member;
+  const m = MEMBERS[uid];
+  if(!m) return;
+  if(cloudOn() && !state.ordersRead){
+    state.ordersRead = true;
+    cloudPullOrders().then(()=> render());
+  }
+  const mine = allocsForFarm(uid).sort((a,b)=> (b.created||'').localeCompare(a.created||''));
+  const waiting = mine.filter(a=> a.status === 'Offered');
+  const agreed  = mine.filter(a=> a.status === 'Accepted');
+  const done    = mine.filter(a=> a.status === 'Delivered');
+
+  c.innerHTML = `
+    ${farmHeader(m)}
+    <h1 class="page-title">Orders</h1>
+    <p class="page-sub">What the association has asked you to supply</p>
+    ${state.orderError ? `<div class="card"><p class="helper cat-local">${esc(state.orderError)}</p></div>${(state.orderError='')||''}` : ''}
+
+    <div class="grid3">
+      ${orderMetric('Waiting for your answer', String(waiting.length))}
+      ${orderMetric('Accepted', fmt(Math.round(agreed.reduce((t,a)=>t+(Number(a.kg)||0),0)))+' kg')}
+      ${orderMetric('Delivered', fmt(Math.round(done.reduce((t,a)=>t+(Number(a.kg)||0),0)))+' kg')}
+    </div>
+
+    ${mine.length ? mine.map(a=> allocCard(a)).join('') :
+      emptyState('No orders yet',
+        'When the Secretariat has an order your farm can fill, your share of it appears here for you to accept or decline.')}
+  `;
+}
+
+function allocCard(a){
+  const canAnswer = a.status === 'Offered';
+  return `<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+      <div>
+        <strong>${fmt(a.kg)} kg of ${esc(a.crop)}</strong>${a.variety?` <span class="helper">${esc(a.variety)}</span>`:''}
+        <div class="helper" style="margin-top:4px;">
+          ${a.customer ? `for ${esc(a.customer)}` : 'for the association'}${a.needBy ? ` · needed by ${esc(a.needBy)}` : ''}${a.pricePerKg ? ` · ${fmt(a.pricePerKg)} TZS/kg` : ''}
+        </div>
+        ${a.pricePerKg && a.kg ? `<div class="helper">Worth ${fmt(Math.round(a.pricePerKg * a.kg))} TZS to your farm.</div>` : ''}
+        ${a.note ? `<div class="helper">Your note: ${esc(a.note)}</div>` : ''}
+      </div>
+      <div style="text-align:right;">${allocPill(a.status)}</div>
+    </div>
+    ${canAnswer ? `
+      <div style="margin-top:12px;">
+        <button class="btn small" onclick="answerAlloc('${esc(a.id)}','Accepted')">Accept this share</button>
+        <button class="btn small ghost" onclick="declineAlloc('${esc(a.id)}')">Cannot take it</button>
+      </div>
+      ${state.decline === a.id ? `
+        <div style="margin-top:10px;">
+          <label class="f">Why not? <span class="helper">so the Secretariat can place it elsewhere</span></label>
+          <input id="decline-note" placeholder="Harvest is late, already committed, and so on">
+          <button class="btn small" style="margin-top:8px;" onclick="answerAlloc('${esc(a.id)}','Declined')">Send</button>
+        </div>` : ''}
+    ` : ''}
+  </div>`;
+}
+
+function declineAlloc(id){ state.decline = id; render(); }
+
+function answerAlloc(id, status){
+  const a = ALLOCS.find(x=> x.id === id);
+  if(!a) return;
+  const noteEl = document.getElementById('decline-note');
+  a.status = status;
+  a.respondedAt = new Date().toISOString();
+  if(status === 'Declined' && noteEl) a.note = noteEl.value.trim();
+  state.decline = null;
+  saveMembers(); cloudPushAlloc(a);
+  logAction(`${(MEMBERS[a.farmUid]||{}).name||'A farm'} ${status.toLowerCase()} a ${fmt(a.kg)} kg share of ${a.crop}.`);
+  render();
+}
 
 function renderComms(c, isAdmin){
   const list = isAdmin ? complaints : complaints.filter(x=>x.member===state.member);

@@ -36,6 +36,29 @@ rules_version = '2';
  *
  *   submissions/{id}     requests and complaints raised by farms.
  *
+ *   orders/{id}          what a customer asked the association for. Staff
+ *                        only — it names the price and every farm offered a
+ *                        share, which is not one farm's business.
+ *
+ *   orderAllocations/{id} one farm's share of one order, carrying its own
+ *                        copy of the crop, quantity, price and date so the
+ *                        farm can answer without reading the order.
+ *
+ *   harvestBatches/{id}  one farm's pick of one crop on one day, under the
+ *                        lot code printed on the box.
+ *
+ *   inputApplications/{id}  what was applied to a crop, and the days that
+ *                        must pass before picking is safe.
+ *
+ *   consignments/{id}    which batches went to which customer.
+ *   lotComplaints/{id}   what came back, against which lot.
+ *
+ *   publicTrace/{lotCode}  the little a stranger with a box may see. A
+ *                        mirror, so that opening it opens nothing else.
+ *
+ *   advisoryCases/{id}   a question from one farm, and the answers to it.
+ *   knowledge/{id}       an answer worth keeping, read by every member.
+ *
  * The rule throughout: a farm reads and writes only its own records; staff
  * read everything and may correct anything their role covers; nobody may
  * create an account without the matching code from the Secretariat; and no
@@ -228,6 +251,122 @@ service cloud.firestore {
     match /harvest/{uid} {
       allow read:   if owns(uid) || isStaff();
       allow write:  if owns(uid) || isOperator();
+    }
+
+    // ---- Orders and allocation -------------------------------------------
+    // The order and a farm's share of it are two documents on purpose. The
+    // order names the customer, the price, and every farm that was offered
+    // part of it — so a farm never reads one. Its own allocation carries a
+    // copy of everything it needs to answer, and that is all it may see.
+    match /orders/{id} {
+      allow read:  if isStaff();
+      allow write: if isOperator();
+    }
+
+    match /orderAllocations/{id} {
+      // Staff see them all. A farm sees only the ones addressed to it, and a
+      // listing has to say so — where('farmUid','==',uid) — or the rules
+      // refuse the whole query rather than filtering it.
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if isOperator();
+      // A farm answers its own share and changes nothing else about it: not
+      // the quantity it was offered, not the price, not which farm it is
+      // for. Anything beyond an answer is the Secretariat's.
+      allow update: if isOperator()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.orderId == resource.data.orderId
+                        && request.resource.data.kg == resource.data.kg
+                        && request.resource.data.pricePerKg == resource.data.pricePerKg
+                        && request.resource.data.crop == resource.data.crop
+                        && request.resource.data.status in ['Accepted','Declined']);
+      allow delete: if isOperator();
+    }
+
+    // ---- Advisory ---------------------------------------------------------
+    // A farm asks; whoever holds an advisory role answers. The farm may
+    // raise and describe its own case, and an adviser may answer any of
+    // them — but a farm cannot answer its own question into the record, and
+    // an adviser cannot rewrite the question it was asked.
+    match /advisoryCases/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      allow update: if isOperator()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.replies == resource.data.replies);
+      allow delete: if isOperator();
+    }
+
+    // The library. Every signed-in member reads it — an answer nobody can
+    // find is an answer given twice — and staff write it.
+    match /knowledge/{id} {
+      allow read:  if signedIn();
+      allow write: if isOperator();
+    }
+
+    // ---- Batches and traceability ----------------------------------------
+    // A batch is one farm's pick of one crop on one day, and its lot code is
+    // what is printed on the box. A farm writes its own; staff read them all,
+    // because tracing a bad box back to a farm is the whole point.
+    match /harvestBatches/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if isStaff()
+                    || (signedIn() && request.resource.data.farmUid == request.auth.uid);
+      // A farm may correct its own record but never move it to another farm:
+      // a batch that could change hands is a batch that traces to nobody.
+      allow update: if isStaff()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid);
+      allow delete: if isStaff();
+    }
+
+    // What was applied, and the days that must pass before picking is safe.
+    // The farm's own record; staff read it because they answer for it.
+    match /inputApplications/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      allow update, delete: if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+    }
+
+    // Which batches went to which customer. The Secretariat dispatches; a
+    // farm may see the consignments carrying its own produce and no others.
+    match /consignments/{id} {
+      allow read:  if isStaff()
+                   || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow write: if isOperator();
+    }
+
+    // What came back. Recorded by staff against a lot code — a farm reads
+    // the complaints raised against its own produce, and cannot quietly
+    // close one.
+    match /lotComplaints/{id} {
+      allow read:  if isStaff()
+                   || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow write: if isOperator();
+    }
+
+    // ---- The public trace ------------------------------------------------
+    // Anyone holding a box may type its lot code and see what is in this
+    // document — and nothing else exists on this route to leak. It is a
+    // deliberate mirror rather than an opening onto harvestBatches, which
+    // carries farm contacts, weights and order history beside it.
+    //
+    // Read by strangers, so keep it to the crop, the farm's business name,
+    // the region and the date. Never a phone number, never a price.
+    match /publicTrace/{lotCode} {
+      allow read: if true;
+      allow write: if isStaff()
+                   || (signedIn()
+                       && exists(/databases/$(database)/documents/farms/$(request.auth.uid)));
     }
 
     // ---- Requests and complaints ----------------------------------------
