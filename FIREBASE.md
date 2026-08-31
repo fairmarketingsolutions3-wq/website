@@ -78,9 +78,20 @@ owner changes that on the **Governance** tab: each account on the roll has a
 role control and a **Suspend** button. Both are refused by the database for
 anyone else, so hiding the control is a courtesy, not the protection.
 
-If you need to move ownership to a different account, edit the `owner` field of
-`settings/ownership` in the console and set that account's `role` in
-`users/{uid}` to `superAdmin`.
+### Handing ownership to somebody else
+
+`settings/ownership` decides who becomes the owner at the start, and nothing
+after that: from then on the role in `users/{uid}` is what counts. So the owner
+hands over from inside the platform — **Governance**, set that operator's role
+to **System owner**. There can be two owners for as long as you want; the new
+one can then set the old one back to Secretariat, since nobody may change their
+own row.
+
+If the owner's account is lost altogether, nobody is left who can promote
+anyone, and the Firebase console is the way back in: **Firestore Database →
+Data → `users` →** the account's document **→** set `role` to `superAdmin`.
+Writes made in the console are not subject to the rules, which is exactly why
+that route always works.
 
 Nothing on the member side reads a role, so there is no farm-facing effect to
 any of this.
@@ -128,6 +139,18 @@ The sign-up codes are never sent to a browser. Security rules can read
 documents a client cannot, so a code is *checked* against the stored value
 without ever being *revealed* to the page — which is what the current
 browser-only version cannot do.
+
+### If a farm's tab comes up empty
+
+Firestore needs an index for a query that filters on a field. Single-field
+filters are normally served automatically, so most of these need nothing at
+all — but if a farm opens Orders, Batches or Ask an agronomist and sees
+nothing when it should see something, open the browser console. A
+`failed-precondition` error there carries a link that creates the missing
+index in one click. The queries that could ask for one are:
+
+- `orderAllocations`, `harvestBatches`, `inputApplications`, `consignments`,
+  `lotComplaints` and `advisoryCases`, each filtered on `farmUid`
 
 ## The config file
 
