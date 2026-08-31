@@ -1689,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v49';
+const BUILD = 'v50';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -2085,12 +2085,20 @@ function farmDeliveryRate(uid){
 function scoreFarmForOrder(id, m, o){
   const why = [];
   if(m.status !== 'Active'){
-    return { id, name:m.name, score:0, expectedKg:0, from:null, why:['not an active member'], eligible:false };
+    return { id, name:m.name, score:0, expectedKg:0, from:null,
+             why:['not an active member'], eligible:false, askable:false };
   }
   const expectedKg = farmExpectedKg(m, o.crop);
+  // A farm that has not recorded this crop cannot be scored — there is
+  // nothing to score it on. That is not the same as being unable to grow
+  // it: a farm joins before it fills in its crops, and the association
+  // takes orders for things its members grow but have not typed in yet.
+  // So it ranks last and is asked rather than ruled out. The farm itself
+  // knows whether it has capsicum; the platform only knows what it was told.
   if(expectedKg <= 0){
     return { id, name:m.name, score:0, expectedKg:0, from:null,
-             why:[`no ${o.crop} recorded`], eligible:false };
+             why:[`no ${o.crop} in their crop records`], eligible:false,
+             askable:true };
   }
 
   // Capacity — measured against what is still to place, so a farm that can
@@ -2126,8 +2134,17 @@ function scoreFarmForOrder(id, m, o){
   else why.push('nothing allocated yet');
 
   const score = Math.round(100 * (0.40*capacity + 0.25*timing + 0.20*rec.rate + 0.15*turn));
-  return { id, name:m.name, score, expectedKg, from, why, eligible:true,
+  return { id, name:m.name, score, expectedKg, from, why, eligible:true, askable:true,
            parts:{capacity, timing, delivery:rec.rate, turn} };
+}
+
+/* Ask everybody. When no farm has the crop in its records there is nothing
+   to rank, and an order that can reach nobody is worse than an order placed
+   imperfectly — so the whole amount is offered to every active farm and the
+   first to accept takes it. Farms know what is in their tunnels; the
+   platform only knows what it has been told. */
+function askableFarms(o){
+  return rankFarmsForOrder(o).filter(r=> r.askable);
 }
 
 function rankFarmsForOrder(o){
@@ -4632,6 +4649,13 @@ function switchTab(tab){
     const t = ADMIN_TABS_ALL.find(x=> x[0] === tab);
     if(t && !can(t[2])) return;
   }
+  // Opening one of these asks the database again. A farm that leaves the
+  // Orders tab open all morning and comes back to it expects to see what
+  // the Secretariat sent since — reading once a session is how an order
+  // sits unseen on somebody's phone.
+  if(tab === 'orders' || tab === 'ordersA') state.ordersRead = false;
+  if(tab === 'batches' || tab === 'traceA') state.traceRead = false;
+  if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
   state.tab = tab; render();
 }
 function selectMember(id){ state.member = id; render(); }
@@ -7745,6 +7769,11 @@ function renderOrdersAdmin(c){
       ${state.newOrder ? newOrderForm(crops) : ''}
     </div>
 
+    ${ORDERS.filter(o=> orderPlaced(o) === 0 && o.status === 'Open').length ? `<div class="card" style="border-color:var(--harvest-orange);">
+      <strong>${ORDERS.filter(o=> orderPlaced(o) === 0 && o.status === 'Open').length} order${ORDERS.filter(o=> orderPlaced(o) === 0 && o.status === 'Open').length===1?' has':'s have'} not reached any farm.</strong>
+      <p class="helper" style="margin-top:6px;">Recording an order writes it down; it does not send it. Open the order and place a share with the farms that can fill it — until then no member sees anything.</p>
+    </div>` : ''}
+
     ${shown.length ? `<div class="card">
       <table class="grid-table"><thead><tr>
         <th>Customer</th><th>Crop</th><th>Wanted</th><th>Placed</th><th>Accepted</th><th>Needed by</th><th>Status</th><th></th>
@@ -7753,7 +7782,8 @@ function renderOrdersAdmin(c){
         <td>${esc(o.customer)}</td>
         <td>${esc(o.crop)}${o.variety?` <span class="helper">${esc(o.variety)}</span>`:''}</td>
         <td>${fmt(o.kg)} kg</td>
-        <td>${fmt(Math.round(orderPlaced(o)))} kg</td>
+        <td>${orderPlaced(o) > 0 ? fmt(Math.round(orderPlaced(o)))+' kg'
+              : '<span class="helper" style="color:var(--red);">nobody yet</span>'}</td>
         <td>${fmt(Math.round(orderAccepted(o)))} kg</td>
         <td>${esc(o.needBy || '—')}</td>
         <td>${orderPill(o.status)}</td>
@@ -7882,11 +7912,21 @@ function renderOrderDetail(c, id){
       </tbody></table>` : '<p class="helper">Nothing placed yet.</p>'}
     </div>
 
+    ${mine.length === 0 ? `<div class="card" style="border-color:var(--harvest-orange);">
+      <strong>This order has not reached any farm yet.</strong>
+      <p class="helper" style="margin-top:6px;">Recording an order writes it down; it does not send it. No member sees anything until a share of it is placed with them, below.</p>
+    </div>` : ''}
+
     ${left > 0 ? `
     <div class="section-label">Who can fill the rest</div>
     <div class="card">
       <p class="helper" style="margin:0 0 10px;">Ranked from the farms' own records — what they expect to harvest, when it is ready, what they delivered before, and how much they have already had. Every figure is theirs, and the reasoning is beside each one.</p>
-      <button class="btn small" onclick="suggestSplit('${esc(o.id)}')">Suggest a split for the remaining ${fmt(Math.round(left))} kg</button>
+      ${ranked.some(r=> r.eligible) ? '' : `<p class="helper" style="margin:0 0 10px;color:var(--red);">
+        No farm has ${esc(o.crop)} in its crop records, so there is nothing to rank on. That does not mean nobody grows it — a farm joins before it fills its crops in. Ask them and let them answer.</p>`}
+      ${ranked.some(r=> r.eligible)
+        ? `<button class="btn small" onclick="suggestSplit('${esc(o.id)}')">Suggest a split for the remaining ${fmt(Math.round(left))} kg</button>`
+        : ''}
+      ${askableFarms(o).length ? `<button class="btn small ${ranked.some(r=>r.eligible)?'ghost':''}" onclick="askEveryone('${esc(o.id)}')">Ask all ${askableFarms(o).length} active farm${askableFarms(o).length===1?'':'s'}</button>` : ''}
       ${state.allocDraft && state.allocDraft.orderId === o.id ? allocDraftTable(o) : ''}
       <table class="grid-table" style="margin-top:14px;"><thead><tr>
         <th>Farm</th><th>Score</th><th>Expected</th><th>Why</th><th></th></tr></thead><tbody>
@@ -7895,11 +7935,11 @@ function renderOrderDetail(c, id){
           <td>${r.eligible ? `<strong>${r.score}</strong>` : '—'}</td>
           <td>${r.expectedKg ? fmt(Math.round(r.expectedKg))+' kg' : '—'}</td>
           <td><span class="helper">${r.why.map(esc).join(' · ')}</span></td>
-          <td>${r.eligible && !mine.some(a=> a.farmUid === r.id && a.status !== 'Declined')
-                ? `<button class="btn small ghost" onclick="offerTo('${esc(o.id)}','${esc(r.id)}')">Offer</button>` : ''}</td>
+          <td>${r.askable && !mine.some(a=> a.farmUid === r.id && a.status !== 'Declined')
+                ? `<button class="btn small ghost" onclick="offerTo('${esc(o.id)}','${esc(r.id)}')">${r.eligible ? 'Offer' : 'Ask anyway'}</button>` : ''}</td>
         </tr>`).join('')}
       </tbody></table>
-      ${ranked.length ? '' : '<p class="helper">No farms are registered yet.</p>'}
+      ${ranked.length ? '' : '<p class="helper">No farms are registered yet, so there is nobody to place this with.</p>'}
     </div>` : `<div class="card"><p class="helper">The whole order is placed.</p></div>`}
   `;
 }
@@ -7959,6 +7999,24 @@ function sendDraft(id){
   saveMembers();
   logAction(`Operator ${state.adminName||''} offered ${o.customer}'s order to ${n} farm${n===1?'':'s'}.`);
   state.orderMsg = `${n} farm${n===1?' was':'s were'} offered a share. They answer from their own Orders tab.`;
+  render();
+}
+
+/* Offer the whole outstanding amount to every active farm at once. They see
+   the same share and the first to accept takes it, which is how a small
+   association actually works when nobody's records say who can help. */
+function askEveryone(id){
+  const o = orderById(id);
+  if(!o) return;
+  const kg = orderRemaining(o);
+  const asked = askableFarms(o).filter(r=>
+    !allocsFor(o.id).some(a=> a.farmUid === r.id && a.status !== 'Declined'));
+  if(!asked.length || kg <= 0) return;
+  asked.forEach(r=> placeAlloc(o, r.id, kg));
+  if(o.status === 'Open'){ o.status = 'Allocated'; cloudPushOrder(o); }
+  saveMembers();
+  logAction(`Operator ${state.adminName||''} asked ${asked.length} farm${asked.length===1?'':'s'} to fill ${o.customer}'s order.`);
+  state.orderMsg = `${asked.length} farm${asked.length===1?' was':'s were'} asked for the full ${fmt(Math.round(kg))} kg. They answer from their own Orders tab, and you can cut each share back once you know who can help.`;
   render();
 }
 
@@ -8039,8 +8097,10 @@ function renderOrdersMember(c){
     </div>
 
     ${mine.length ? mine.map(a=> allocCard(a)).join('') :
-      emptyState('No orders yet',
-        'When the Secretariat has an order your farm can fill, your share of it appears here for you to accept or decline.')}
+      emptyState('Nothing has been sent to you yet',
+        cloudOn()
+          ? 'When the Secretariat places a share of an order with your farm, it appears here for you to accept or decline. An order the Secretariat has only written down does not reach you until they place it — so if you were told to expect one, ask them whether it has been sent.'
+          : 'This device cannot reach the shared database, so nothing the Secretariat has sent can arrive. Check the connection and use Refresh.')}
   `;
 }
 
