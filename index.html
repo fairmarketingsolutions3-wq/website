@@ -1689,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v52';
+const BUILD = 'v53';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -2821,11 +2821,34 @@ async function cloudPullAdvisory(){
 /* A write the database refuses used to leave a message in `state` that
    nothing ever drew — the operator pressed a button, saw no complaint, and
    reasonably assumed the farm had been sent something. Say it, and draw it. */
+/* Who this browser is to the database, which is not the same question as
+   who it is to this page. An account created here before the database was
+   reachable signs in against this browser's own list, and the page fills in
+   properly — but the database has never heard of them, so it refuses
+   everything they write no matter what the rules say. */
+function cloudIdentity(){
+  if(!cloudOn()) return { ok:false, why:'offline' };
+  if(!CLOUD_STATE.uid) return { ok:false, why:'local' };
+  if(state.role === 'admin' && CLOUD_STATE.role !== 'operator')
+    return { ok:false, why:'not-operator' };
+  return { ok:true, why:'' };
+}
+
+/* Naming the wrong cause is worse than naming none: publishing rules that
+   are already published, over and over, while the real fault sits
+   elsewhere. So work out which of the three it is before saying anything. */
 function noteCloudRefusal(e, what){
   const denied = /permission|insufficient/i.test(String(e && (e.code || e.message)));
-  state.orderError = denied
-    ? `${what} was saved on this device only — the shared database refused it. That is what happens when firestore.rules has not been published yet: the database has never been told these records exist, so it turns them away. Until it is published, nothing recorded here can travel to anybody else.`
-    : `${what} was saved on this device only — the shared database could not be reached.`;
+  const who = cloudIdentity();
+  if(!denied){
+    state.orderError = `${what} was saved on this device only — the shared database could not be reached.`;
+  } else if(who.why === 'local'){
+    state.orderError = `${what} was saved on this device only. You are signed in to this browser, but not to the shared database — so it cannot tell who is writing, and refuses it. This happens when the operator account was created on this device before the database was reachable, or when you signed in with an operator ID rather than the email address on the account. Log out and sign in again with the email address and password, and this will go up on its own.`;
+  } else if(who.why === 'not-operator'){
+    state.orderError = `${what} was saved on this device only. The database does not recognise this account as an operator, so it refuses what the console writes. Sign in again with the email address the operator account was created with.`;
+  } else {
+    state.orderError = `${what} was saved on this device only — the shared database refused it. The rules in firestore.rules do not yet allow these records. Publish them: Firebase console → Build → Firestore Database → Rules → replace everything → Publish.`;
+  }
   state.cloudRefused = true;
   try{ render(); }catch(_){ /* mid-render; the message is drawn by the next one */ }
 }
@@ -2875,7 +2898,12 @@ const LATER_COLLECTIONS = [
 ];
 
 async function checkLaterCollections(){
-  if(!cloudOn() || CLOUD_STATE.role !== 'operator'){ state.rulesGap = []; return []; }
+  state.rulesGap = [];
+  // Not signed in to the database at all: there is nothing to ask it, and
+  // reporting "no problem" here is how a broken session looked healthy.
+  const who = cloudIdentity();
+  if(!who.ok){ state.identityGap = who.why; return []; }
+  state.identityGap = '';
   const { collection, getDocs } = CLOUD.fs;
   const refused = [];
   for(const [name, label] of LATER_COLLECTIONS){
@@ -2891,6 +2919,21 @@ async function checkLaterCollections(){
 /* Drawn wherever one of these records is made, because being told after the
    fact that nothing was sent is worth less than being told before. */
 function rulesGapBanner(){
+  if(state.identityGap === 'local' || state.identityGap === 'not-operator'){
+    return `<div class="card" style="border-color:var(--red);">
+      <strong>This console is signed in to the browser, not to the shared database.</strong>
+      <p class="helper" style="margin-top:6px;">Everything you record here stays on this device. The database cannot tell who is writing, so it refuses all of it — and no member will see anything you place.</p>
+      <p class="helper" style="margin-top:6px;">Log out, then sign in again using the <strong>email address</strong> the operator account was created with, not an operator ID. Once you are in, come back here and press Check again: whatever is waiting on this device will go up.</p>
+      <button class="btn small ghost" style="margin-top:6px;" onclick="recheckRules()">Check again</button>
+    </div>`;
+  }
+  if(state.identityGap === 'offline'){
+    return `<div class="card" style="border-color:var(--red);">
+      <strong>Not connected to the shared database.</strong>
+      <p class="helper" style="margin-top:6px;">Records stay on this device until the connection comes back. Nothing is lost — press Check again once you are online and it will be sent.</p>
+      <button class="btn small ghost" style="margin-top:6px;" onclick="recheckRules()">Check again</button>
+    </div>`;
+  }
   if(!state.rulesGap || !state.rulesGap.length) return '';
   return `<div class="card" style="border-color:var(--red);">
     <strong>The shared database is refusing these records, so nothing here reaches anybody.</strong>
@@ -3967,7 +4010,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   traceError:'', traceMsg:'', traceRead:false, traceLot:'', rulesGap:[], cloudRefused:false,
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
-  inputsTab:'requests', inputEdit:null, inputSearch:'' };
+  inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'' };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -4430,10 +4473,18 @@ async function doAdminLogin(btn){
       if(!localOk){ flagError(document.getElementById('login-error-admin'), cloudErrorText(e)); return; }
     }
   }
+  // Falling back to this browser's own list. It signs in and the console
+  // fills, but the database has never heard of the account — so everything
+  // written from here is refused, and until now nothing said so until an
+  // order had already been placed with nobody.
   const match = ADMINS.find(a => {
     const u = norm(a.username), local = u.split('@')[0];
     return (identifier===u || identifier===local) && a.password===password;
   });
+  if(match && cloudOn()){
+    state.identityGap = 'local';
+    state.orderError = `You are signed in on this device, but not to the shared database — ${looksLikeEmail(raw) ? 'that email and password were not accepted by it' : 'you signed in with an operator ID rather than the email address on the account'}. Anything you record will stay on this phone or computer, and no member will see it. Sign in with the email address the operator account was created with.`;
+  }
   if(!match){
     flagError(document.getElementById('login-error-admin'),
       !cloudOn() ? offlineSignInText(ADMINS.length > 0, ADMINS.length === 0)
