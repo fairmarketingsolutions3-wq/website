@@ -1689,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v49';
+const BUILD = 'v51';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -2085,12 +2085,20 @@ function farmDeliveryRate(uid){
 function scoreFarmForOrder(id, m, o){
   const why = [];
   if(m.status !== 'Active'){
-    return { id, name:m.name, score:0, expectedKg:0, from:null, why:['not an active member'], eligible:false };
+    return { id, name:m.name, score:0, expectedKg:0, from:null,
+             why:['not an active member'], eligible:false, askable:false };
   }
   const expectedKg = farmExpectedKg(m, o.crop);
+  // A farm that has not recorded this crop cannot be scored — there is
+  // nothing to score it on. That is not the same as being unable to grow
+  // it: a farm joins before it fills in its crops, and the association
+  // takes orders for things its members grow but have not typed in yet.
+  // So it ranks last and is asked rather than ruled out. The farm itself
+  // knows whether it has capsicum; the platform only knows what it was told.
   if(expectedKg <= 0){
     return { id, name:m.name, score:0, expectedKg:0, from:null,
-             why:[`no ${o.crop} recorded`], eligible:false };
+             why:[`no ${o.crop} in their crop records`], eligible:false,
+             askable:true };
   }
 
   // Capacity — measured against what is still to place, so a farm that can
@@ -2126,8 +2134,17 @@ function scoreFarmForOrder(id, m, o){
   else why.push('nothing allocated yet');
 
   const score = Math.round(100 * (0.40*capacity + 0.25*timing + 0.20*rec.rate + 0.15*turn));
-  return { id, name:m.name, score, expectedKg, from, why, eligible:true,
+  return { id, name:m.name, score, expectedKg, from, why, eligible:true, askable:true,
            parts:{capacity, timing, delivery:rec.rate, turn} };
+}
+
+/* Ask everybody. When no farm has the crop in its records there is nothing
+   to rank, and an order that can reach nobody is worse than an order placed
+   imperfectly — so the whole amount is offered to every active farm and the
+   first to accept takes it. Farms know what is in their tunnels; the
+   platform only knows what it has been told. */
+function askableFarms(o){
+  return rankFarmsForOrder(o).filter(r=> r.askable);
 }
 
 function rankFarmsForOrder(o){
@@ -2310,11 +2327,7 @@ async function cloudPushBatch(b){
       status:b.status || 'Recorded', region:b.region || '', created:b.created
     }, {merge:true});
     await cloudPushPublicTrace(b);
-  }catch(e){
-    state.traceError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
-      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
-      : 'Saved on this device only — the shared database could not be reached.';
-  }
+  }catch(e){ noteCloudRefusal(e, 'The batch'); state.traceError = state.orderError; }
 }
 
 /* The public mirror. A stranger with a lot code sees the crop, where it
@@ -2516,11 +2529,7 @@ async function cloudPushCase(x){
       question:x.question, status:x.status || 'Open', raisedOn:x.raisedOn,
       replies:x.replies || [], created:x.created
     }, {merge:true});
-  }catch(e){
-    state.advError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
-      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
-      : 'Saved on this device only — the shared database could not be reached.';
-  }
+  }catch(e){ noteCloudRefusal(e, 'The question'); state.advError = state.orderError; }
 }
 
 async function cloudPushKnowledge(k){
@@ -2581,6 +2590,18 @@ async function cloudPullAdvisory(){
 }
 
 /* ---- Orders in the shared database ---------------------------------- */
+/* A write the database refuses used to leave a message in `state` that
+   nothing ever drew — the operator pressed a button, saw no complaint, and
+   reasonably assumed the farm had been sent something. Say it, and draw it. */
+function noteCloudRefusal(e, what){
+  const denied = /permission|insufficient/i.test(String(e && (e.code || e.message)));
+  state.orderError = denied
+    ? `${what} was saved on this device only — the shared database refused it. That is what happens when firestore.rules has not been published yet: the database has never been told these records exist, so it turns them away. Until it is published, nothing recorded here can travel to anybody else.`
+    : `${what} was saved on this device only — the shared database could not be reached.`;
+  state.cloudRefused = true;
+  try{ render(); }catch(_){ /* mid-render; the message is drawn by the next one */ }
+}
+
 async function cloudPushOrder(o){
   if(!cloudOn() || !o || !o.id) return;
   try{
@@ -2592,11 +2613,7 @@ async function cloudPushOrder(o){
       notes:o.notes || '', status:o.status || 'Open',
       created:o.created, createdBy:o.createdBy || ''
     }, {merge:true});
-  }catch(e){
-    state.orderError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
-      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
-      : 'Saved on this device only — the shared database could not be reached.';
-  }
+  }catch(e){ noteCloudRefusal(e, 'The order'); }
 }
 
 /* An allocation carries its own copy of the crop, the amount, the price and
@@ -2612,11 +2629,101 @@ async function cloudPushAlloc(a){
       customer:a.customer || '', status:a.status || 'Offered',
       note:a.note || '', created:a.created, respondedAt:a.respondedAt || ''
     }, {merge:true});
-  }catch(e){
-    state.orderError = /permission|insufficient/i.test(String(e && (e.code||e.message)))
-      ? 'Saved on this device only — the shared database refused it. Check that the rules in firestore.rules are published.'
-      : 'Saved on this device only — the shared database could not be reached.';
+  }catch(e){ noteCloudRefusal(e, 'The share you placed'); }
+}
+
+/* ---- Has the database been told about these records? -----------------
+   Every collection added after the first release is refused outright until
+   firestore.rules is published again. That refusal is silent from the
+   Secretariat's side — the order is written down, the button worked, and
+   the farm is never sent anything. So ask the database directly which of
+   them it will not accept, and name them. */
+const LATER_COLLECTIONS = [
+  ['orders','Orders'], ['orderAllocations','Shares placed with farms'],
+  ['harvestBatches','Harvest batches'], ['inputApplications','What was applied'],
+  ['consignments','Consignments'], ['lotComplaints','Complaints against a lot'],
+  ['advisoryCases','Questions for an agronomist'], ['knowledge','The knowledge library']
+];
+
+async function checkLaterCollections(){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator'){ state.rulesGap = []; return []; }
+  const { collection, getDocs } = CLOUD.fs;
+  const refused = [];
+  for(const [name, label] of LATER_COLLECTIONS){
+    try{ await getDocs(collection(CLOUD.db, name)); }
+    catch(e){
+      if(/permission|insufficient/i.test(String(e && (e.code || e.message)))) refused.push(label);
+    }
   }
+  state.rulesGap = refused;
+  return refused;
+}
+
+/* Drawn wherever one of these records is made, because being told after the
+   fact that nothing was sent is worth less than being told before. */
+function rulesGapBanner(){
+  if(!state.rulesGap || !state.rulesGap.length) return '';
+  return `<div class="card" style="border-color:var(--red);">
+    <strong>The shared database is refusing these records, so nothing here reaches anybody.</strong>
+    <p class="helper" style="margin-top:6px;">It has not been told they exist. Publish <code>firestore.rules</code>: Firebase console &rarr; Build &rarr; Firestore Database &rarr; Rules &rarr; replace everything &rarr; Publish. Until then whatever you record stays on this device, and a farm on another phone sees nothing.</p>
+    <p class="helper" style="margin-top:6px;">Refused: ${state.rulesGap.map(esc).join(' · ')}</p>
+    <button class="btn small ghost" style="margin-top:6px;" onclick="recheckRules()">Check again</button>
+  </div>`;
+}
+function recheckRules(){
+  checkLaterCollections().then(async gap=>{
+    state.orderError = '';
+    if(gap.length){ render(); return; }
+    // Everything recorded while the database was refusing is sitting on this
+    // device. Publishing the rules does not carry it up by itself, and asking
+    // the Secretariat to type it all again would be an insult — so send it.
+    const n = await resendStranded();
+    state.orderMsg = n
+      ? `The database now accepts all of these, and the ${n} record${n===1?'':'s'} waiting on this device ${n===1?'has':'have'} been sent. The farms can see their shares now.`
+      : 'The database now accepts all of these. Anything you place from here will reach the farms.';
+    render();
+  });
+}
+
+/* Push everything this device is holding, for when the database has only
+   just been told these records exist. Safe to run twice: every write is a
+   merge onto the same document id. */
+async function resendStranded(){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator') return 0;
+  let n = 0;
+  for(const o of ORDERS){ await cloudPushOrder(o); n++; }
+  for(const a of ALLOCS){ await cloudPushAlloc(a); n++; }
+  for(const b of BATCHES){ await cloudPushBatch(b); n++; }
+  for(const x of INPUTAPP){ await cloudPushApplication(x); n++; }
+  for(const cn of CONSIGN){ await cloudPushConsignment(cn); n++; }
+  for(const i of LOTISSUES){ await cloudPushIssue(i); n++; }
+  for(const cs of CASES){ await cloudPushCase(cs); n++; }
+  for(const k of KNOWLEDGE){ await cloudPushKnowledge(k); n++; }
+  return n;
+}
+
+/* Placing a share is only half of it — the half this device can see. Read
+   the shares back out of the database and say plainly whether the farms can
+   actually see them, rather than reporting success because a button ran. */
+async function confirmPlaced(orderIdVal, n){
+  if(!cloudOn()){
+    state.orderMsg = `${n} share${n===1?'':'s'} placed on this device. Not connected to the shared database, so no farm can see them yet.`;
+    render(); return;
+  }
+  try{
+    const { collection, getDocs, query, where } = CLOUD.fs;
+    const snap = await getDocs(query(collection(CLOUD.db, 'orderAllocations'),
+                                     where('orderId','==', orderIdVal)));
+    let landed = 0; snap.forEach(()=> landed++);
+    state.orderMsg = landed >= n
+      ? `${n} farm${n===1?' was':'s were'} sent a share. It is in the shared database, so it is on their Orders tab now.`
+      : `${n} share${n===1?'':'s'} placed here, but only ${landed} reached the shared database. The rest are on this device alone — publish firestore.rules and place them again.`;
+    if(landed < n) await checkLaterCollections();
+  }catch(e){
+    noteCloudRefusal(e, `The ${n} share${n===1?'':'s'} you placed`);
+    await checkLaterCollections();
+  }
+  render();
 }
 
 async function cloudPullOrders(){
@@ -3622,7 +3729,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   calCrop:0, calStage:'Transplanting', forgot:null, forgotMsg:'', editCrop:null, justAdded:null, editEntry:null, importMsg:'', admCrop:null, restoreMsg:'', archiveMsg:'', planGenMsg:'', catEdit:null, catMsg:'', catError:'', commsError:'', govError:'', rollRead:false, restoring:false, lastRefresh:0, refreshing:false, restoreError:'', harvestPick:null, yieldEdit:null, localOnly:false, migrateOpen:false, migrateMsg:'', archiveFilter:'All sections', openArchive:null, harvestSaved:false,
   orderError:'', orderMsg:'', newOrder:false, openOrder:null, allocDraft:null,
   orderFilter:'Open', ordersRead:false, decline:null,
-  traceError:'', traceMsg:'', traceRead:false, traceLot:'',
+  traceError:'', traceMsg:'', traceRead:false, traceLot:'', rulesGap:[], cloudRefused:false,
   advError:'', advRead:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
@@ -4632,6 +4739,13 @@ function switchTab(tab){
     const t = ADMIN_TABS_ALL.find(x=> x[0] === tab);
     if(t && !can(t[2])) return;
   }
+  // Opening one of these asks the database again. A farm that leaves the
+  // Orders tab open all morning and comes back to it expects to see what
+  // the Secretariat sent since — reading once a session is how an order
+  // sits unseen on somebody's phone.
+  if(tab === 'orders' || tab === 'ordersA') state.ordersRead = false;
+  if(tab === 'batches' || tab === 'traceA') state.traceRead = false;
+  if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
   state.tab = tab; render();
 }
 function selectMember(id){ state.member = id; render(); }
@@ -7261,7 +7375,8 @@ function renderAdvisoryAdmin(c){
   c.innerHTML = `
     <h1 class="page-title">Advisory</h1>
     <p class="page-sub">Questions from members, and the library of answers they build</p>
-    ${state.advError ? `<div class="card"><p class="helper cat-local">${esc(state.advError)}</p></div>${(state.advError='')||''}` : ''}
+    ${state.advError ? `<div class="card" style="border-color:var(--red);"><p class="helper cat-local">${esc(state.advError)}</p></div>${(state.advError='')||''}` : ''}
+    ${rulesGapBanner()}
 
     <div class="grid3">
       ${orderMetric('Waiting for an answer', String(open.length))}
@@ -7538,6 +7653,7 @@ function renderTraceAdmin(c){
     <p class="page-sub">A lot code goes in; the farm, the pick and everything applied to it come back</p>
     ${state.traceError ? `<div class="card"><p class="helper cat-local">${esc(state.traceError)}</p></div>${(state.traceError='')||''}` : ''}
     ${state.traceMsg ? `<div class="card"><p class="helper">${esc(state.traceMsg)}</p></div>${(state.traceMsg='')||''}` : ''}
+    ${rulesGapBanner()}
 
     <div class="grid3">
       ${orderMetric('Batches on record', String(BATCHES.length))}
@@ -7705,6 +7821,24 @@ function resolveIssue(id){
 /* ============================================================
    Orders — the Secretariat's book
    ============================================================ */
+/* These used to clear themselves as they were drawn, which meant a message
+   set by something that finished later — a write coming back refused — was
+   wiped by the very render that reported it. They now stay until the next
+   thing the operator does, or until dismissed. */
+function orderNotices(){
+  return `
+    ${state.orderError ? `<div class="card" style="border-color:var(--red);">
+      <p class="helper cat-local" style="margin:0;">${esc(state.orderError)}</p>
+      <button class="btn small ghost" style="margin-top:8px;" onclick="clearOrderNotices()">Dismiss</button>
+    </div>` : ''}
+    ${state.orderMsg ? `<div class="card">
+      <p class="helper" style="margin:0;">${esc(state.orderMsg)}</p>
+      <button class="btn small ghost" style="margin-top:8px;" onclick="clearOrderNotices()">Dismiss</button>
+    </div>` : ''}
+    ${rulesGapBanner()}`;
+}
+function clearOrderNotices(){ state.orderError = ''; state.orderMsg = ''; render(); }
+
 function orderMetric(label, val){
   return `<div class="metric"><div class="lbl">${esc(label)}</div><div class="val">${val}</div></div>`;
 }
@@ -7722,7 +7856,7 @@ function allocPill(st){
 function renderOrdersAdmin(c){
   if(cloudOn() && !state.ordersRead){
     state.ordersRead = true;
-    cloudPullOrders().then(()=> render());
+    cloudPullOrders().then(()=> checkLaterCollections()).then(()=> render());
   }
   if(state.openOrder) return renderOrderDetail(c, state.openOrder);
 
@@ -7733,8 +7867,7 @@ function renderOrdersAdmin(c){
   c.innerHTML = `
     <h1 class="page-title">Orders</h1>
     <p class="page-sub">What customers have asked for, and which farms are filling it</p>
-    ${state.orderError ? `<div class="card"><p class="helper cat-local">${esc(state.orderError)}</p></div>${(state.orderError='')||''}` : ''}
-    ${state.orderMsg ? `<div class="card"><p class="helper">${esc(state.orderMsg)}</p></div>${(state.orderMsg='')||''}` : ''}
+    ${orderNotices()}
 
     <div class="card">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
@@ -7745,6 +7878,11 @@ function renderOrdersAdmin(c){
       ${state.newOrder ? newOrderForm(crops) : ''}
     </div>
 
+    ${ORDERS.filter(o=> orderPlaced(o) === 0 && o.status === 'Open').length ? `<div class="card" style="border-color:var(--harvest-orange);">
+      <strong>${ORDERS.filter(o=> orderPlaced(o) === 0 && o.status === 'Open').length} order${ORDERS.filter(o=> orderPlaced(o) === 0 && o.status === 'Open').length===1?' has':'s have'} not reached any farm.</strong>
+      <p class="helper" style="margin-top:6px;">Recording an order writes it down; it does not send it. Open the order and place a share with the farms that can fill it — until then no member sees anything.</p>
+    </div>` : ''}
+
     ${shown.length ? `<div class="card">
       <table class="grid-table"><thead><tr>
         <th>Customer</th><th>Crop</th><th>Wanted</th><th>Placed</th><th>Accepted</th><th>Needed by</th><th>Status</th><th></th>
@@ -7753,7 +7891,8 @@ function renderOrdersAdmin(c){
         <td>${esc(o.customer)}</td>
         <td>${esc(o.crop)}${o.variety?` <span class="helper">${esc(o.variety)}</span>`:''}</td>
         <td>${fmt(o.kg)} kg</td>
-        <td>${fmt(Math.round(orderPlaced(o)))} kg</td>
+        <td>${orderPlaced(o) > 0 ? fmt(Math.round(orderPlaced(o)))+' kg'
+              : '<span class="helper" style="color:var(--red);">nobody yet</span>'}</td>
         <td>${fmt(Math.round(orderAccepted(o)))} kg</td>
         <td>${esc(o.needBy || '—')}</td>
         <td>${orderPill(o.status)}</td>
@@ -7807,6 +7946,7 @@ function openOrder(id){ state.openOrder = id; state.allocDraft = null; render();
 function closeOrder(){ state.openOrder = null; state.allocDraft = null; render(); }
 
 function addOrder(){
+  state.orderError = ''; state.orderMsg = '';
   const err = document.getElementById('ord-error');
   const o = Object.assign(blankOrder(), {
     id: orderId(),
@@ -7844,7 +7984,7 @@ function renderOrderDetail(c, id){
     <button class="btn small ghost" onclick="closeOrder()">&larr; All orders</button>
     <h1 class="page-title" style="margin-top:10px;">${esc(o.customer)}</h1>
     <p class="page-sub">${fmt(o.kg)} kg of ${esc(o.crop)}${o.variety?` · ${esc(o.variety)}`:''}${o.needBy?` · needed by ${esc(o.needBy)}`:''}</p>
-    ${state.orderError ? `<div class="card"><p class="helper cat-local">${esc(state.orderError)}</p></div>${(state.orderError='')||''}` : ''}
+    ${orderNotices()}
 
     <div class="grid4">
       ${orderMetric('Ordered', fmt(o.kg)+' kg')}
@@ -7882,11 +8022,21 @@ function renderOrderDetail(c, id){
       </tbody></table>` : '<p class="helper">Nothing placed yet.</p>'}
     </div>
 
+    ${mine.length === 0 ? `<div class="card" style="border-color:var(--harvest-orange);">
+      <strong>This order has not reached any farm yet.</strong>
+      <p class="helper" style="margin-top:6px;">Recording an order writes it down; it does not send it. No member sees anything until a share of it is placed with them, below.</p>
+    </div>` : ''}
+
     ${left > 0 ? `
     <div class="section-label">Who can fill the rest</div>
     <div class="card">
       <p class="helper" style="margin:0 0 10px;">Ranked from the farms' own records — what they expect to harvest, when it is ready, what they delivered before, and how much they have already had. Every figure is theirs, and the reasoning is beside each one.</p>
-      <button class="btn small" onclick="suggestSplit('${esc(o.id)}')">Suggest a split for the remaining ${fmt(Math.round(left))} kg</button>
+      ${ranked.some(r=> r.eligible) ? '' : `<p class="helper" style="margin:0 0 10px;color:var(--red);">
+        No farm has ${esc(o.crop)} in its crop records, so there is nothing to rank on. That does not mean nobody grows it — a farm joins before it fills its crops in. Ask them and let them answer.</p>`}
+      ${ranked.some(r=> r.eligible)
+        ? `<button class="btn small" onclick="suggestSplit('${esc(o.id)}')">Suggest a split for the remaining ${fmt(Math.round(left))} kg</button>`
+        : ''}
+      ${askableFarms(o).length ? `<button class="btn small ${ranked.some(r=>r.eligible)?'ghost':''}" onclick="askEveryone('${esc(o.id)}')">Ask all ${askableFarms(o).length} active farm${askableFarms(o).length===1?'':'s'}</button>` : ''}
       ${state.allocDraft && state.allocDraft.orderId === o.id ? allocDraftTable(o) : ''}
       <table class="grid-table" style="margin-top:14px;"><thead><tr>
         <th>Farm</th><th>Score</th><th>Expected</th><th>Why</th><th></th></tr></thead><tbody>
@@ -7895,11 +8045,11 @@ function renderOrderDetail(c, id){
           <td>${r.eligible ? `<strong>${r.score}</strong>` : '—'}</td>
           <td>${r.expectedKg ? fmt(Math.round(r.expectedKg))+' kg' : '—'}</td>
           <td><span class="helper">${r.why.map(esc).join(' · ')}</span></td>
-          <td>${r.eligible && !mine.some(a=> a.farmUid === r.id && a.status !== 'Declined')
-                ? `<button class="btn small ghost" onclick="offerTo('${esc(o.id)}','${esc(r.id)}')">Offer</button>` : ''}</td>
+          <td>${r.askable && !mine.some(a=> a.farmUid === r.id && a.status !== 'Declined')
+                ? `<button class="btn small ghost" onclick="offerTo('${esc(o.id)}','${esc(r.id)}')">${r.eligible ? 'Offer' : 'Ask anyway'}</button>` : ''}</td>
         </tr>`).join('')}
       </tbody></table>
-      ${ranked.length ? '' : '<p class="helper">No farms are registered yet.</p>'}
+      ${ranked.length ? '' : '<p class="helper">No farms are registered yet, so there is nobody to place this with.</p>'}
     </div>` : `<div class="card"><p class="helper">The whole order is placed.</p></div>`}
   `;
 }
@@ -7948,6 +8098,7 @@ function placeAlloc(o, farmUid, kg){
 }
 
 function sendDraft(id){
+  state.orderError = ''; state.orderMsg = '';
   const o = orderById(id);
   if(!o || !state.allocDraft) return;
   let n = 0;
@@ -7958,11 +8109,44 @@ function sendDraft(id){
   state.allocDraft = null;
   saveMembers();
   logAction(`Operator ${state.adminName||''} offered ${o.customer}'s order to ${n} farm${n===1?'':'s'}.`);
-  state.orderMsg = `${n} farm${n===1?' was':'s were'} offered a share. They answer from their own Orders tab.`;
+  state.orderMsg = `${n} farm${n===1?' was':'s were'} offered a share — checking that it reached the shared database…`;
   render();
+  confirmPlaced(o.id, n);
+}
+
+/* Offer the whole outstanding amount to every active farm at once. They see
+   the same share and the first to accept takes it, which is how a small
+   association actually works when nobody's records say who can help. */
+function askEveryone(id){
+  state.orderError = ''; state.orderMsg = '';
+  const o = orderById(id);
+  if(!o) return;
+  const kg = orderRemaining(o);
+  const already = allocsFor(o.id).filter(a=> a.status !== 'Declined');
+  const asked = askableFarms(o).filter(r=> !already.some(a=> a.farmUid === r.id));
+  // Nobody new to ask, but shares already placed may never have travelled —
+  // pressing this again should send them rather than do nothing at all.
+  if(!asked.length){
+    if(already.length){
+      already.forEach(a=> cloudPushAlloc(a));
+      state.orderMsg = `Every farm has already been asked. Sending their shares again…`;
+      render();
+      confirmPlaced(o.id, already.length);
+    }
+    return;
+  }
+  if(kg <= 0) return;
+  asked.forEach(r=> placeAlloc(o, r.id, kg));
+  if(o.status === 'Open'){ o.status = 'Allocated'; cloudPushOrder(o); }
+  saveMembers();
+  logAction(`Operator ${state.adminName||''} asked ${asked.length} farm${asked.length===1?'':'s'} to fill ${o.customer}'s order.`);
+  state.orderMsg = `${asked.length} farm${asked.length===1?' was':'s were'} asked for the full ${fmt(Math.round(kg))} kg — checking that it reached the shared database…`;
+  render();
+  confirmPlaced(o.id, asked.length);
 }
 
 function offerTo(id, farmUid){
+  state.orderError = ''; state.orderMsg = '';
   const o = orderById(id);
   if(!o) return;
   const kg = Math.min(orderRemaining(o), Math.round(farmExpectedKg(MEMBERS[farmUid] || {}, o.crop)) || orderRemaining(o));
@@ -7971,6 +8155,7 @@ function offerTo(id, farmUid){
   saveMembers();
   logAction(`Operator ${state.adminName||''} offered ${fmt(kg)} kg of ${o.crop} to ${(MEMBERS[farmUid]||{}).name||farmUid}.`);
   render();
+  confirmPlaced(o.id, allocsFor(o.id).filter(a=> a.status !== 'Declined').length);
 }
 
 function withdrawAlloc(allocIdVal){
@@ -8039,8 +8224,10 @@ function renderOrdersMember(c){
     </div>
 
     ${mine.length ? mine.map(a=> allocCard(a)).join('') :
-      emptyState('No orders yet',
-        'When the Secretariat has an order your farm can fill, your share of it appears here for you to accept or decline.')}
+      emptyState('Nothing has been sent to you yet',
+        cloudOn()
+          ? 'When the Secretariat places a share of an order with your farm, it appears here for you to accept or decline. An order the Secretariat has only written down does not reach you until they place it — so if you were told to expect one, ask them whether it has been sent.'
+          : 'This device cannot reach the shared database, so nothing the Secretariat has sent can arrive. Check the connection and use Refresh.')}
   `;
 }
 
