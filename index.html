@@ -1689,7 +1689,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v51';
+const BUILD = 'v52';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -1814,6 +1814,234 @@ async function cloudPushFarm(id){
    signed-in farm reads it. Until the rules allowing that are published
    the read is refused, and the built-in list is used instead — so a
    farm always has a catalogue, just not necessarily the edited one. */
+/* ============================================================
+   The input store
+
+   What a farm can buy through the association, at the association's
+   price. The Secretariat keeps the list; every member sees the same
+   one, builds a basket from it and sends the basket back as a request.
+
+   The list is seeded from the TIPFA irrigation price list. It is one
+   document, not a collection, for the same reason the crop catalogue
+   is: every member reads all of it every time, and 183 rows is a few
+   tens of kilobytes — far short of the 1 MiB a document may hold.
+
+   Where the sheet priced a product by size, each size is a row of its
+   own with its own price. Collapsing them would have sold a one-inch
+   venturi at the two-inch price.
+   ============================================================ */
+/* Generated from the TIPFA irrigation price list, September 2026. */
+const SEED_INPUTS = [{"cat":"Dripline","name":"Dripline - Double Emitter - Tundu Mbili","variant":"","specs":["Thickness: 0.4mm","Emitter spacing: 20cm","Diameter: 16mm","Length: 1,000m","Flow Rate: 4l/h"],"price":123000.0,"note":""},{"cat":"Dripline","name":"Dripline - Double Emitter - Tundu Mbili","variant":"","specs":["Thickness: 0.4mm","Emitter spacing: 30cm","Diameter: 16mm","Length: 1,000m","Flow Rate: 4l/h"],"price":123000.0,"note":""},{"cat":"Dripline","name":"Dripline - Single Emitter - Tundu Mbili","variant":"","specs":["Thickness: 0.20mm","Emitter spacing: 20cm","Diameter: 16mm","Length: 2,000m","Flow Rate: 4l/h"],"price":123000.0,"note":""},{"cat":"Dripline","name":"Dripline - Single Emitter - Tundu Mbili","variant":"","specs":["Thickness: 0.20mm","Emitter spacing: 30cm","Diameter: 16mm","Length: 2,000m","Flow Rate: 4l/h"],"price":123000.0,"note":""},{"cat":"Blind pipe","name":"Blind Pipes","variant":"","specs":["Diameter:16mm","Thickness: 1mm","Pressure load: 2.0bar","Length: 500 metres per roll"],"price":150000.0,"note":""},{"cat":"Blind pipe","name":"Blind Pipes","variant":"","specs":["Diameter:16mm","Thickness: 1.2mm","Pressure load: 4.0bar","Length: 500 metres per roll"],"price":165000.0,"note":""},{"cat":"Layflat pipe","name":"Layflat Pipes (Heavy Duty)","variant":"","specs":["Diameter: 2 Inches","Length: 100 metres","Pressure load: 4.0bar"],"price":null,"note":""},{"cat":"Layflat pipe","name":"Layflat Pipes (Heavy Duty)","variant":"","specs":["Diameter: 3 Inches","Length: 100 metres","Pressure load: 4.0bar"],"price":null,"note":""},{"cat":"Layflat pipe","name":"Layflat Pipes (Heavy Duty)","variant":"","specs":["Diameter: 4 Inches","Pressure load: 4.0bar","Length: 100 metres"],"price":300000.0,"note":""},{"cat":"Layflat pipe","name":"Canvas Layflat (Heavy Duty)","variant":"","specs":["Diameter: 2 Inches","Pressure load: 4.0bar","Length: 100 metres"],"price":148000.0,"note":""},{"cat":"Layflat pipe","name":"Canvas Layflat (Heavy Duty)","variant":"","specs":["Diameter: 3 Inches","Pressure load: 4.0bar","Length: 100 metres"],"price":175000.0,"note":""},{"cat":"Layflat pipe","name":"PE Lay flat hose with pre-installed","variant":"","specs":["Diameter: 2 Inches","Length: 100 metres","Pressure load: 1.5 bar","Outlet Spacing: 75cm"],"price":270000.0,"note":""},{"cat":"Layflat pipe","name":"PE Lay flat hose with pre-installed","variant":"","specs":["Diameter: 2 Inches","Length: 100 metres","Pressure load: 1.5bar","Outlet Spacing: 150cm"],"price":265000.0,"note":""},{"cat":"Layflat pipe","name":"PE Lay flat hose with pre-installed","variant":"","specs":["Diameter: 3 Inches","Length: 100 metres","Pressure load: 1.5bar","Outlet Spacing: 75cm"],"price":360000.0,"note":""},{"cat":"Layflat pipe","name":"PE Lay flat hose with pre-installed","variant":"","specs":["Diameter: 3 Inches","Length: 100 metres","Pressure load: 1.5bar","Outlet Spacing: 150cm"],"price":350000.0,"note":""},{"cat":"Delivery pipe (Koromeo)","name":"Delivery Pipe (Heavy Duty)","variant":"","specs":["Length: 30 metres per roll"],"price":null,"note":"Coming Soon"},{"cat":"Fittings for dripline","name":"Rubber Gromet","variant":"","specs":["16mm (5000pcs per box)"],"price":140.0,"note":""},{"cat":"Fittings for dripline","name":"Start Connector","variant":"","specs":["16mm (2800pcs per box)"],"price":140.0,"note":""},{"cat":"Fittings for dripline","name":"Fast/Take Off Connector - Premium Quality","variant":"","specs":["16mm (1600pcs per box)"],"price":140.0,"note":""},{"cat":"Fittings for dripline","name":"Joiner Connector","variant":"","specs":["16mm (1300pcs per box)"],"price":140.0,"note":""},{"cat":"Fittings for dripline","name":"End Plug Connector","variant":"","specs":["16mm (2000pcs per box)"],"price":140.0,"note":""},{"cat":"Fittings for dripline","name":"ID - Mini Valve (Standard Quality)","variant":"","specs":["16mm (1000pcs per box)"],"price":300.0,"note":""},{"cat":"Fittings for dripline","name":"EG - Small Mini Valve (Standard Quality)","variant":"","specs":["16mm"],"price":600.0,"note":""},{"cat":"Fittings for dripline","name":"EG - Medium Mini Valve (Premium Quality)","variant":"","specs":["16mm"],"price":800.0,"note":""},{"cat":"Fittings for dripline","name":"CD - Mini Valve (Premium Quality)","variant":"","specs":["16mm (450pcs per box)"],"price":700.0,"note":""},{"cat":"Fittings for dripline","name":"Drip Elbow","variant":"","specs":["16mm (700pcs per box)"],"price":330.0,"note":""},{"cat":"Fittings for dripline","name":"Drip Tee","variant":"","specs":["16mm (350 per box)"],"price":500.0,"note":""},{"cat":"Fittings for blind pipe","name":"Handle Punch for Micro Sprinkler","variant":"","specs":["3mm (60pcs per box)"],"price":9000.0,"note":""},{"cat":"Fittings for blind pipe","name":"Handle Punch for Mini Sprinkler","variant":"","specs":["8mm"],"price":5500.0,"note":""},{"cat":"Fittings for blind pipe","name":"Start Connector for Blind","variant":"","specs":["20mm (1400pcs per box)"],"price":220.0,"note":""},{"cat":"Fittings for blind pipe","name":"Tee Connector for Blind","variant":"16mm (1300pcs per box)","specs":[],"price":150.0,"note":""},{"cat":"Fittings for blind pipe","name":"Tee Connector for Blind","variant":"20mm (600pcs per box)","specs":[],"price":270.0,"note":""},{"cat":"Fittings for blind pipe","name":"Elbow Connector for Blind","variant":"16mm (2100pcs per box)","specs":[],"price":140.0,"note":""},{"cat":"Fittings for blind pipe","name":"Elbow Connector for Blind","variant":"20mm (1100pcs per box)","specs":[],"price":200.0,"note":""},{"cat":"Fittings for blind pipe","name":"Straight Instert Connector for Blind to Blind","variant":"16mm (2200pcs per box)","specs":[],"price":120.0,"note":""},{"cat":"Fittings for blind pipe","name":"Straight Instert Connector for Blind to Blind","variant":"20mm","specs":[],"price":200.0,"note":""},{"cat":"Fittings for blind pipe","name":"Blind Eng Cap","variant":"","specs":["16mm"],"price":140.0,"note":""},{"cat":"Fittings for blind pipe","name":"8-Figure End Plug","variant":"16mm (1800pcs per box)","specs":[],"price":100.0,"note":""},{"cat":"Fittings for blind pipe","name":"8-Figure End Plug","variant":"20mm (1600pcs per box)","specs":[],"price":190.0,"note":""},{"cat":"Fittings for blind pipe","name":"Mini Valve for Blind (Premium Quality - EG)","variant":"","specs":["16mm"],"price":800.0,"note":""},{"cat":"Fittings for blind pipe","name":"Mini Valve for BlinD (Premium Quality - CD)","variant":"16mm (600pcs per box)","specs":[],"price":600.0,"note":""},{"cat":"Fittings for blind pipe","name":"Mini Valve for BlinD (Premium Quality - CD)","variant":"20mm (500pcs per box)","specs":[],"price":650.0,"note":""},{"cat":"Fittings for blind pipe","name":"Mini Valve for Blind (Standard Quality - ID)","variant":"16mm","specs":[],"price":380.0,"note":""},{"cat":"Fittings for blind pipe","name":"Mini Valve for Blind (Standard Quality - ID)","variant":"20mm","specs":[],"price":500.0,"note":""},{"cat":"Fittings for blind pipe","name":"Four Branches Long Arrow Dripper, with 50cm PVC soft pipe, Dn5","variant":"","specs":["5mm"],"price":950.0,"note":""},{"cat":"Fittings for blind pipe","name":"Adjustable Sprayer Emmiter","variant":"","specs":["0-80 litres per hour (6500pcs per box)"],"price":110.0,"note":""},{"cat":"Fittings for blind pipe","name":"Full Circle Sprayer - Pressure Compensated - Spraying Diameter 1.5m","variant":"35 litres per hour (6000pcs per box)","specs":[],"price":310.0,"note":""},{"cat":"Fittings for blind pipe","name":"Full Circle Sprayer - Pressure Compensated - Spraying Diameter 1.5m","variant":"55 litres per hour (6000pcs per box)","specs":[],"price":310.0,"note":""},{"cat":"Fittings for blind pipe","name":"Online Emmiter - Pressure Compensated (Premium CD)","variant":"4 litres per hour (4500pcs per box)","specs":[],"price":140.0,"note":""},{"cat":"Fittings for blind pipe","name":"Online Emmiter - Pressure Compensated (Premium CD)","variant":"8 litres per hour (4500pcs per box)","specs":[],"price":140.0,"note":""},{"cat":"Fittings for blind pipe","name":"Online Emmiter - (Standard ID)","variant":"4 Litres per hour","specs":[],"price":110.0,"note":""},{"cat":"Fittings for blind pipe","name":"Online Emmiter - (Standard ID)","variant":"8 Litres per hour","specs":[],"price":110.0,"note":""},{"cat":"Sprinklers","name":"Up right Type Micro Sprinkler","variant":"","specs":["49L/h (4500pcs per box)"],"price":155.0,"note":""},{"cat":"Sprinklers","name":"Pressure-Compensated Micro Sprinkler with Standing Set and 50cm PVC Soft Tube - Spraying Diameter 5.6m","variant":"35 litres per hour (150pcs per box)","specs":[],"price":1600.0,"note":""},{"cat":"Sprinklers","name":"Pressure-Compensated Micro Sprinkler with Standing Set and 50cm PVC Soft Tube - Spraying Diameter 5.6m","variant":"55 litres per hour (150pcs per box)","specs":[],"price":1600.0,"note":""},{"cat":"Sprinklers","name":"Micro Sprinkler - EG","variant":"","specs":[],"price":1800.0,"note":""},{"cat":"Sprinklers","name":"Mini Sprinkler Complete with Tube and Stand","variant":"","specs":["1.5-4 Bars Working Pressure, 800-1000 lt/hr, 10-12m Wetted Diameter"],"price":5500.0,"note":""},{"cat":"Sprinklers","name":"Orange Sprinkler","variant":"","specs":[],"price":10000.0,"note":""},{"cat":"Sprinklers","name":"Plastic Sprinkler","variant":"","specs":["PY"],"price":46000.0,"note":""},{"cat":"Sprinklers","name":"Aluminum Sprinkler","variant":"","specs":[],"price":29000.0,"note":""},{"cat":"Sprinklers","name":"Rain Gun","variant":"PY30","specs":[],"price":96000.0,"note":""},{"cat":"Sprinklers","name":"Rain Gun","variant":"PY40","specs":[],"price":108000.0,"note":""},{"cat":"Sprinklers","name":"Rain Gun","variant":"PY50","specs":[],"price":133000.0,"note":""},{"cat":"Sprinklers","name":"Hand Sprayer","variant":"","specs":["7 Function"],"price":8000.0,"note":""},{"cat":"Sprinklers","name":"Hand Sprayer","variant":"","specs":["8 Function"],"price":16200.0,"note":""},{"cat":"Sprinklers","name":"Garden Sprinkler","variant":"","specs":[],"price":9500.0,"note":""},{"cat":"Sprinklers","name":"Magic Hose","variant":"30m","specs":[],"price":40000.0,"note":""},{"cat":"Sprinklers","name":"Magic Hose","variant":"60m","specs":[],"price":47000.0,"note":""},{"cat":"Rain hose","name":"Rain Hose","variant":"32mm","specs":[],"price":25000.0,"note":""},{"cat":"Rain hose","name":"Rain Hose","variant":"40mm","specs":[],"price":31500.0,"note":""},{"cat":"Rain hose","name":"Valve for Rain Hose","variant":"32mm","specs":[],"price":2500.0,"note":""},{"cat":"Rain hose","name":"Valve for Rain Hose","variant":"40mm","specs":[],"price":2600.0,"note":""},{"cat":"Rain hose","name":"Coupling for Rain Hose","variant":"32mm","specs":[],"price":2000.0,"note":""},{"cat":"Rain hose","name":"Coupling for Rain Hose","variant":"40mm","specs":[],"price":2000.0,"note":""},{"cat":"Rain hose","name":"End Cap for Rain Hose","variant":"32mm","specs":[],"price":1900.0,"note":""},{"cat":"Rain hose","name":"End Cap for Rain Hose","variant":"40mm","specs":[],"price":2000.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Punch for Layflat","variant":"","specs":["15mm (50pcs per box)"],"price":14000.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Layflat Fast Connector","variant":"","specs":["16mm (700pcs per box)"],"price":450.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Layflat Tee Connector","variant":"","specs":["16mm (250pcs per box)"],"price":600.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Layflat Mini Valve","variant":"","specs":["16mm"],"price":1000.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Pre-Installed Layflat Tee Valve Connector","variant":"","specs":["16mm (700pcs per box)"],"price":500.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Pre-Installed PE Layflat Mini Valve Connector","variant":"","specs":["16mm (550pcs per box)"],"price":400.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Gate Valve for Layflat to HDPE","variant":"","specs":["32mm"],"price":8000.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Male Adaptor for Layflat Pipe","variant":"2 inches (162pcs per box)","specs":[],"price":1900.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Male Adaptor for Layflat Pipe","variant":"3 inches (64pcs per box)","specs":[],"price":3000.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Male Adaptor for Layflat Pipe","variant":"4 inches (30pcs per box)","specs":[],"price":6700.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Coupling for Layflat Pipe","variant":"2 inches (110pcs per box)","specs":[],"price":2000.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Coupling for Layflat Pipe","variant":"3 inches (40pcs per box)","specs":[],"price":3200.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Coupling for Layflat Pipe","variant":"4 inches (20pcs per box)","specs":[],"price":6700.0,"note":""},{"cat":"Fittings for layflat pipe","name":"End Cap for Layflat Pipe","variant":"2 inches (180pcs per box)","specs":[],"price":2300.0,"note":""},{"cat":"Fittings for layflat pipe","name":"End Cap for Layflat Pipe","variant":"3 inches (90pcs per box)","specs":[],"price":3650.0,"note":""},{"cat":"Fittings for layflat pipe","name":"End Cap for Layflat Pipe","variant":"4 inches (38pcs per box)","specs":[],"price":6300.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Clamp for Layflat Pipe","variant":"2 inches (300pcs per box)","specs":[],"price":1600.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Clamp for Layflat Pipe","variant":"3 inches (120pcs per box)","specs":[],"price":2350.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Clamp for Layflat Pipe","variant":"4 inches (100pcs per box)","specs":[],"price":3100.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Stainless Steel Clamp for Layflat Pipe","variant":"2 inches","specs":[],"price":4150.0,"note":""},{"cat":"Fittings for layflat pipe","name":"Stainless Steel Clamp for Layflat Pipe","variant":"3 inches","specs":[],"price":4750.0,"note":""},{"cat":"Filters","name":"Disc filter","variant":"","specs":["2 and 3 inches"],"price":140.0,"note":""},{"cat":"Filters","name":"Disc Filter, 120 mesh, Y Type, 4,000 Litres Per Hour (Idol/Automat - India)","variant":"1 inch","specs":[],"price":20500.0,"note":""},{"cat":"Filters","name":"Disc Filter, 120 mesh, Y Type, 4,000 Litres Per Hour (Idol/Automat - India)","variant":"1 inch","specs":[],"price":9300.0,"note":""},{"cat":"Filters","name":"Disc Filter, 120 mesh, Y Type, 4,000 Litres Per Hour (Idol/Automat - India)","variant":"1.5 inches","specs":[],"price":50000.0,"note":""},{"cat":"Filters","name":"Disc Filter, 120 mesh, Y Type, 4,000 Litres Per Hour (Idol/Automat - India)","variant":"1.5 inches","specs":[],"price":25000.0,"note":""},{"cat":"Filters","name":"Disc Filter, 120 mesh, Y Type, 4,000 Litres Per Hour (Idol/Automat - India)","variant":"2 inches","specs":[],"price":50000.0,"note":""},{"cat":"Filters","name":"Disc Filter, 120 mesh, T Type, 15,000 Litres Per Hour (ChinaDrip - China)","variant":"","specs":["1.5 inches"],"price":23000.0,"note":""},{"cat":"Filters","name":"Disc Filter (EG - China)","variant":"","specs":["2 inches"],"price":30000.0,"note":""},{"cat":"Filters","name":"Disc Filter,120 mesh, T Type, 30,000 Litres Per Hour (ChinaDrip - China)","variant":"2 inches","specs":[],"price":110000.0,"note":""},{"cat":"Filters","name":"Disc Filter,120 mesh, T Type, 30,000 Litres Per Hour (ChinaDrip - China)","variant":"","specs":[],"price":130000.0,"note":""},{"cat":"Filters","name":"Disc Filter 120 mesh,T Type, 50,000 Litres Per Hour (ChinaDrip)","variant":"3 inches","specs":[],"price":140000.0,"note":""},{"cat":"Filters","name":"Disc Filter 120 mesh,T Type, 50,000 Litres Per Hour (ChinaDrip)","variant":"","specs":[],"price":205000.0,"note":""},{"cat":"Filters","name":"Semi Automatic Disc Filter,120 mesh, T Type, 30,000 Litres Per Hour (Idol/Automat - India)","variant":"2 inches","specs":[],"price":190000.0,"note":""},{"cat":"Filters","name":"Semi Automatic Disc Filter,120 mesh, T Type, 30,000 Litres Per Hour (Idol/Automat - India)","variant":"3 inches","specs":[],"price":290000.0,"note":""},{"cat":"Filters","name":"Disc Filter 120 mesh,T Type with 3'' Flange, 50,000 Litres Per Hour","variant":"","specs":["3 inches"],"price":175000.0,"note":""},{"cat":"Filters","name":"Disc Filter 120 mesh, Double, H Type, 60,000 Litres Per Hour","variant":"","specs":["3 inches"],"price":240000.0,"note":""},{"cat":"Filters","name":"Disc Filter 120 mesh, Double, H Type with 4'' Flange, 100,000 Litres Per Hour","variant":"","specs":["4 inches"],"price":270000.0,"note":""},{"cat":"Filters","name":"Centrifugal Filter (Hydrocyclone), 50m³/h","variant":"3 inches","specs":[],"price":380000.0,"note":""},{"cat":"Filters","name":"Centrifugal Filter (Hydrocyclone), 50m³/h","variant":"4 inches","specs":[],"price":620000.0,"note":""},{"cat":"Air valves","name":"Kinetic Air Valve, Male Threaded","variant":"","specs":["3/4 inches"],"price":4000.0,"note":""},{"cat":"Air valves","name":"C Type Combination Air Valve (premium quality)","variant":"1 inch","specs":[],"price":25000.0,"note":""},{"cat":"Air valves","name":"C Type Combination Air Valve (premium quality)","variant":"2 inch","specs":[],"price":53000.0,"note":""},{"cat":"Air valves","name":"Air Vacum Valve (Premium quality - CD)","variant":"1 inch","specs":[],"price":16000.0,"note":""},{"cat":"Air valves","name":"Air Vacum Valve (Premium quality - CD)","variant":"2 inch","specs":[],"price":30000.0,"note":""},{"cat":"Air valves","name":"Air Vacum Valve (Standard quality - ID)","variant":"1 inch","specs":[],"price":7500.0,"note":""},{"cat":"Air valves","name":"Air Vacum Valve (Standard quality - ID)","variant":"2 inch","specs":[],"price":18000.0,"note":""},{"cat":"Sprayers and accessories","name":"Knapsack Sprayer - Fair Agro (Standard)","variant":"16L","specs":[],"price":31000.0,"note":""},{"cat":"Sprayers and accessories","name":"Knapsack Sprayer - Fair Agro (Standard)","variant":"20L","specs":[],"price":31500.0,"note":""},{"cat":"Sprayers and accessories","name":"Knapsack Sprayer - ETG (Standard)","variant":"16L","specs":[],"price":28000.0,"note":""},{"cat":"Sprayers and accessories","name":"Knapsack Sprayer - ETG (Standard)","variant":"20L","specs":[],"price":30500.0,"note":""},{"cat":"Sprayers and accessories","name":"Knapsack Sprayer - Evergreen","variant":"","specs":["16L"],"price":26000.0,"note":""},{"cat":"Sprayers and accessories","name":"Knapsack Sprayer (Premium)","variant":"","specs":["20L"],"price":94000.0,"note":""},{"cat":"Sprayers and accessories","name":"Power Sprayer Knapsack","variant":"","specs":["15L"],"price":290000.0,"note":""},{"cat":"Sprayers and accessories","name":"Mobile Sprayer","variant":"200L","specs":[],"price":970000.0,"note":""},{"cat":"Sprayers and accessories","name":"Mobile Sprayer","variant":"300L","specs":[],"price":1380000.0,"note":""},{"cat":"Sprayers and accessories","name":"Handle","variant":"","specs":["Spare"],"price":2000.0,"note":""},{"cat":"Sprayers and accessories","name":"Metal Pipe","variant":"","specs":["Spare"],"price":5100.0,"note":""},{"cat":"Sprayers and accessories","name":"Nozzel Single Red","variant":"","specs":["Spare"],"price":200.0,"note":""},{"cat":"Sprayers and accessories","name":"Nozzel Yellow","variant":"","specs":["Spare"],"price":200.0,"note":""},{"cat":"Sprayers and accessories","name":"Nozzel Double Red","variant":"","specs":["Spare"],"price":200.0,"note":""},{"cat":"Sprayers and accessories","name":"Plastic Tube Pipe","variant":"","specs":["Spare"],"price":900.0,"note":""},{"cat":"Sprayers and accessories","name":"Handle Yellow","variant":"","specs":["Spare"],"price":1850.0,"note":""},{"cat":"Sprayers and accessories","name":"TY-33","variant":"","specs":["Spare"],"price":340.0,"note":""},{"cat":"Sprayers and accessories","name":"TY-39","variant":"","specs":["Spare"],"price":300.0,"note":""},{"cat":"Sprayers and accessories","name":"Goggles","variant":"","specs":["Premium Quality"],"price":2800.0,"note":""},{"cat":"Sprayers and accessories","name":"Mask Single","variant":"","specs":["Premium Quality"],"price":6100.0,"note":""},{"cat":"Sprayers and accessories","name":"Mask Double","variant":"","specs":["Premium Quality"],"price":6800.0,"note":""},{"cat":"Water pumps","name":"2'' Water Pump (Falcon)","variant":"","specs":["7hp - Petrol"],"price":250000.0,"note":""},{"cat":"Water pumps","name":"3'' Water Pump (Falcon)","variant":"","specs":["7hp - Petrol"],"price":282000.0,"note":""},{"cat":"Water pumps","name":"2'' Water Pump (Falcon)","variant":"","specs":["7hp - Diesel"],"price":400000.0,"note":""},{"cat":"Water pumps","name":"3'' Water Pump (Falcon)","variant":"","specs":["7hp - Diesel"],"price":470000.0,"note":""},{"cat":"Water pumps","name":"2\" Solar Surface Pump","variant":"","specs":["Maximum Flow (Q.max): 21 m³/h","Maximum Head: 16 metres","Power Hp: 1","DC Voltage: 72","Outlet: 2\"","Power kW: 0.75"],"price":1250000.0,"note":""},{"cat":"Water pumps","name":"3\" Solar Surface Pump","variant":"","specs":["Maximum Flow (Q.max): 45m³/h","Maximum Head: 17 metres","Power Hp: 2","DC Voltage: 110 V","Outlet: 3\"","Power Kw: 1.5"],"price":2500000.0,"note":""},{"cat":"Water pumps","name":"Solar Panel","variant":"","specs":["Peak Power: 465 W","Open Circuit Voltage: 50.1 V","Module Type: Monocrystalline Silicon","Maximum Power Voltage: 42.43 V"],"price":225000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"2 x 50 meters","specs":[],"price":108000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"4 x 50 meters","specs":[],"price":233000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"2 x 50 meters","specs":[],"price":155000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"4 x 50 meters","specs":[],"price":302000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"2 x 100 meters","specs":[],"price":234000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"4 x 50 meters","specs":[],"price":234000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"2 x 100 meters","specs":[],"price":305000.0,"note":""},{"cat":"Greenhouse materials","name":"Shade Net 55% (Evergreen)","variant":"4 x 50 meters","specs":[],"price":305000.0,"note":""},{"cat":"Greenhouse materials","name":"Insect Net, White (Evergreen)","variant":"3 x 100 meters","specs":[],"price":500000.0,"note":""},{"cat":"Greenhouse materials","name":"Insect Net, White (Evergreen)","variant":"3 x 50 meters","specs":[],"price":270000.0,"note":""},{"cat":"Greenhouse materials","name":"Insect Net, White (Evergreen)","variant":"5.5 x 30 meters","specs":[],"price":295000.0,"note":""},{"cat":"Greenhouse materials","name":"Greenhouse Roof Sheet 200micron (White) (Evergreen)","variant":"1 SQM (10 x 100 metres)","specs":[],"price":2050.0,"note":""},{"cat":"Greenhouse materials","name":"Greenhouse Roof Sheet 200micron (White) (Evergreen)","variant":"1 SQM (12 x 31 metres)","specs":[],"price":2300.0,"note":""},{"cat":"Greenhouse materials","name":"Profile for Greenhouse","variant":"","specs":[],"price":null,"note":"coming soon"},{"cat":"Greenhouse materials","name":"Zig Zag for Greenhouse","variant":"","specs":[],"price":null,"note":"coming soon"},{"cat":"Other","name":"Seedling Trays 200 Cells","variant":"1mm","specs":[],"price":1150.0,"note":""},{"cat":"Other","name":"Seedling Trays 200 Cells","variant":"1.2mm","specs":[],"price":1500.0,"note":""},{"cat":"Other","name":"Seedling Trays 200 Cells","variant":"1.5mm","specs":[],"price":1700.0,"note":""},{"cat":"Other","name":"Seedling Trays 128 Cells","variant":"","specs":["1mm"],"price":1500.0,"note":""},{"cat":"Other","name":"Seedling Trays 50 Cells","variant":"","specs":["1mm"],"price":1500.0,"note":""},{"cat":"Other","name":"Manual Timer","variant":"","specs":[],"price":133000.0,"note":""},{"cat":"Other","name":"Automatic Timer","variant":"","specs":[],"price":153000.0,"note":""},{"cat":"Other","name":"Hole Maker Spanner","variant":"","specs":["16mm"],"price":10500.0,"note":""},{"cat":"Other","name":"Drill Multi Size","variant":"","specs":["Diameter in mm: 6, 8, 10,12, 14, 16"],"price":20000.0,"note":""},{"cat":"Other","name":"Pressure Guage with Glycrine","variant":"","specs":["0-6 Bars"],"price":15500.0,"note":""},{"cat":"Other","name":"4 Outlet Fogger, Green Nozzle With Hanged Set with Anti-drainage Valve, 50cm Length","variant":"","specs":["26l/h at 2.5 Bars, 2m Daimeter"],"price":1600.0,"note":""},{"cat":"Other","name":"Venturi Injector with Suction 2m Pipe (CD)","variant":"1 inch","specs":[],"price":19000.0,"note":""},{"cat":"Other","name":"Venturi Injector with Suction 2m Pipe (CD)","variant":"1.5 inches","specs":[],"price":25000.0,"note":""},{"cat":"Other","name":"Venturi Injector with Suction 2m Pipe (CD)","variant":"2 inches","specs":[],"price":42000.0,"note":""},{"cat":"Other","name":"Venturi Complete System (ID)","variant":"1 inch","specs":[],"price":30000.0,"note":""},{"cat":"Other","name":"Venturi Complete System (ID)","variant":"1.5 inches","specs":[],"price":70000.0,"note":""},{"cat":"Other","name":"Venturi Complete System (ID)","variant":"2 inches","specs":[],"price":75000.0,"note":""}];
+
+const INPUTS_KEY = 'tipfa.inputs.v1';
+let INPUT_CATALOGUE = [];
+let INPUT_REQUESTS = [];
+let INPUT_SUGGESTIONS = [];
+
+function inputId(){
+  return `inp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2,7)}`;
+}
+
+/* One row of the price list, in the shape the rest of the platform uses.
+   `available` is what lets the Secretariat take something off the shelf
+   without deleting it and losing the requests that point at it. */
+function inputRow(x){
+  return {
+    id: x.id || inputId(),
+    cat: x.cat || 'Other',
+    name: x.name || '',
+    variant: x.variant || '',
+    specs: Array.isArray(x.specs) ? x.specs : [],
+    price: x.price == null ? null : Number(x.price),
+    unit: x.unit || 'each',
+    note: x.note || '',
+    available: x.available !== false
+  };
+}
+
+function seedInputCatalogue(){
+  return SEED_INPUTS.map(inputRow);
+}
+
+function inputLabel(x){
+  return x.variant ? `${x.name} — ${x.variant}` : x.name;
+}
+function inputById(id){ return INPUT_CATALOGUE.find(x=> x.id === id) || null; }
+function inputCategories(){
+  const out = [];
+  INPUT_CATALOGUE.forEach(x=>{ if(!out.includes(x.cat)) out.push(x.cat); });
+  return out;
+}
+/* A price of null is something the sheet marked as coming soon. It stays on
+   the list, because a member should know it exists, but it cannot be put in
+   a basket — there is no figure to total. */
+function inputPriced(x){ return x && x.price != null && x.price > 0; }
+function priceText(x){
+  if(!inputPriced(x)) return x && x.note ? x.note : 'Price on request';
+  return fmt(x.price) + ' TZS';
+}
+
+function saveInputCatalogue(){
+  try{ localStorage.setItem(INPUTS_KEY, JSON.stringify(INPUT_CATALOGUE)); }catch(e){ /* storage full */ }
+  cloudPushInputCatalogue();
+}
+
+function loadInputCatalogue(){
+  try{
+    const raw = localStorage.getItem(INPUTS_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      if(Array.isArray(d) && d.length){ INPUT_CATALOGUE = d.map(inputRow); return; }
+    }
+  }catch(e){ /* fall through to the price list */ }
+  INPUT_CATALOGUE = seedInputCatalogue();
+  try{ localStorage.setItem(INPUTS_KEY, JSON.stringify(INPUT_CATALOGUE)); }catch(e){}
+}
+
+/* The store is the Secretariat's to keep, and every signed-in member reads
+   it — the same shape as the crop catalogue, and the same rule behind it. */
+async function cloudPushInputCatalogue(){
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator') return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'settings', 'inputCatalogue'),
+                 { items: INPUT_CATALOGUE, updatedAt: new Date().toISOString() });
+  }catch(e){ noteCloudRefusal(e, 'The input list'); }
+}
+
+async function cloudPullInputCatalogue(){
+  if(!cloudOn()) return 0;
+  try{
+    const { doc, getDoc } = CLOUD.fs;
+    const d = await getDoc(doc(CLOUD.db, 'settings', 'inputCatalogue'));
+    if(d.exists()){
+      const items = (d.data() || {}).items;
+      if(Array.isArray(items) && items.length){
+        INPUT_CATALOGUE = items.map(inputRow);
+        try{ localStorage.setItem(INPUTS_KEY, JSON.stringify(INPUT_CATALOGUE)); }catch(e){}
+        return INPUT_CATALOGUE.length;
+      }
+    }
+    // Nothing shared yet. The first operator to open the tab publishes the
+    // price list, so every member is reading the same one from then on.
+    if(CLOUD_STATE.role === 'operator' && INPUT_CATALOGUE.length) await cloudPushInputCatalogue();
+  }catch(e){ /* the built-in list still works on this device */ }
+  return 0;
+}
+
+/* ---- A basket, and what becomes of it --------------------------------
+   A member ticks off what they need, sees what it comes to, and sends it.
+   The basket lives in this browser until it is sent — an unsent basket is
+   not the association's business — and becomes an inputRequests document
+   the moment the member presses the button.
+
+   A suggestion is the other half: the thing that is not on the list. Other
+   members back it, and a suggestion several farms want is an easier case
+   for the Secretariat to act on than one farm asking twice. */
+const REQUEST_STATUS = ['Sent','Acknowledged','Quoted','Supplied','Declined'];
+const CART_KEY = 'tipfa.cart.v1';
+let CART = {};                                   // inputId -> quantity
+
+function saveCart(){
+  try{ localStorage.setItem(CART_KEY, JSON.stringify({member:state.member, cart:CART})); }catch(e){}
+}
+function loadCart(){
+  try{
+    const d = JSON.parse(localStorage.getItem(CART_KEY) || 'null');
+    CART = (d && d.member === state.member && d.cart) ? d.cart : {};
+  }catch(e){ CART = {}; }
+}
+function cartLines(){
+  return Object.keys(CART).map(id=>{
+    const x = inputById(id);
+    if(!x || !CART[id]) return null;
+    const qty = Number(CART[id]) || 0;
+    return { id, item:x, qty, line: inputPriced(x) ? x.price * qty : 0 };
+  }).filter(Boolean);
+}
+function cartCount(){ return cartLines().reduce((t,l)=> t + l.qty, 0); }
+function cartTotal(){ return cartLines().reduce((t,l)=> t + l.line, 0); }
+
+function setCartQty(id, qty){
+  const n = Math.max(0, Math.floor(Number(qty) || 0));
+  if(n <= 0) delete CART[id]; else CART[id] = n;
+  saveCart();
+}
+function addToCart(id){ setCartQty(id, (Number(CART[id]) || 0) + 1); render(); }
+function cartBump(id, by){ setCartQty(id, (Number(CART[id]) || 0) + by); render(); }
+function cartSet(id, v){ setCartQty(id, v); render(); }
+function emptyCart(){ CART = {}; saveCart(); render(); }
+
+async function cloudPushRequest(r){
+  if(!cloudOn() || !r || !r.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'inputRequests', r.id), {
+      farmUid:r.farmUid, farmName:r.farmName || '', items:r.items || [],
+      total:Number(r.total)||0, status:r.status || 'Sent', note:r.note || '',
+      raisedOn:r.raisedOn, reply:r.reply || '', created:r.created
+    }, {merge:true});
+  }catch(e){ noteCloudRefusal(e, 'Your input request'); }
+}
+
+async function cloudPushSuggestion(x){
+  if(!cloudOn() || !x || !x.id) return;
+  try{
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'inputSuggestions', x.id), {
+      farmUid:x.farmUid, farmName:x.farmName || '', name:x.name,
+      why:x.why || '', backers:x.backers || [], status:x.status || 'Open',
+      raisedOn:x.raisedOn, created:x.created
+    }, {merge:true});
+  }catch(e){ noteCloudRefusal(e, 'Your suggestion'); }
+}
+
+async function cloudPullInputs(){
+  if(!cloudOn()) return 0;
+  const fs = CLOUD.fs;
+  const staff = CLOUD_STATE.role === 'operator';
+  const uid = CLOUD_STATE.uid;
+  let n = 0;
+  await cloudPullInputCatalogue();
+  // Requests are a farm's own business; suggestions are everybody's, because
+  // backing one is the point of it.
+  try{
+    let snap;
+    if(staff) snap = await fs.getDocs(fs.collection(CLOUD.db, 'inputRequests'));
+    else if(uid && fs.query && fs.where)
+      snap = await fs.getDocs(fs.query(fs.collection(CLOUD.db, 'inputRequests'),
+                                       fs.where('farmUid','==',uid)));
+    if(snap){
+      const seen = {};
+      snap.forEach(d=>{
+        const v = d.data() || {}; seen[d.id] = true;
+        const at = INPUT_REQUESTS.findIndex(x=> x.id === d.id);
+        const rec = Object.assign({}, v, { id:d.id });
+        if(at === -1) INPUT_REQUESTS.push(rec); else INPUT_REQUESTS[at] = rec;
+        n++;
+      });
+      for(let i = INPUT_REQUESTS.length - 1; i >= 0; i--){
+        const mine = staff || INPUT_REQUESTS[i].farmUid === uid;
+        if(mine && !seen[INPUT_REQUESTS[i].id]) INPUT_REQUESTS.splice(i, 1);
+      }
+    }
+  }catch(e){ /* what is held stays held */ }
+  try{
+    const snap = await fs.getDocs(fs.collection(CLOUD.db, 'inputSuggestions'));
+    const seen = {};
+    snap.forEach(d=>{
+      const v = d.data() || {}; seen[d.id] = true;
+      const at = INPUT_SUGGESTIONS.findIndex(x=> x.id === d.id);
+      const rec = Object.assign({}, v, { id:d.id });
+      if(at === -1) INPUT_SUGGESTIONS.push(rec); else INPUT_SUGGESTIONS[at] = rec;
+      n++;
+    });
+    for(let i = INPUT_SUGGESTIONS.length - 1; i >= 0; i--)
+      if(!seen[INPUT_SUGGESTIONS[i].id]) INPUT_SUGGESTIONS.splice(i, 1);
+  }catch(e){ /* the list stays as it was */ }
+  return n;
+}
+
 const CATALOGUE_KEY = 'tipfa.catalogue.v1';
 
 function saveCatalogue(){
@@ -2642,7 +2870,8 @@ const LATER_COLLECTIONS = [
   ['orders','Orders'], ['orderAllocations','Shares placed with farms'],
   ['harvestBatches','Harvest batches'], ['inputApplications','What was applied'],
   ['consignments','Consignments'], ['lotComplaints','Complaints against a lot'],
-  ['advisoryCases','Questions for an agronomist'], ['knowledge','The knowledge library']
+  ['advisoryCases','Questions for an agronomist'], ['knowledge','The knowledge library'],
+  ['inputRequests','Input requests'], ['inputSuggestions','Input suggestions']
 ];
 
 async function checkLaterCollections(){
@@ -2699,6 +2928,9 @@ async function resendStranded(){
   for(const i of LOTISSUES){ await cloudPushIssue(i); n++; }
   for(const cs of CASES){ await cloudPushCase(cs); n++; }
   for(const k of KNOWLEDGE){ await cloudPushKnowledge(k); n++; }
+  for(const r of INPUT_REQUESTS){ await cloudPushRequest(r); n++; }
+  for(const x of INPUT_SUGGESTIONS){ await cloudPushSuggestion(x); n++; }
+  await cloudPushInputCatalogue();
   return n;
 }
 
@@ -3285,7 +3517,7 @@ async function restoreSession(){
       if(farm.exists()){
         CLOUD_STATE.role = 'farm';
         USER = null;                       // a farm holds no role
-        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory();
+        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory(); await cloudPullInputs();
         enterSession('member', { member: user.uid });
       } else {
         const op = await getDoc(doc(CLOUD.db, 'operators', user.uid));
@@ -3293,7 +3525,7 @@ async function restoreSession(){
         CLOUD_STATE.role = 'operator';
         await loadUserRole(user.uid, { displayName:(op.data()||{}).name||user.email, email:user.email,
                                        role:'secretariat' });
-        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory(); await cloudPullOperators();
+        await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory(); await cloudPullInputs(); await cloudPullOperators();
         enterSession('admin', { adminName: (op.data() || {}).name || user.email });
       }
       state.restoring = false;
@@ -3412,7 +3644,8 @@ function saveMembers(){
       complaints: complaints, nextComplaintId: nextComplaintId,
       orders: ORDERS, allocs: ALLOCS,
       batches: BATCHES, inputApps: INPUTAPP, consignments: CONSIGN, lotIssues: LOTISSUES,
-      cases: CASES, knowledge: KNOWLEDGE
+      cases: CASES, knowledge: KNOWLEDGE,
+      inputRequests: INPUT_REQUESTS, inputSuggestions: INPUT_SUGGESTIONS
     }));
   }catch(e){ /* storage full or unavailable — the session still works */ }
 }
@@ -3436,6 +3669,8 @@ function loadMembers(){
     LOTISSUES = Array.isArray(d.lotIssues) ? d.lotIssues : [];
     CASES = Array.isArray(d.cases) ? d.cases : [];
     KNOWLEDGE = Array.isArray(d.knowledge) ? d.knowledge : [];
+    INPUT_REQUESTS = Array.isArray(d.inputRequests) ? d.inputRequests : [];
+    INPUT_SUGGESTIONS = Array.isArray(d.inputSuggestions) ? d.inputSuggestions : [];
     // Backfill anything a stored record predates, so an older save still opens.
     Object.keys(MEMBERS).forEach(id=>{
       const m = MEMBERS[id];
@@ -3730,7 +3965,9 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   orderError:'', orderMsg:'', newOrder:false, openOrder:null, allocDraft:null,
   orderFilter:'Open', ordersRead:false, decline:null,
   traceError:'', traceMsg:'', traceRead:false, traceLot:'', rulesGap:[], cloudRefused:false,
-  advError:'', advRead:false };
+  advError:'', advRead:false,
+  inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
+  inputsTab:'requests', inputEdit:null, inputSearch:'' };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -4746,6 +4983,7 @@ function switchTab(tab){
   if(tab === 'orders' || tab === 'ordersA') state.ordersRead = false;
   if(tab === 'batches' || tab === 'traceA') state.traceRead = false;
   if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
+  if(tab === 'store' || tab === 'inputsA') state.inputsRead = false;
   state.tab = tab; render();
 }
 function selectMember(id){ state.member = id; render(); }
@@ -4753,7 +4991,7 @@ function selectPeriod(p){ state.period = p; render(); }
 
 const MEMBER_TABS = [
   ['profile','Profile'], ['calendar','Crop calendar'], ['standards','Market standards'],
-  ['plan','Harvest plan'], ['actual','Actual harvest'], ['orders','Orders'], ['batches','Batches'], ['advice','Ask an agronomist'],
+  ['plan','Harvest plan'], ['actual','Actual harvest'], ['orders','Orders'], ['batches','Batches'], ['store','Input store'], ['advice','Ask an agronomist'],
   ['market','Market prices'],
   ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
 ];
@@ -4767,6 +5005,7 @@ const ADMIN_TABS_ALL = [
   ['ordersA','Orders','orders.read'],
   ['traceA','Traceability','batches.read'],
   ['advisoryA','Advisory','advisory.read'],
+  ['inputsA','Inputs','inputs.read'],
   ['dashboard','Central dashboard','dashboard.read'],
   ['growth','Growth planning','growth.read'],
   ['reportsA','Reports','reports.read'],
@@ -4810,6 +5049,7 @@ async function refreshNow(btn){
       await cloudPullOrders();
       await cloudPullTrace();
       await cloudPullAdvisory();
+      await cloudPullInputs();
       if(CLOUD_STATE.role === 'operator'){
         state.rollRead = true; await cloudPullOperators(); await cloudPullUsers();
       }
@@ -4926,6 +5166,7 @@ function renderTabContent(c){
     if(state.tab==='orders') return renderOrdersMember(c);
     if(state.tab==='batches') return renderBatchesMember(c);
     if(state.tab==='advice') return renderAdvisoryMember(c);
+    if(state.tab==='store') return renderStore(c);
     if(state.tab==='market') return renderMarketPrices(c);
     if(state.tab==='inputs') return renderInputs(c);
     if(state.tab==='future') return renderFuturePlanning(c);
@@ -4940,6 +5181,7 @@ function renderTabContent(c){
     if(state.tab==='ordersA') return renderOrdersAdmin(c);
     if(state.tab==='traceA') return renderTraceAdmin(c);
     if(state.tab==='advisoryA') return renderAdvisoryAdmin(c);
+    if(state.tab==='inputsA') return renderInputsAdmin(c);
     if(state.tab==='dashboard') return renderDashboard(c);
     if(state.tab==='growth') return renderGrowth(c);
     if(state.tab==='reportsA') return renderReportsAdmin(c);
@@ -7226,6 +7468,264 @@ function exportHarvestPlanReport(id){
 
 
 /* ============================================================
+   The input store — the member's side
+   ============================================================ */
+function reqPill(st){
+  const cls = { Sent:'pending', Acknowledged:'pending', Quoted:'active',
+                Supplied:'active', Declined:'inactive' }[st] || 'pending';
+  return `<span class="status-pill status-${cls}">${esc(st)}</span>`;
+}
+
+function renderStore(c){
+  const uid = state.member;
+  const m = MEMBERS[uid];
+  if(!m) return;
+  if(cloudOn() && !state.inputsRead){
+    state.inputsRead = true;
+    cloudPullInputs().then(()=> render());
+  }
+  if(state.storeTab === 'suggest') return renderSuggestions(c, m);
+  if(state.storeTab === 'mine')    return renderMyRequests(c, m);
+
+  const cats = inputCategories();
+  const term = (state.storeSearch || '').toLowerCase().trim();
+  const shown = INPUT_CATALOGUE.filter(x=>{
+    if(x.available === false) return false;
+    if(state.storeCat && state.storeCat !== 'All' && x.cat !== state.storeCat) return false;
+    if(!term) return true;
+    return `${x.name} ${x.variant} ${x.specs.join(' ')} ${x.cat}`.toLowerCase().includes(term);
+  });
+
+  c.innerHTML = `
+    ${farmHeader(m)}
+    <h1 class="page-title">Input store</h1>
+    <p class="page-sub">What the association supplies, at the association's price</p>
+    ${storeTabs()}
+    ${state.storeMsg ? `<div class="card"><p class="helper" style="margin:0;">${esc(state.storeMsg)}</p>
+      <button class="btn small ghost" style="margin-top:8px;" onclick="clearStoreMsg()">Dismiss</button></div>` : ''}
+
+    <div class="card">
+      <input id="store-search" placeholder="Search the list — dripline, filter, pump…"
+             value="${esc(state.storeSearch||'')}" oninput="storeSearch(this.value)">
+      <div class="chips" style="margin:12px 0 0;">
+        ${['All'].concat(cats).map(x=>
+          `<span class="chip ${(state.storeCat||'All')===x?'active':''}" onclick="storeCat('${esc(x)}')">${esc(x)}</span>`).join('')}
+      </div>
+    </div>
+
+    ${cartPanel()}
+
+    ${shown.length ? `<div class="card">
+      <table class="grid-table"><thead><tr>
+        <th>Item</th><th>Details</th><th>Price</th><th>In your basket</th></tr></thead><tbody>
+      ${shown.map(x=>`<tr>
+        <td><strong>${esc(x.name)}</strong>${x.variant?`<div class="helper">${esc(x.variant)}</div>`:''}
+            <div class="helper">${esc(x.cat)}</div></td>
+        <td><span class="helper">${x.specs.map(esc).join(' · ') || '—'}</span></td>
+        <td>${inputPriced(x) ? `<strong>${fmt(x.price)}</strong> <span class="helper">TZS</span>`
+                             : `<span class="helper">${esc(priceText(x))}</span>`}</td>
+        <td>${inputPriced(x) ? qtyControl(x.id) : '<span class="helper">not orderable yet</span>'}</td>
+      </tr>`).join('')}
+      </tbody></table>
+    </div>` : `<div class="card"><p class="helper">Nothing on the list matches that. If what you need is not stocked at all, ask for it on the Suggest an input tab.</p></div>`}
+  `;
+}
+
+function qtyControl(id){
+  const q = Number(CART[id]) || 0;
+  if(!q) return `<button class="btn small ghost" onclick="addToCart('${esc(id)}')">Add</button>`;
+  return `<div style="display:flex;align-items:center;gap:6px;">
+    <button class="btn small ghost" onclick="cartBump('${esc(id)}',-1)">&minus;</button>
+    <input type="number" min="0" value="${q}" style="max-width:74px;text-align:center;"
+           onchange="cartSet('${esc(id)}', this.value)">
+    <button class="btn small ghost" onclick="cartBump('${esc(id)}',1)">+</button>
+  </div>`;
+}
+
+function storeTabs(){
+  const t = state.storeTab || 'store';
+  const mine = INPUT_REQUESTS.filter(r=> r.farmUid === state.member).length;
+  return `<div class="chips">
+    <span class="chip ${t==='store'?'active':''}" onclick="setStoreTab('store')">The list${cartCount()?` · ${cartCount()} in basket`:''}</span>
+    <span class="chip ${t==='suggest'?'active':''}" onclick="setStoreTab('suggest')">Suggest an input</span>
+    <span class="chip ${t==='mine'?'active':''}" onclick="setStoreTab('mine')">Your requests${mine?` · ${mine}`:''}</span>
+  </div>`;
+}
+function setStoreTab(t){ state.storeTab = t; render(); }
+function storeCat(c){ state.storeCat = c; render(); }
+function storeSearch(v){
+  state.storeSearch = v;
+  // Redraw only the list, so the cursor is not thrown out of the box.
+  renderKeepingPlace('store-search');
+}
+function clearStoreMsg(){ state.storeMsg = ''; render(); }
+
+/* The basket, and what it comes to. Anything the Secretariat has not priced
+   cannot get in here, so the total is always a real figure rather than a
+   figure with holes in it. */
+function cartPanel(){
+  const lines = cartLines();
+  if(!lines.length) return `<div class="card">
+    <p class="helper" style="margin:0;">Your basket is empty. Add what you need from the list below and the total works itself out.</p>
+  </div>`;
+  return `<div class="card" style="border-color:var(--leaf-green);">
+    <strong>Your basket</strong>
+    <table class="grid-table" style="margin-top:10px;"><thead><tr>
+      <th>Item</th><th>Price</th><th>Quantity</th><th>Line total</th><th></th></tr></thead><tbody>
+    ${lines.map(l=>`<tr>
+      <td>${esc(inputLabel(l.item))}</td>
+      <td>${fmt(l.item.price)} <span class="helper">TZS</span></td>
+      <td>${qtyControl(l.id)}</td>
+      <td><strong>${fmt(Math.round(l.line))}</strong></td>
+      <td><button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="cartSet('${esc(l.id)}',0)">Remove</button></td>
+    </tr>`).join('')}
+    </tbody><tfoot><tr>
+      <td colspan="3" style="text-align:right;"><strong>Total</strong></td>
+      <td><strong style="font-size:17px;color:var(--deep-green);">${fmt(Math.round(cartTotal()))} TZS</strong></td>
+      <td></td>
+    </tr></tfoot></table>
+    <label class="f" style="margin-top:12px;">Anything the Secretariat should know <span class="helper">optional</span></label>
+    <input id="cart-note" placeholder="When you need it, where to deliver, and so on">
+    <div style="margin-top:10px;">
+      <button class="btn" onclick="sendRequest()">Request these inputs</button>
+      <button class="btn small ghost" onclick="emptyCart()">Empty the basket</button>
+    </div>
+    <p class="helper" style="margin-top:8px;">The total is what the list says today. The Secretariat confirms it when they answer — a request is not an invoice.</p>
+  </div>`;
+}
+
+function sendRequest(){
+  const lines = cartLines();
+  if(!lines.length) return;
+  const m = MEMBERS[state.member];
+  const noteEl = document.getElementById('cart-note');
+  const rec = {
+    id: inputId(), farmUid: state.member, farmName: m.name,
+    // The price is copied onto the request. The list may change next week,
+    // and what the member was quoted when they asked is what they were
+    // quoted — a request that silently repriced itself would be worthless.
+    items: lines.map(l=>({ inputId:l.id, label:inputLabel(l.item), cat:l.item.cat,
+                           price:l.item.price, qty:l.qty, line:l.line })),
+    total: cartTotal(), status:'Sent', note: noteEl ? noteEl.value.trim() : '',
+    raisedOn: todayStr(), reply:'', created: new Date().toISOString()
+  };
+  INPUT_REQUESTS.unshift(rec);
+  CART = {}; saveCart(); saveMembers();
+  cloudPushRequest(rec);
+  state.storeTab = 'mine';
+  state.storeMsg = `Your request for ${rec.items.length} item${rec.items.length===1?'':'s'}, ${fmt(Math.round(rec.total))} TZS, has gone to the Secretariat. They answer on this tab.`;
+  logAction(`${m.name} requested ${rec.items.length} input${rec.items.length===1?'':'s'} totalling ${fmt(Math.round(rec.total))} TZS.`);
+  render();
+}
+
+function renderMyRequests(c, m){
+  const mine = INPUT_REQUESTS.filter(r=> r.farmUid === state.member)
+                             .sort((a,b)=> (b.created||'').localeCompare(a.created||''));
+  c.innerHTML = `
+    ${farmHeader(m)}
+    <h1 class="page-title">Your input requests</h1>
+    <p class="page-sub">What you have asked for, and what the Secretariat said</p>
+    ${storeTabs()}
+    ${state.storeMsg ? `<div class="card"><p class="helper" style="margin:0;">${esc(state.storeMsg)}</p>
+      <button class="btn small ghost" style="margin-top:8px;" onclick="clearStoreMsg()">Dismiss</button></div>` : ''}
+    ${mine.length ? mine.map(r=>`<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+        <div><strong>${fmt(Math.round(r.total))} TZS</strong>
+          <div class="helper">${esc(r.raisedOn||'')} · ${(r.items||[]).length} item${(r.items||[]).length===1?'':'s'}</div></div>
+        ${reqPill(r.status||'Sent')}
+      </div>
+      <table class="grid-table" style="margin-top:10px;"><thead><tr>
+        <th>Item</th><th>Price</th><th>Qty</th><th>Line</th></tr></thead><tbody>
+        ${(r.items||[]).map(i=>`<tr><td>${esc(i.label)}</td><td>${fmt(i.price)}</td>
+          <td>${i.qty}</td><td>${fmt(Math.round(i.line))}</td></tr>`).join('')}
+      </tbody></table>
+      ${r.note ? `<p class="helper" style="margin-top:8px;">Your note: ${esc(r.note)}</p>` : ''}
+      ${r.reply ? `<div class="log-item" style="display:block;margin-top:10px;">
+        <div class="helper">The Secretariat</div>
+        <div style="font-size:13.5px;line-height:1.6;">${esc(r.reply)}</div></div>` : ''}
+    </div>`).join('')
+    : emptyState('You have not requested anything yet',
+        'Build a basket on the list and send it. What you asked for, and what the Secretariat answers, stays here.')}
+  `;
+}
+
+/* ---- What is not on the list ------------------------------------------ */
+function renderSuggestions(c, m){
+  const open = INPUT_SUGGESTIONS.slice()
+    .sort((a,b)=> (b.backers||[]).length - (a.backers||[]).length ||
+                  (b.raisedOn||'').localeCompare(a.raisedOn||''));
+  c.innerHTML = `
+    ${farmHeader(m)}
+    <h1 class="page-title">Suggest an input</h1>
+    <p class="page-sub">Something the association does not stock, that you think it should</p>
+    ${storeTabs()}
+    ${state.storeMsg ? `<div class="card"><p class="helper" style="margin:0;">${esc(state.storeMsg)}</p>
+      <button class="btn small ghost" style="margin-top:8px;" onclick="clearStoreMsg()">Dismiss</button></div>` : ''}
+
+    <div class="card">
+      <label class="f">What do you need?</label>
+      <input id="sug-name" placeholder="Name it as precisely as you can — make, size, rating">
+      <label class="f">Why</label>
+      <textarea id="sug-why" rows="3" placeholder="What you would use it for, and how much of it you would buy"></textarea>
+      <button class="btn small" style="margin-top:8px;" onclick="addSuggestion()">Suggest it</button>
+      <p class="helper" id="sug-error" style="color:var(--red);margin-top:8px;"></p>
+      <p class="helper" style="margin-top:8px;">Other members can back a suggestion. Several farms wanting the same thing is a far easier case for the Secretariat to act on than one farm asking twice.</p>
+    </div>
+
+    ${open.length ? `<div class="section-label">What members have asked for</div>
+      ${open.map(x=>{
+        const backers = x.backers || [];
+        const backed = backers.includes(state.member);
+        const mineOwn = x.farmUid === state.member;
+        return `<div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+            <div>
+              <strong>${esc(x.name)}</strong>
+              <div class="helper" style="margin-top:2px;">${esc(x.farmName||'A member')} · ${esc(x.raisedOn||'')}</div>
+            </div>
+            <div style="text-align:right;">
+              <span class="status-pill status-${x.status==='Stocked'?'active':(x.status==='Declined'?'inactive':'pending')}">${esc(x.status||'Open')}</span>
+              <div class="helper" style="margin-top:4px;">${backers.length} farm${backers.length===1?'':'s'} want${backers.length===1?'s':''} this</div>
+            </div>
+          </div>
+          ${x.why ? `<p style="margin:10px 0 0;font-size:13.5px;line-height:1.6;">${esc(x.why)}</p>` : ''}
+          ${mineOwn ? '<p class="helper" style="margin-top:8px;">This is yours.</p>'
+            : `<button class="btn small ${backed?'ghost':''}" style="margin-top:10px;" onclick="backSuggestion('${esc(x.id)}')">${backed ? 'You want this too — take it back' : 'I want this too'}</button>`}
+        </div>`;
+      }).join('')}` : ''}
+  `;
+}
+
+function addSuggestion(){
+  const err = document.getElementById('sug-error');
+  const name = document.getElementById('sug-name').value.trim();
+  const why = document.getElementById('sug-why').value.trim();
+  if(name.length < 3){ err.textContent = 'Name what you need.'; return; }
+  const m = MEMBERS[state.member];
+  const rec = {
+    id: inputId(), farmUid: state.member, farmName: m.name,
+    name, why, backers:[state.member], status:'Open',
+    raisedOn: todayStr(), created: new Date().toISOString()
+  };
+  INPUT_SUGGESTIONS.unshift(rec);
+  saveMembers(); cloudPushSuggestion(rec);
+  state.storeMsg = 'Suggested. Other members can back it, and the Secretariat sees it on their Inputs tab.';
+  logAction(`${m.name} suggested stocking ${name}.`);
+  render();
+}
+
+function backSuggestion(id){
+  const x = INPUT_SUGGESTIONS.find(y=> y.id === id);
+  if(!x) return;
+  const backers = (x.backers || []).slice();
+  const at = backers.indexOf(state.member);
+  if(at === -1) backers.push(state.member); else backers.splice(at, 1);
+  x.backers = backers;
+  saveMembers(); cloudPushSuggestion(x);
+  render();
+}
+
+/* ============================================================
    Advisory — the member's side
    ============================================================ */
 function casePill(st){
@@ -7357,6 +7857,251 @@ function caseCard(x, canAnswer){
         <button class="btn small ghost" style="margin-top:8px;" onclick="answerCase('${esc(x.id)}', true)">Answer and add to the library</button>
       </div>` : ''}
   </div>`;
+}
+
+/* ============================================================
+   The input store — the Secretariat's side
+
+   The list is theirs alone. A member reads it and asks; nobody but an
+   operator changes a price, and the rules say so rather than the screen.
+   ============================================================ */
+function renderInputsAdmin(c){
+  if(cloudOn() && !state.inputsRead){
+    state.inputsRead = true;
+    cloudPullInputs().then(()=> render());
+  }
+  const t = state.inputsTab || 'requests';
+  const openReqs = INPUT_REQUESTS.filter(r=> r.status === 'Sent' || r.status === 'Acknowledged');
+  const openSugs = INPUT_SUGGESTIONS.filter(x=> (x.status||'Open') === 'Open');
+
+  const head = `
+    <h1 class="page-title">Inputs</h1>
+    <p class="page-sub">The list members buy from, what they have asked for, and what they want stocked</p>
+    ${orderNotices()}
+    <div class="chips">
+      <span class="chip ${t==='requests'?'active':''}" onclick="setInputsTab('requests')">Requests${openReqs.length?` · ${openReqs.length}`:''}</span>
+      <span class="chip ${t==='suggest'?'active':''}" onclick="setInputsTab('suggest')">Suggestions${openSugs.length?` · ${openSugs.length}`:''}</span>
+      <span class="chip ${t==='list'?'active':''}" onclick="setInputsTab('list')">The list · ${INPUT_CATALOGUE.length}</span>
+    </div>`;
+
+  if(t === 'requests')  return void (c.innerHTML = head + inputRequestsPanel());
+  if(t === 'suggest')   return void (c.innerHTML = head + inputSuggestionsPanel());
+  c.innerHTML = head + inputListPanel();
+}
+
+function setInputsTab(t){ state.inputsTab = t; state.inputEdit = null; render(); }
+
+function inputRequestsPanel(){
+  const rows = INPUT_REQUESTS.slice().sort((a,b)=> (b.created||'').localeCompare(a.created||''));
+  if(!rows.length) return `<div class="card"><p class="helper">No member has requested inputs yet. When one sends a basket from their Input store, it arrives here.</p></div>`;
+  return rows.map(r=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div>
+        <strong>${esc(r.farmName || (MEMBERS[r.farmUid]||{}).name || 'A member')}</strong>
+        <div class="helper">${esc(r.raisedOn||'')} · ${(r.items||[]).length} item${(r.items||[]).length===1?'':'s'} · <strong>${fmt(Math.round(r.total))} TZS</strong></div>
+      </div>
+      ${reqPill(r.status||'Sent')}
+    </div>
+    <table class="grid-table" style="margin-top:10px;"><thead><tr>
+      <th>Item</th><th>Price</th><th>Qty</th><th>Line</th></tr></thead><tbody>
+      ${(r.items||[]).map(i=>`<tr><td>${esc(i.label)}</td><td>${fmt(i.price)}</td>
+        <td>${i.qty}</td><td>${fmt(Math.round(i.line))}</td></tr>`).join('')}
+    </tbody></table>
+    ${r.note ? `<p class="helper" style="margin-top:8px;">Their note: ${esc(r.note)}</p>` : ''}
+    ${r.reply ? `<p class="helper" style="margin-top:8px;">You replied: ${esc(r.reply)}</p>` : ''}
+    <label class="f" style="margin-top:10px;">Reply to the member</label>
+    <input id="rep-${esc(r.id)}" placeholder="What you can supply, when, and what it will cost">
+    <div style="margin-top:8px;">
+      ${REQUEST_STATUS.filter(x=> x !== r.status).map(x=>
+        `<button class="btn small ghost" onclick="setRequestStatus('${esc(r.id)}','${x}')">${x}</button>`).join(' ')}
+    </div>
+  </div>`).join('');
+}
+
+function setRequestStatus(id, st){
+  const r = INPUT_REQUESTS.find(x=> x.id === id);
+  if(!r) return;
+  const el = document.getElementById('rep-' + id);
+  if(el && el.value.trim()) r.reply = el.value.trim();
+  r.status = st;
+  saveMembers(); cloudPushRequest(r);
+  logAction(`Operator ${state.adminName||''} marked ${r.farmName||'a member'}'s input request ${st.toLowerCase()}.`);
+  render();
+}
+
+function inputSuggestionsPanel(){
+  const rows = INPUT_SUGGESTIONS.slice()
+    .sort((a,b)=> (b.backers||[]).length - (a.backers||[]).length);
+  if(!rows.length) return `<div class="card"><p class="helper">Nothing suggested yet. When a member asks for something the association does not stock, it arrives here — with a count of how many other farms want it too.</p></div>`;
+  return `<div class="card"><p class="helper" style="margin:0;">Sorted by how many farms want each one. Adding a suggestion to the list puts it in front of every member at once — set its price first, or it goes on the list as "price on request" and cannot be put in a basket.</p></div>` +
+  rows.map(x=>`<div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;">
+      <div><strong>${esc(x.name)}</strong>
+        <div class="helper">${esc(x.farmName||'A member')} · ${esc(x.raisedOn||'')}</div></div>
+      <div style="text-align:right;">
+        <strong style="font-size:17px;">${(x.backers||[]).length}</strong>
+        <div class="helper">farm${(x.backers||[]).length===1?'':'s'} want${(x.backers||[]).length===1?'s':''} it</div>
+      </div>
+    </div>
+    ${x.why ? `<p style="margin:10px 0 0;font-size:13.5px;line-height:1.6;">${esc(x.why)}</p>` : ''}
+    ${(x.status||'Open') === 'Open' ? `
+      <div class="grid2" style="margin-top:10px;">
+        <div><label class="f">Price if you stock it (TZS)</label><input id="sp-${esc(x.id)}" type="number" min="0" step="1"></div>
+        <div><label class="f">Category</label>
+          <select id="sc-${esc(x.id)}">${inputCategories().map(cat=>`<option>${esc(cat)}</option>`).join('')}</select></div>
+      </div>
+      <div style="margin-top:8px;">
+        <button class="btn small" onclick="stockSuggestion('${esc(x.id)}')">Add it to the list</button>
+        <button class="btn small ghost" onclick="declineSuggestion('${esc(x.id)}')">Cannot stock it</button>
+      </div>`
+    : `<p class="helper" style="margin-top:8px;">${esc(x.status)}</p>`}
+  </div>`).join('');
+}
+
+function stockSuggestion(id){
+  const x = INPUT_SUGGESTIONS.find(y=> y.id === id);
+  if(!x) return;
+  const priceEl = document.getElementById('sp-' + id);
+  const catEl = document.getElementById('sc-' + id);
+  const price = priceEl && priceEl.value ? Number(priceEl.value) : null;
+  INPUT_CATALOGUE.unshift(inputRow({
+    cat: catEl ? catEl.value : 'Other', name: x.name, variant:'',
+    specs: x.why ? [x.why] : [], price, note: price ? '' : 'Price on request'
+  }));
+  x.status = 'Stocked';
+  saveInputCatalogue(); saveMembers(); cloudPushSuggestion(x);
+  state.orderMsg = `${x.name} is on the list now, so every member can see it.`;
+  logAction(`Operator ${state.adminName||''} added ${x.name} to the input list.`);
+  render();
+}
+
+function declineSuggestion(id){
+  const x = INPUT_SUGGESTIONS.find(y=> y.id === id);
+  if(!x) return;
+  x.status = 'Declined';
+  saveMembers(); cloudPushSuggestion(x);
+  render();
+}
+
+/* ---- The list itself --------------------------------------------------- */
+function inputListPanel(){
+  const term = (state.inputSearch || '').toLowerCase().trim();
+  const rows = INPUT_CATALOGUE.filter(x=> !term ||
+    `${x.name} ${x.variant} ${x.cat}`.toLowerCase().includes(term));
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <input id="input-search" placeholder="Search the list" style="flex:1;min-width:200px;"
+               value="${esc(state.inputSearch||'')}" oninput="inputSearch(this.value)">
+        <button class="btn small" onclick="newInput()">+ Add an input</button>
+      </div>
+      <p class="helper" style="margin-top:10px;">Every member sees this list and buys from it. A price changed here is the price they are quoted from then on — requests already sent keep the price they were quoted when they asked.</p>
+      ${INPUT_CATALOGUE.length === 0 ? `<button class="btn small ghost" style="margin-top:8px;" onclick="restoreInputList()">Load the TIPFA price list</button>` : ''}
+    </div>
+    ${state.inputEdit !== null && state.inputEdit !== undefined ? inputForm() : ''}
+    <div class="card">
+      <table class="grid-table"><thead><tr>
+        <th>Item</th><th>Category</th><th>Price</th><th>On the list</th><th></th></tr></thead><tbody>
+      ${rows.map(x=>{
+        const i = INPUT_CATALOGUE.indexOf(x);
+        return `<tr${x.available===false?' style="opacity:.55;"':''}>
+          <td><strong>${esc(x.name)}</strong>${x.variant?`<div class="helper">${esc(x.variant)}</div>`:''}
+              ${x.specs.length?`<div class="helper">${x.specs.map(esc).join(' · ')}</div>`:''}</td>
+          <td>${esc(x.cat)}</td>
+          <td>${inputPriced(x) ? fmt(x.price)+' TZS' : `<span class="helper">${esc(priceText(x))}</span>`}</td>
+          <td>${x.available===false ? '<span class="helper">withdrawn</span>' : 'yes'}</td>
+          <td>
+            <button class="btn small ghost" onclick="editInput(${i})">Edit</button>
+            <button class="btn small ghost" onclick="toggleInput(${i})">${x.available===false?'Restore':'Withdraw'}</button>
+          </td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>
+      ${rows.length ? '' : '<p class="helper">Nothing matches that.</p>'}
+    </div>`;
+}
+
+function inputSearch(v){ state.inputSearch = v; renderKeepingPlace('input-search'); }
+function newInput(){ state.inputEdit = -1; render(); }
+function editInput(i){ state.inputEdit = i; render(); }
+function cancelInput(){ state.inputEdit = null; render(); }
+
+function inputForm(){
+  const isNew = state.inputEdit === -1;
+  const x = isNew ? inputRow({}) : INPUT_CATALOGUE[state.inputEdit];
+  if(!x) return '';
+  const cats = inputCategories();
+  return `<div class="card" style="border-color:var(--leaf-green);">
+    <strong>${isNew ? 'Add an input' : 'Edit ' + esc(inputLabel(x))}</strong>
+    <div class="grid2" style="margin-top:10px;">
+      <div><label class="f">Name</label><input id="in-name" value="${esc(x.name)}"></div>
+      <div><label class="f">Size or rating <span class="helper">optional</span></label><input id="in-variant" value="${esc(x.variant)}"></div>
+    </div>
+    <div class="grid2">
+      <div><label class="f">Category</label>
+        <input id="in-cat" list="in-cats" value="${esc(x.cat)}">
+        <datalist id="in-cats">${cats.map(cat=>`<option value="${esc(cat)}">`).join('')}</datalist></div>
+      <div><label class="f">Price (TZS) <span class="helper">leave blank for price on request</span></label>
+        <input id="in-price" type="number" min="0" step="1" value="${x.price==null?'':x.price}"></div>
+    </div>
+    <label class="f">Details <span class="helper">one per line</span></label>
+    <textarea id="in-specs" rows="3">${esc((x.specs||[]).join('\n'))}</textarea>
+    <div style="margin-top:8px;">
+      <button class="btn small" onclick="saveInput()">Save</button>
+      <button class="btn small ghost" onclick="cancelInput()">Cancel</button>
+      ${isNew ? '' : `<button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="deleteInput(${state.inputEdit})">Delete</button>`}
+    </div>
+    <p class="helper" id="in-error" style="color:var(--red);margin-top:8px;"></p>
+  </div>`;
+}
+
+function saveInput(){
+  const err = document.getElementById('in-error');
+  const name = document.getElementById('in-name').value.trim();
+  if(!name){ err.textContent = 'Name it.'; return; }
+  const priceRaw = document.getElementById('in-price').value;
+  const rec = {
+    cat: document.getElementById('in-cat').value.trim() || 'Other',
+    name, variant: document.getElementById('in-variant').value.trim(),
+    specs: document.getElementById('in-specs').value.split('\n').map(t=>t.trim()).filter(Boolean),
+    price: priceRaw === '' ? null : Number(priceRaw),
+    note: priceRaw === '' ? 'Price on request' : ''
+  };
+  const adding = state.inputEdit === -1;
+  if(adding) INPUT_CATALOGUE.unshift(inputRow(rec));
+  else INPUT_CATALOGUE[state.inputEdit] = inputRow(Object.assign({}, INPUT_CATALOGUE[state.inputEdit], rec));
+  state.inputEdit = null;
+  saveInputCatalogue();
+  logAction(`Operator ${state.adminName||''} ${adding ? 'added' : 'updated'} ${name} on the input list.`);
+  render();
+}
+
+/* Withdrawing rather than deleting: a request already sent points at this
+   row, and a deleted row would leave that request describing nothing. */
+function toggleInput(i){
+  const x = INPUT_CATALOGUE[i];
+  if(!x) return;
+  x.available = x.available === false;
+  saveInputCatalogue();
+  logAction(`Operator ${state.adminName||''} ${x.available ? 'restored' : 'withdrew'} ${inputLabel(x)}.`);
+  render();
+}
+
+function deleteInput(i){
+  const x = INPUT_CATALOGUE[i];
+  if(!x) return;
+  INPUT_CATALOGUE.splice(i, 1);
+  state.inputEdit = null;
+  saveInputCatalogue();
+  logAction(`Operator ${state.adminName||''} removed ${inputLabel(x)} from the input list.`);
+  render();
+}
+
+function restoreInputList(){
+  INPUT_CATALOGUE = seedInputCatalogue();
+  saveInputCatalogue();
+  state.orderMsg = `The price list is back — ${INPUT_CATALOGUE.length} items, and every member sees them.`;
+  render();
 }
 
 /* ============================================================
@@ -9669,6 +10414,7 @@ function removeAdmin(i){
 loadSettings();
 loadMembers();
 loadCatalogue();
+loadInputCatalogue();
 render();
 // Safe to touch `state` from here on.
 cloudPushHook = function(){
