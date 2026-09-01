@@ -59,6 +59,12 @@ rules_version = '2';
  *   advisoryCases/{id}   a question from one farm, and the answers to it.
  *   knowledge/{id}       an answer worth keeping, read by every member.
  *
+ *   settings/inputCatalogue  what a member may buy, and at what price. The
+ *                        Secretariat's to keep; every member reads it.
+ *   inputRequests/{id}   a basket a member has sent, and the reply to it.
+ *   inputSuggestions/{id}  something not stocked that a member wants, and
+ *                        the other farms backing them.
+ *
  * The rule throughout: a farm reads and writes only its own records; staff
  * read everything and may correct anything their role covers; nobody may
  * create an account without the matching code from the Secretariat; and no
@@ -282,6 +288,49 @@ service cloud.firestore {
                         && request.resource.data.pricePerKg == resource.data.pricePerKg
                         && request.resource.data.crop == resource.data.crop
                         && request.resource.data.status in ['Accepted','Declined']);
+      allow delete: if isOperator();
+    }
+
+    // ---- The input store ---------------------------------------------------
+    // The list a member buys from. The Secretariat keeps it; every signed-in
+    // member reads it, and a price is not something a member may set.
+    match /settings/inputCatalogue {
+      allow read:  if signedIn();
+      allow write: if isOperator();
+    }
+
+    // A basket a member has sent. Their own business and the Secretariat's,
+    // and nobody else's — what one farm spends is not the roll's to read.
+    match /inputRequests/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      // A member may withdraw or amend their own request, but the reply and
+      // the status belong to the Secretariat answering it.
+      allow update: if isOperator()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.get('reply','') == resource.data.get('reply','')
+                        && request.resource.data.get('status','') == resource.data.get('status',''));
+      allow delete: if isOperator();
+    }
+
+    // Something the association does not stock. Every member reads these and
+    // may back one — that is the whole point — so the list is open to members
+    // in a way requests are not.
+    match /inputSuggestions/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      // Anyone signed in may add or remove themselves from the backers, and
+      // whoever raised it may edit it. Only the Secretariat decides whether
+      // it gets stocked, so the status stays theirs.
+      allow update: if isOperator()
+                    || (signedIn()
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.get('name','') == resource.data.get('name','')
+                        && request.resource.data.get('status','') == resource.data.get('status',''))
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
       allow delete: if isOperator();
     }
 
