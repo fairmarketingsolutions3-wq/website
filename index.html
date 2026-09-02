@@ -1118,6 +1118,39 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
   .pg-stage-card{padding:12px 13px;}
   .btn{padding:11px 17px;}
   .helper{font-size:12px;}
+
+  /* A table becomes a list of rows. Each cell keeps the heading it sat
+     under, so a row reads top to bottom instead of left to right, and
+     there is nothing beside anything to be cut off by the screen edge. */
+  .table-scroll{overflow-x:visible;}
+  .table-scroll > .grid-table{min-width:0;}
+  .grid-table thead{position:absolute;width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;}   /* still read aloud, not drawn */
+  .grid-table, .grid-table tbody, .grid-table tr, .grid-table td{display:block;width:auto;}
+  .grid-table tr{
+    border:1px solid var(--line-soft);border-radius:var(--radius-sm);
+    padding:4px 12px;margin-bottom:9px;background:rgba(255,255,255,.62);
+  }
+  .grid-table tr:last-child{margin-bottom:0;}
+  .grid-table td{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+    padding:7px 0;border:none;border-bottom:1px solid var(--line-soft);
+    text-align:right;
+  }
+  .grid-table tr td:last-child{border-bottom:none;}
+  .grid-table td::before{
+    content:attr(data-label);
+    flex:0 0 42%;text-align:left;
+    font-size:10px;text-transform:uppercase;letter-spacing:.11em;
+    font-weight:700;color:var(--muted);padding-top:2px;
+  }
+  /* A cell with no heading of its own — a note, or a row of buttons —
+     takes the whole width rather than pretending to be a field. */
+  .grid-table td:not([data-label]){display:block;text-align:left;}
+  .grid-table td[data-span]{display:block;text-align:left;}
+  .grid-table td:empty{display:none;}
+  .grid-table tfoot td{display:flex;}
+  .pg-lines .pg-col-tick{width:auto;}
 }
 
 /* Narrower again. 360px is the commonest Android width in service and two
@@ -1135,8 +1168,14 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
   .content > h1.page-title::before{ animation:none !important; }
 }
 
-@media (max-width:760px){
+/* Between the phone and the laptop a table is still a table, and is given a
+   floor so its columns do not crush. Below 640px it is not a table at all —
+   it is a list of rows — so the floor would only push the values off the
+   side of the card, which is exactly what it was doing. */
+@media (min-width:641px) and (max-width:760px){
   .table-scroll > .grid-table{min-width:540px;}
+}
+@media (max-width:760px){
   /* Enough of a target to hit with a thumb, per WCAG 2.2 target size. */
   .chip, .btn.small{min-height:34px;display:inline-flex;align-items:center;justify-content:center;}
 }
@@ -2272,7 +2311,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v61';
+const BUILD = 'v62';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -5857,14 +5896,42 @@ function renderKeepingPlace(focusId){
 function makeTablesScrollable(root){
   root.querySelectorAll('table.grid-table').forEach(t=>{
     const p = t.parentElement;
-    if(!p || p.classList.contains('table-scroll')) return;
-    let style = null;
-    try{ style = getComputedStyle(p); }catch(e){ /* detached */ }
-    if(style && (style.overflowX === 'auto' || style.overflowX === 'scroll')) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'table-scroll';
-    p.insertBefore(wrap, t);
-    wrap.appendChild(t);
+    if(p && !p.classList.contains('table-scroll')){
+      let style = null;
+      try{ style = getComputedStyle(p); }catch(e){ /* detached */ }
+      if(!style || (style.overflowX !== 'auto' && style.overflowX !== 'scroll')){
+        const wrap = document.createElement('div');
+        wrap.className = 'table-scroll';
+        p.insertBefore(wrap, t);
+        wrap.appendChild(t);
+      }
+    }
+    labelTableCells(t);
+  });
+}
+
+/* On a phone a table stops being a table. Scrolling one sideways still means
+   half of it is off screen, and a member should not have to drag a column
+   into view to read what a row says — so below the tablet width every row
+   becomes its own block and every cell carries the heading it belonged to.
+   Nothing is cut off because nothing is beside anything.
+
+   The heading is copied onto the cell here rather than written into forty
+   template strings, so it holds for every table on the platform and for
+   every one written later. */
+function labelTableCells(t){
+  const heads = Array.from(t.querySelectorAll('thead th')).map(th=> th.textContent.trim());
+  if(!heads.length) return;
+  t.querySelectorAll('tbody tr').forEach(tr=>{
+    let col = 0;
+    Array.from(tr.children).forEach(cell=>{
+      const span = Number(cell.getAttribute('colspan')) || 1;
+      // A cell spanning the row is a note about the row, not a field in it.
+      if(span === 1 && heads[col] && !cell.hasAttribute('data-label'))
+        cell.setAttribute('data-label', heads[col]);
+      if(span > 1) cell.setAttribute('data-span', '1');
+      col += span;
+    });
   });
 }
 
