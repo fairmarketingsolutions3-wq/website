@@ -2209,7 +2209,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v59';
+const BUILD = 'v60';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -4032,12 +4032,20 @@ async function cloudSignIn(email, password){
    already holds the accounts themselves. */
 const SESSION_KEY = 'tipfa.session.v1';
 
+/* Is this a screen that role can actually open? A tab remembered from an
+   older build, or one a role has since lost, must not strand somebody on a
+   blank page. */
+function tabExists(role, key){
+  const list = role === 'member' ? MEMBER_TABS : ADMIN_TABS_ALL;
+  return list.some(t=> t[0] === key);
+}
+
 function rememberSession(){
   try{
     if(!state.loggedIn){ localStorage.removeItem(SESSION_KEY); return; }
     localStorage.setItem(SESSION_KEY, JSON.stringify({
       role: state.role, member: state.member, adminName: state.adminName,
-      cloud: !!cloudOn(), at: Date.now()
+      tab: state.tab, cloud: !!cloudOn(), at: Date.now()
     }));
   }catch(e){ /* the session simply will not be remembered */ }
 }
@@ -4051,10 +4059,18 @@ function enterSession(role, opts){
   state.loggedIn = true;
   state.role = role;
   state.rollRead = false;
-  // A member lands on what is waiting for them, not on a form. An operator
-  // lands on the association's figures.
-  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'today'; state.harvestPick = null; }
-  else { state.adminName = opts.adminName || 'TIPFA Secretariat operator'; state.tab = state.tab || 'dashboard'; }
+  /* A member lands on what is waiting for them, not on a form; an operator
+     on the association's figures. This used to read `state.tab || 'today'`,
+     and state.tab is 'profile' from the moment the page loads — so the
+     fallback never ran and everyone landed on the old screen.
+
+     Signing in always goes to the landing tab. Coming back to a browser
+     that was already signed in returns to the tab that was open, because
+     a refresh in the middle of a job should not lose the job. */
+  const landing = role === 'member' ? 'today' : 'dashboard';
+  if(role === 'member'){ state.member = opts.member; state.harvestPick = null; }
+  else { state.adminName = opts.adminName || 'TIPFA Secretariat operator'; }
+  state.tab = opts.resume && tabExists(role, opts.resume) ? opts.resume : landing;
   document.body.setAttribute('data-role', role);
   rememberSession();
 }
@@ -4083,7 +4099,7 @@ async function restoreSession(){
         CLOUD_STATE.role = 'farm';
         USER = null;                       // a farm holds no role
         await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory(); await cloudPullInputs();
-        enterSession('member', { member: user.uid });
+        enterSession('member', { member: user.uid, resume: saved.tab });
       } else {
         const op = await getDoc(doc(CLOUD.db, 'operators', user.uid));
         if(!op.exists()){ CLOUD_STATE.uid = null; forgetSession(); state.restoring = false; return false; }
@@ -4091,7 +4107,7 @@ async function restoreSession(){
         await loadUserRole(user.uid, { displayName:(op.data()||{}).name||user.email, email:user.email,
                                        role:'secretariat' });
         await cloudPullAll(); await cloudPullCatalogue(); await cloudPullSubmissions(); await cloudPullOrders(); await cloudPullTrace(); await cloudPullAdvisory(); await cloudPullInputs(); await cloudPullOperators();
-        enterSession('admin', { adminName: (op.data() || {}).name || user.email });
+        enterSession('admin', { adminName: (op.data() || {}).name || user.email, resume: saved.tab });
       }
       state.restoring = false;
       state.lastRefresh = Date.now();
@@ -4112,10 +4128,10 @@ async function restoreSession(){
   // is only restored if the account it names is still here.
   if(saved.cloud) return false;                 // it was a database session; do not fake one
   if(saved.role === 'member' && MEMBERS[saved.member]){
-    enterSession('member', { member: saved.member }); render(); return true;
+    enterSession('member', { member: saved.member, resume: saved.tab }); render(); return true;
   }
   if(saved.role === 'admin' && ADMINS.length){
-    enterSession('admin', { adminName: saved.adminName }); render(); return true;
+    enterSession('admin', { adminName: saved.adminName, resume: saved.tab }); render(); return true;
   }
   forgetSession();
   return false;
@@ -5559,7 +5575,9 @@ function switchTab(tab){
   if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
   if(tab === 'store' || tab === 'inputsA') state.inputsRead = false;
   if(tab === 'today') state.todayRead = false;
-  state.tab = tab; render();
+  state.tab = tab;
+  rememberSession();          // a refresh comes back to the screen you were on
+  render();
 }
 function selectMember(id){ state.member = id; render(); }
 function selectPeriod(p){ state.period = p; render(); }
