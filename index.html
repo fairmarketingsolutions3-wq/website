@@ -10,7 +10,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="firebase-config.js"></script>
 <style>
 /* ============================================================
@@ -540,6 +539,74 @@ table/* A table that cannot fit scrolls sideways inside its own card, rather tha
   outline:3px solid var(--leaf-green);
   outline-offset:2px;
   border-radius:var(--radius-sm);
+}
+
+/* ---------- Charts ---------- */
+.chart-wrap{width:100%;}
+.trend{width:100%;height:auto;display:block;overflow:visible;}
+.trend .gridline{stroke:rgba(35,40,31,.10);stroke-width:1;}
+.trend .axis{font-size:10px;fill:var(--muted);font-family:'Inter',sans-serif;}
+.trend .ink{fill:none;}
+.trend .series-plan{stroke:var(--tipfa-green);stroke-width:2;stroke-dasharray:7 5;opacity:.75;}
+.trend .series-actual{stroke:var(--leaf-green);stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;}
+.trend .dot{fill:var(--leaf-green);stroke:#fff;stroke-width:1.5;}
+/* The line draws itself in, once. */
+.trend .series-plan, .trend .series-actual{
+  stroke-dashoffset:0;
+  animation:drawLine 1.5s var(--ease-out) both;
+}
+.trend .series-actual{stroke-dasharray:1400;animation-name:drawSolid;}
+@keyframes drawSolid{ from{ stroke-dashoffset:1400; } to{ stroke-dashoffset:0; } }
+@keyframes drawLine{ from{ opacity:0; } to{ opacity:.75; } }
+.trend .dot{animation:fadeIn .5s var(--ease-out) 1.2s both;}
+.chart-key{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px;}
+.chart-key i{display:inline-block;width:22px;height:0;vertical-align:middle;margin-right:7px;}
+.chart-key i.k-plan{border-top:2px dashed var(--tipfa-green);}
+.chart-key i.k-actual{border-top:3px solid var(--leaf-green);}
+.chart-key em{font-style:normal;opacity:.7;}
+
+.trend.bars rect{transform-box:fill-box;transform-origin:50% 100%;
+  animation:barRise .8s var(--ease-spring) both;}
+.trend.bars .bar-a{animation-delay:.12s;}
+@keyframes barRise{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
+.chart-key i.k-hatch{border-top:8px solid var(--tipfa-green);opacity:.5;height:0;}
+.chart-key i.k-solid{border-top:8px solid var(--leaf-green);height:0;}
+
+.donut-wrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap;}
+.donut{width:170px;height:170px;flex:0 0 auto;transform:rotate(-90deg);}
+.donut-track{fill:none;stroke:rgba(35,40,31,.07);}
+.donut .slice{fill:none;stroke-linecap:butt;
+  animation:sliceIn .9s var(--ease-out) both;}
+@keyframes sliceIn{ from{ opacity:0; stroke-width:6; } to{ opacity:1; } }
+.donut-key{list-style:none;margin:0;padding:0;flex:1;min-width:200px;}
+.donut-key li{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px;
+  border-bottom:1px solid var(--line-soft);}
+.donut-key li:last-child{border-bottom:none;}
+.donut-key i{width:11px;height:11px;border-radius:3px;flex:0 0 auto;}
+.donut-key span{flex:1;}
+.donut-key strong{font-variant-numeric:tabular-nums;}
+.donut-key em{font-style:normal;color:var(--muted);min-width:38px;text-align:right;
+  font-variant-numeric:tabular-nums;}
+
+@media (prefers-reduced-motion: reduce){
+  .trend.bars rect, .donut .slice{animation:none;transform:none;opacity:1;}
+}
+
+.ring{text-align:center;}
+.ring svg{width:100%;max-width:118px;height:auto;transform:rotate(-90deg);}
+.ring-track{fill:none;stroke:rgba(35,40,31,.09);stroke-width:9;}
+.ring-fill{fill:none;stroke-width:9;stroke-linecap:round;
+  animation:ringFill 1.3s var(--ease-out) .15s forwards;}
+@keyframes ringFill{ to{ stroke-dashoffset:var(--ring-to); } }
+.ring-mid{margin-top:-72px;margin-bottom:34px;font-family:'Poppins',sans-serif;
+  font-size:21px;font-weight:700;color:var(--deep-green);}
+.ring-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;
+  color:var(--muted);font-weight:600;}
+
+@media (prefers-reduced-motion: reduce){
+  .trend .series-plan, .trend .series-actual, .trend .dot{animation:none;stroke-dashoffset:0;opacity:1;}
+  .trend .series-plan{opacity:.75;}
+  .ring-fill{animation:none;stroke-dashoffset:var(--ring-to);}
 }
 
 .grid-table{width:100%;border-collapse:collapse;font-size:13px;}
@@ -1957,7 +2024,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v55';
+const BUILD = 'v56';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -6854,18 +6921,10 @@ function addMarketStandard(){
 // ---- Market prices: buyer prices + weekly/monthly/annual trend ----
 // Charts inherit the identity: Inter for labels, Tipfa Green as the primary
 // series, Harvest Orange rationed to a single highlighted series (p14).
-const CHART_INK = '#23281F', CHART_GRID = '#E4E2D4';
-if(window.Chart){
-  Chart.defaults.font.family = "'Inter', sans-serif";
-  Chart.defaults.font.size = 11;
-  Chart.defaults.color = '#6E7466';
-  Chart.defaults.animation.duration = REDUCED_MOTION ? 0 : 900;
-  Chart.defaults.animation.easing = 'easeOutQuart';
-  Chart.defaults.plugins.tooltip.backgroundColor = '#2C4423';
-  Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.plugins.tooltip.cornerRadius = 8;
-  Chart.defaults.plugins.tooltip.titleFont = {family:"'Poppins', sans-serif", weight:'600'};
-}
+// Every chart is now inline SVG. The library that used to draw them was
+// 200KB fetched from a CDN to plot twelve points — the heaviest thing on the
+// page, and a blank panel whenever that CDN was slow or unreachable, which
+// over a Tanzanian mobile connection it often is.
 const CHART_SERIES = ['#405E35','#E8A734','#7E9B3F','#2C4423','#A85C3F','#8C9A6B'];
 
 function selectPriceCrop(crop){ state.priceCrop = crop; render(); }
@@ -6962,13 +7021,15 @@ function renderMarketPrices(c){
 
     <div class="section-label">Price movement — ${esc(crop)}, ${year}</div>
     <div class="card">
-      ${withData.length ? '<div style="position:relative;height:210px;"><canvas id="priceYearChart"></canvas></div>'
+      ${withData.length
+        ? priceTrend(esc(crop) + ' average price through ' + year, MONTHS.map(x=>x.slice(0,3)), priceByMonth(m, crop, year))
         : '<p class="helper" style="text-align:center;padding:22px 0;">Log a price above and the movement across the year is charted here.</p>'}
     </div>
 
     <div class="section-label">Week by week — ${MONTHS[month-1]} ${year}</div>
     <div class="card">
-      ${priceByWeek(m, crop, year, month).some(v=>v!=null) ? '<div style="position:relative;height:170px;"><canvas id="priceWeekChart"></canvas></div>'
+      ${priceByWeek(m, crop, year, month).some(v=>v!=null)
+        ? priceTrend('Week by week', [1,2,3,4].map(w=>'Week '+w), priceByWeek(m, crop, year, month))
         : '<p class="helper" style="text-align:center;padding:22px 0;">No prices logged in this month yet.</p>'}
     </div>
 
@@ -6979,8 +7040,6 @@ function renderMarketPrices(c){
       </div>
       <p class="helper" style="margin-top:10px;">${forCrop.length} price${forCrop.length===1?'':'s'} logged for ${esc(crop)} across all years.</p>
     </div>`;
-  drawPriceYearChart(m, crop, year);
-  drawPriceWeekChart(m, crop, year, month);
 }
 
 function setPricePeriod(y, mo, w){
@@ -7006,34 +7065,6 @@ function exportMarketPricesMember(){
   logAction(`${m.name} downloaded their market price table.`);
 }
 
-let priceYearChartRef = null, priceWeekChartRef = null;
-function drawPriceYearChart(m, crop, year){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('priceYearChart'); if(!ctx) return;
-  if(priceYearChartRef) priceYearChartRef.destroy();
-  priceYearChartRef = new Chart(ctx, {
-    type:'line',
-    data:{ labels:MONTHS.map(x=>x.slice(0,3)), datasets:[{
-      label:`${crop} average price (TZS/kg)`, data:priceByMonth(m, crop, year),
-      borderColor:'#405E35', backgroundColor:'rgba(64,94,53,0.14)', fill:true, tension:0.3,
-      pointBackgroundColor:'#E8A734', pointBorderColor:'#405E35', pointRadius:4, spanGaps:true }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } },
-               x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
-}
-function drawPriceWeekChart(m, crop, year, month){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('priceWeekChart'); if(!ctx) return;
-  if(priceWeekChartRef) priceWeekChartRef.destroy();
-  priceWeekChartRef = new Chart(ctx, {
-    type:'bar',
-    data:{ labels:['Week 1','Week 2','Week 3','Week 4'], datasets:[{
-      label:'Average price (TZS/kg)', data:priceByWeek(m, crop, year, month),
-      backgroundColor:'#7E9B3F', borderRadius:6, maxBarThickness:44 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } },
-               x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
-}
 function addMarketPrice(){
   const buyer = document.getElementById('price-buyer').value.trim();
   const price = Number(document.getElementById('price-value').value)||0;
@@ -7785,8 +7816,10 @@ function renderReportsMember(c){
     <div class="card"><strong>Print or save this page as PDF</strong><p class="helper">Opens your browser's print dialog — choose "Save as PDF" as the destination.</p>
       <button class="btn small gold" onclick="window.print()">Print / Save as PDF</button></div>
     <div class="section-label">Farm progress — weeks in ${MONTHS[state.selMonth-1]} ${state.selYear}</div>
-    <div class="card"><div style="position:relative;height:170px;"><canvas id="memberTrend"></canvas></div></div>`;
-  drawMemberTrendChart();
+    <div class="card">${barChart(
+      [1,2,3,4].map(w=>'Week '+w),
+      [1,2,3,4].map(w=> weekTotal(state.member, 'plan', state.selYear, state.selMonth, w)),
+      [1,2,3,4].map(w=> weekTotal(state.member, 'actual', state.selYear, state.selMonth, w)))}</div>`;
 }
 
 function exportHarvestPlanReport(id){
@@ -10135,16 +10168,68 @@ function saveBulk(){
   setTimeout(()=>{ const el=document.getElementById('bulk-msg'); if(el) el.textContent=''; },3000);
 }
 
+/* A crop's figure for a month. The plan grid is keyed by profile id and so
+   are the entries, but the association counts by crop name — two profiles of
+   the same crop are one crop to a buyer — so the profile ids are resolved
+   back to names here rather than at a dozen call sites. */
+function profileCropName(id, key){
+  const m = MEMBERS[id];
+  const cr = m && (m.crops || []).find(x=> x.id === key);
+  if(cr) return (cr.crop || '').trim();
+  // an entry kept against a crop the farm has since removed
+  const e = harvestEntries(id).find(x=> x.profileId === key);
+  return e ? (e.crop || '').trim() : String(key || '').trim();
+}
 function memberMonthCropTotal(id, kind, year, month, crop){
   if(!harvest[id]) return 0;
-  let t=0; for(let w=1; w<=4; w++){
-    const wk = harvestWeek(id, kind, year, month, w);
-    t += (wk && wk[crop]) || 0;
+  let t = 0;
+  for(let w = 1; w <= 4; w++){
+    const wk = harvestWeekAny(id, kind, year, month, w);
+    if(!wk) continue;
+    Object.keys(wk).forEach(key=>{
+      if(profileCropName(id, key) === crop) t += Number(wk[key]) || 0;
+    });
   }
   return t;
 }
+/* ---- Actual harvest comes from the dated entries -----------------------
+   The plan is still a grid of weeks. Actual is not: reworking the harvest
+   screens moved it to dated entries against a crop profile, and nothing has
+   written the old actual grid since. Every association-wide figure kept
+   reading that grid, so the Central dashboard, the reports and growth
+   planning have been showing nought actual for every farm — the figures
+   were there the whole time, in a shape nobody was reading.
+
+   Derive it instead. One pass over a farm's entries, bucketed the same way
+   the plan is: year, month, and the week of that month the date falls in. */
+function actualBuckets(id, year){
+  const out = {};
+  harvestEntries(id).forEach(e=>{
+    if(!e.date) return;
+    const d = new Date(e.date + 'T00:00:00');
+    if(isNaN(d) || d.getFullYear() !== Number(year)) return;
+    const mo = d.getMonth() + 1, wk = weekOfMonth(d);
+    const key = e.profileId || e.crop || 'unknown';
+    ((out[mo] = out[mo] || {})[wk] = out[mo][wk] || {});
+    out[mo][wk][key] = (out[mo][wk][key] || 0) + toKg(e.amount, e.unit || 'kg');
+  });
+  return out;
+}
+function actualWeek(id, year, month, week){
+  const b = actualBuckets(id, year);
+  return (b[month] && b[month][week]) || null;
+}
+
+/* The one place the two shapes are reconciled. Everything association-wide
+   goes through here, so neither the plan grid nor the entries needs to know
+   the other exists. */
+function harvestWeekAny(id, kind, year, month, week){
+  return kind === 'actual' ? actualWeek(id, year, month, week)
+                           : harvestWeek(id, kind, year, month, week);
+}
+
 function weekTotal(id, kind, year, month, week){
-  const wk = harvestWeek(id, kind, year, month, week);
+  const wk = harvestWeekAny(id, kind, year, month, week);
   if(!wk) return 0;
   return Object.keys(wk).reduce((t,cr)=> t + (Number(wk[cr])||0), 0);
 }
@@ -10168,11 +10253,176 @@ function coopCapacityByCrop(kind, year, month){
 }
 function coopWeekByCrop(kind, year, month, week){
   return activeCrops().map(cr=>{ let t=0; activeMembers().forEach(id=>{
-    const wk = harvestWeek(id, kind, year, month, week);
-    t += (wk && wk[cr]) || 0;
+    const wk = harvestWeekAny(id, kind, year, month, week);
+    if(!wk) return;
+    Object.keys(wk).forEach(key=>{
+      if(profileCropName(id, key) === cr) t += Number(wk[key]) || 0;
+    });
   }); return t; });
 }
 function pct(actual, plan){ return plan>0 ? Math.round(actual/plan*100) : (actual>0 ? 100 : 0); }
+
+/* ============================================================
+   Charts
+
+   Drawn as inline SVG. No library: a charting bundle is 60-200KB
+   over a Tanzanian mobile connection to draw twelve points, and it
+   would be the heaviest thing on the page by a wide margin.
+
+   Plan is a dashed line, actual is solid and filled. That is
+   deliberate — a reader who cannot separate the two greens still
+   has the line style, and colour is never the only thing carrying
+   the meaning. Every chart is followed by the same numbers as text.
+   ============================================================ */
+function niceCeil(n){
+  if(n <= 0) return 10;
+  const mag = Math.pow(10, Math.floor(Math.log10(n)));
+  return Math.ceil(n / mag) * mag;
+}
+
+function trendChart(title, labels, plan, actual){
+  const W = 720, H = 240, padL = 52, padR = 14, padT = 16, padB = 30;
+  const max = niceCeil(Math.max(1, ...plan, ...actual));
+  const n = Math.max(labels.length, 2);
+  const x = i => padL + (i * (W - padL - padR)) / (n - 1);
+  const y = v => padT + (H - padT - padB) * (1 - (v / max));
+  const line = arr => arr.map((v,i)=> `${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const area = arr => `${line(arr)} L${x(arr.length-1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const ticks = [0, .25, .5, .75, 1].map(f=> Math.round(max * f));
+
+  return `<div class="chart-wrap">
+    <svg class="trend" viewBox="0 0 ${W} ${H}" role="img"
+         aria-label="${esc(title)}. Planned against actual harvest, in kilograms, by month.">
+      <defs>
+        <linearGradient id="fillActual" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--leaf-green)" stop-opacity=".42"/>
+          <stop offset="100%" stop-color="var(--leaf-green)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${ticks.map(t=>`<g>
+        <line x1="${padL}" x2="${W-padR}" y1="${y(t)}" y2="${y(t)}" class="gridline"/>
+        <text x="${padL-8}" y="${y(t)+4}" class="axis" text-anchor="end">${fmt(t)}</text>
+      </g>`).join('')}
+      ${labels.map((l,i)=> i % Math.ceil(n/6) ? '' :
+        `<text x="${x(i)}" y="${H-9}" class="axis" text-anchor="middle">${esc(l)}</text>`).join('')}
+      <path d="${area(actual)}" fill="url(#fillActual)" class="ink"/>
+      <path d="${line(plan)}"   class="ink series-plan"/>
+      <path d="${line(actual)}" class="ink series-actual"/>
+      ${actual.map((v,i)=> `<circle cx="${x(i)}" cy="${y(v)}" r="3.2" class="dot ink"><title>${esc(labels[i])}: ${fmt(v)} kg actual</title></circle>`).join('')}
+    </svg>
+    <div class="chart-key">
+      <span><i class="k-plan"></i>Planned <em>dashed</em></span>
+      <span><i class="k-actual"></i>Actual <em>solid</em></span>
+    </div>
+  </div>`;
+}
+
+/* One series, for prices — there is no plan to compare a market price to,
+   so drawing a flat zero line beside it would be a lie about the data. */
+function priceTrend(title, labels, values){
+  const clean = labels.map((_,i)=> Number(values[i]) || 0);
+  return trendChart(title, labels, clean, clean).replace(
+    /<path d="[^"]*" class="ink series-plan"><\/path>|<path d="[^"]*" class="ink series-plan"\/>/, '')
+    .replace('<span><i class="k-plan"></i>Planned <em>dashed</em></span>', '');
+}
+
+/* Grouped bars — planned beside actual, week by week. Actual is solid,
+   planned is hatched, so the pair reads without relying on the two greens
+   being told apart. */
+function barChart(labels, planned, actual){
+  const W = 720, H = 210, padL = 52, padR = 12, padT = 14, padB = 28;
+  const max = niceCeil(Math.max(1, ...planned, ...actual));
+  const n = Math.max(labels.length, 1);
+  const band = (W - padL - padR) / n;
+  const bw = Math.min(26, band * 0.30);
+  const y = v => padT + (H - padT - padB) * (1 - v / max);
+  const h = v => (H - padT - padB) * (v / max);
+  const ticks = [0, .5, 1].map(f=> Math.round(max * f));
+  return `<div class="chart-wrap">
+    <svg class="trend bars" viewBox="0 0 ${W} ${H}" role="img"
+         aria-label="Planned against actual harvest in kilograms, by week.">
+      <defs>
+        <pattern id="hatchPlan" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="6" height="6" fill="rgba(64,94,53,.14)"/>
+          <line x1="0" y1="0" x2="0" y2="6" stroke="var(--tipfa-green)" stroke-width="2.4"/>
+        </pattern>
+      </defs>
+      ${ticks.map(t=>`<g>
+        <line x1="${padL}" x2="${W-padR}" y1="${y(t)}" y2="${y(t)}" class="gridline"/>
+        <text x="${padL-8}" y="${y(t)+4}" class="axis" text-anchor="end">${fmt(t)}</text></g>`).join('')}
+      ${labels.map((l,i)=>{
+        const cx = padL + band*i + band/2;
+        return `<g>
+          <rect x="${cx - bw - 3}" y="${y(planned[i]||0)}" width="${bw}" height="${h(planned[i]||0)}"
+                rx="4" fill="url(#hatchPlan)" class="bar-p" style="--bh:${h(planned[i]||0)}px;">
+            <title>${esc(l)}: ${fmt(planned[i]||0)} kg planned</title></rect>
+          <rect x="${cx + 3}" y="${y(actual[i]||0)}" width="${bw}" height="${h(actual[i]||0)}"
+                rx="4" fill="var(--leaf-green)" class="bar-a" style="--bh:${h(actual[i]||0)}px;">
+            <title>${esc(l)}: ${fmt(actual[i]||0)} kg actual</title></rect>
+          <text x="${cx}" y="${H-8}" class="axis" text-anchor="middle">${esc(l)}</text>
+        </g>`;
+      }).join('')}
+    </svg>
+    <div class="chart-key">
+      <span><i class="k-hatch"></i>Planned <em>hatched</em></span>
+      <span><i class="k-solid"></i>Actual <em>solid</em></span>
+    </div>
+  </div>`;
+}
+
+/* A donut for the share of the month's harvest by crop. Each slice is
+   labelled with its own name and figure beside the ring, so nobody has to
+   match a colour to a legend. */
+function donutChart(labels, values){
+  const total = values.reduce((a,b)=> a + (Number(b)||0), 0);
+  if(!total) return '<p class="helper">Nothing harvested in this month yet.</p>';
+  const r = 62, sw = 26, C = 2*Math.PI*r;
+  let acc = 0;
+  const slices = values.map((v,i)=>{
+    const frac = (Number(v)||0) / total;
+    const seg = `<circle cx="80" cy="80" r="${r}" class="slice"
+      style="stroke:${CHART_SERIES[i % CHART_SERIES.length]};
+             stroke-dasharray:${(C*frac).toFixed(2)} ${(C*(1-frac)).toFixed(2)};
+             stroke-dashoffset:${(-C*acc).toFixed(2)};
+             animation-delay:${(i*0.09).toFixed(2)}s;">
+      <title>${esc(labels[i])}: ${fmt(Math.round(v))} kg, ${Math.round(frac*100)}%</title></circle>`;
+    acc += frac;
+    return seg;
+  }).join('');
+  return `<div class="donut-wrap">
+    <svg viewBox="0 0 160 160" class="donut" role="img"
+         aria-label="Share of this month's harvest by crop.">
+      <circle cx="80" cy="80" r="${r}" class="donut-track" style="stroke-width:${sw};"/>
+      <g style="stroke-width:${sw};">${slices}</g>
+    </svg>
+    <ul class="donut-key">
+      ${labels.map((l,i)=>`<li>
+        <i style="background:${CHART_SERIES[i % CHART_SERIES.length]};"></i>
+        <span>${esc(l)}</span>
+        <strong>${fmt(Math.round(values[i]||0))} kg</strong>
+        <em>${Math.round(((values[i]||0)/total)*100)}%</em>
+      </li>`).join('')}
+    </ul>
+  </div>`;
+}
+
+/* A ring that fills to the figure. The number is inside it and is the
+   thing that matters; the ring is how far round it went. */
+function ringGauge(label, value, suffix){
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  const r = 42, C = 2 * Math.PI * r;
+  const tone = v >= 95 ? 'var(--leaf)' : (v >= 70 ? 'var(--gold)' : 'var(--red)');
+  return `<div class="ring" role="img" aria-label="${esc(label)}: ${v}${esc(suffix||'')}">
+    <svg viewBox="0 0 110 110">
+      <circle cx="55" cy="55" r="${r}" class="ring-track"/>
+      <circle cx="55" cy="55" r="${r}" class="ring-fill"
+        style="stroke:${tone};stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${C.toFixed(1)};
+               --ring-to:${(C * (1 - v/100)).toFixed(1)};"/>
+    </svg>
+    <div class="ring-mid"><strong data-count="${v}" data-suffix="${esc(suffix||'')}">0</strong></div>
+    <div class="ring-lbl">${esc(label)}</div>
+  </div>`;
+}
 
 function comparisonBar(label, plan, actual){
   const p = pct(actual, plan);
@@ -10211,7 +10461,6 @@ function monthWeekChips(opts){
   return months + weeks;
 }
 
-let capacityChartRef=null, trendChartRef=null, memberChartRef=null;
 
 function renderDashboard(c){
   const month = state.selMonth, week = state.selWeek;
@@ -10258,51 +10507,27 @@ function renderDashboard(c){
       </div>
       ${comparisonBar('Year-to-date performance', yearPlan, yearActual)}
     </div>
+    <div class="section-label">Against plan</div>
+    <div class="card"><div class="grid3">
+      ${ringGauge('This week', pct(weekActual, weekPlan), '%')}
+      ${ringGauge(MONTHS[month-1], pct(monthActual, monthPlan), '%')}
+      ${ringGauge('Year to date', pct(yearActual, yearPlan), '%')}
+    </div></div>
     <div class="section-label">Capacity by crop (${MONTHS[month-1]}, actual)</div>
-    <div class="card"><div style="position:relative;height:200px;"><canvas id="capacityChart"></canvas></div></div>
-    <div class="section-label">Weeks in ${MONTHS[month-1]}: plan vs. actual</div>
-    <div class="card"><div style="position:relative;height:170px;"><canvas id="trendChart"></canvas></div></div>
+    <div class="card">${donutChart(activeCrops(), coopCapacityByCrop('actual', year, month))}</div>
+    <div class="section-label">Weeks in ${MONTHS[month-1]}: plan against actual</div>
+    <div class="card">${barChart(
+      [1,2,3,4].map(w=>'Week '+w),
+      [1,2,3,4].map(w=> coopWeekTotal('plan', year, month, w)),
+      [1,2,3,4].map(w=> coopWeekTotal('actual', year, month, w)))}</div>
+    <div class="section-label">The year, month by month</div>
+    <div class="card">${trendChart('Association harvest through ' + year,
+      MONTHS.map(x=> x.slice(0,3)),
+      MONTHS.map((_,i)=> coopMonthTotal('plan', year, i+1)),
+      MONTHS.map((_,i)=> coopMonthTotal('actual', year, i+1)))}</div>
     <p class="helper">Figures update automatically whenever a member saves an entry or an operator saves a bulk update.</p>`;
-  drawCapacityChart(); drawTrendChart();
 }
 
-function drawCapacityChart(){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('capacityChart'); if(!ctx) return;
-  if(capacityChartRef) capacityChartRef.destroy();
-  capacityChartRef = new Chart(ctx, { type:'doughnut', data:{ labels:activeCrops(), datasets:[{ data:coopCapacityByCrop('actual', state.selYear, state.selMonth), backgroundColor:CHART_SERIES, borderColor:'#FFFFFF', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ family:'IBM Plex Sans', size:10.5 }, color:'#23301E' } } } } });
-}
-function drawTrendChart(){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('trendChart'); if(!ctx) return;
-  if(trendChartRef) trendChartRef.destroy();
-  const month = state.selMonth;
-  const planWeeks = [1,2,3,4].map(w=>coopWeekTotal('plan',state.selYear,month,w));
-  const actualWeeks = [1,2,3,4].map(w=>coopWeekTotal('actual',state.selYear,month,w));
-  trendChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
-    datasets:[
-      { label:'Plan', data:planWeeks, backgroundColor:'#D9D7C6', borderRadius:6, maxBarThickness:26 },
-      { label:'Actual', data:actualWeeks, backgroundColor:'#405E35', borderRadius:6, maxBarThickness:26 }
-    ] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 }, color:'#6B7263' } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, color:'#6B7263' } } } } });
-}
-function drawMemberTrendChart(){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('memberTrend'); if(!ctx) return;
-  if(memberChartRef) memberChartRef.destroy();
-  const m = state.member, month = state.selMonth;
-  const planWeeks = [1,2,3,4].map(w=> weekTotal(m,'plan',state.selYear,month,w));
-  const actualWeeks = [1,2,3,4].map(w=> weekTotal(m,'actual',state.selYear,month,w));
-  memberChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
-    datasets:[
-      { label:'Plan', data:planWeeks, backgroundColor:'#D9D7C6', borderRadius:6, maxBarThickness:26 },
-      { label:'Actual', data:actualWeeks, backgroundColor:'#7E9B3F', borderRadius:6, maxBarThickness:26 }
-    ] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:9.5 } } } } } });
-}
 
 // What active farms have listed across their calendars, by product.
 function coopInputNeeds(){
