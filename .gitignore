@@ -1,0 +1,3 @@
+# Python bytecode from the .claude skill scripts
+__pycache__/
+*.py[cod]
