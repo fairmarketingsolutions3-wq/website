@@ -609,6 +609,58 @@ table/* A table that cannot fit scrolls sideways inside its own card, rather tha
   .ring-fill{animation:none;stroke-dashoffset:var(--ring-to);}
 }
 
+/* ---------- The generated programme ---------- */
+.prog-summary{display:flex;gap:26px;flex-wrap:wrap;padding:14px 0 4px;border-bottom:1px solid var(--line-soft);margin-bottom:16px;}
+.prog-summary div{display:flex;flex-direction:column;}
+.prog-summary strong{font-family:'Poppins',sans-serif;font-size:22px;color:var(--deep-green);line-height:1.1;}
+.prog-summary span{font-size:10.5px;text-transform:uppercase;letter-spacing:.13em;color:var(--muted);font-weight:600;margin-top:2px;}
+
+.pg-stages{display:grid;gap:14px;}
+.pg-stage-card{
+  border:1px solid var(--line-soft);border-left:4px solid var(--tipfa-green);
+  border-radius:var(--radius);padding:14px 16px;background:rgba(255,255,255,.7);
+  animation:riseIn var(--dur-3) var(--ease-out) both;
+}
+.pg-stage-card:nth-child(2){animation-delay:.06s;}
+.pg-stage-card:nth-child(3){animation-delay:.12s;}
+.pg-stage-card:nth-child(4){animation-delay:.18s;}
+.pg-transplanting{border-left-color:var(--deep-green);}
+.pg-vegetative{border-left-color:var(--leaf-green);}
+.pg-flowering{border-left-color:var(--harvest-orange);}
+.pg-harvesting{border-left-color:var(--tipfa-green);}
+.pg-stage-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;
+  padding-bottom:10px;border-bottom:1px solid var(--line-soft);margin-bottom:10px;}
+.pg-stage-head h4{margin:0;font-family:'Poppins',sans-serif;font-size:15px;color:var(--deep-green);}
+.pg-when{margin:3px 0 0;font-size:12px;color:var(--muted);}
+.pg-week{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:99px;
+  background:var(--field-cream);font-size:11px;}
+.pg-stage-tally{text-align:right;line-height:1.15;}
+.pg-stage-tally strong{font-family:'Poppins',sans-serif;font-size:18px;color:var(--deep-green);display:block;}
+.pg-stage-tally span{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:600;}
+.pg-stage-tally .pg-none{font-size:11.5px;text-transform:none;letter-spacing:0;font-weight:400;}
+.pg-group + .pg-group{margin-top:12px;}
+.pg-group-name{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;
+  color:var(--tipfa-green);font-weight:700;margin-bottom:5px;}
+.pg-lines{font-size:12.5px;}
+.pg-lines th{font-size:9.5px;}
+.pg-col-tick{width:56px;text-align:center;}
+.pg-rate{white-space:nowrap;font-variant-numeric:tabular-nums;}
+.pg-tick{color:var(--leaf-green);font-weight:700;}
+.pg-untick{color:var(--line);font-weight:700;}
+.pg-applied td{background:rgba(126,155,63,.07);}
+.pg-empty{margin:4px 0 0;}
+.pg-note{margin:12px 0 0;padding:9px 12px;background:var(--field-cream);
+  border-radius:var(--radius-sm);font-size:12.5px;line-height:1.55;}
+.pg-note span{display:block;font-size:9.5px;text-transform:uppercase;letter-spacing:.14em;
+  color:var(--muted);font-weight:700;margin-bottom:3px;}
+.pg-edit{border:none;background:none;color:var(--tipfa-green);font-size:11.5px;
+  font-weight:600;cursor:pointer;padding:2px 4px;text-decoration:underline;}
+
+@media print{
+  .pg-stage-card{break-inside:avoid;background:#fff;}
+}
+@media (prefers-reduced-motion: reduce){ .pg-stage-card{animation:none;} }
+
 .grid-table{width:100%;border-collapse:collapse;font-size:13px;}
 table.grid-table th{
   background:var(--tipfa-green);color:var(--field-cream);text-align:left;padding:10px 12px;font-size:10px;
@@ -2024,7 +2076,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v56';
+const BUILD = 'v57';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -6543,45 +6595,78 @@ function categoryLines(cr, stage, key){
 }
 function protectionLines(cr, stage){ return categoryLines(cr, stage, 'Pesticides'); }
 function fungicideLines(cr, stage){ return categoryLines(cr, stage, 'Fungicides'); }
+/* ============================================================
+   The generated programme
+
+   It was one table eleven columns wide: crop stage, timing, the
+   fertilizer, its composition, dose, method, the pesticides, their
+   unit, the fungicides, their unit, and a comment. Every cell wrapped
+   to four or five lines, a stage with one fertilizer and nothing else
+   left a rowspan of empty space taller than the row it belonged to,
+   and on a phone it was unreadable. It was a spreadsheet printed on a
+   screen.
+
+   A season has four stages. So it is four cards — each one its own
+   window of dates, what goes on in it, and what has actually been
+   applied. That reads on a phone, prints as a document, and a farm
+   can hand one stage to whoever is doing the spraying this week.
+   ============================================================ */
+function progStageCard(m, cr, stage, timing, readOnly){
+  const p = ensureProgramme(cr);
+  const t = timing[stage] || {};
+  const groups = [
+    ['Fertilizers', 'Fertilizer'],
+    ['Pesticides',  'Pest and disease control'],
+    ['Fungicides',  'Fungicides']
+  ];
+  const total = CATEGORY_KEYS.reduce((n,k)=> n + ((p[stage][k]||[]).length), 0);
+  const done  = CATEGORY_KEYS.reduce((n,k)=> n + ((p[stage][k]||[]).filter(x=>x.done).length), 0);
+  const comment = stageComment(cr, stage);
+
+  const rows = groups.map(([key, label])=>{
+    const list = p[stage][key] || [];
+    if(!list.length) return '';
+    return `<div class="pg-group">
+      <div class="pg-group-name">${esc(label)}</div>
+      <table class="grid-table pg-lines"><thead><tr>
+        <th class="pg-col-tick">Applied</th><th>Product</th><th>${key==='Fertilizers'?'Composition':'Target'}</th>
+        <th>Rate</th><th>Method</th>${readOnly?'':'<th></th>'}
+      </tr></thead><tbody>
+      ${list.map((x,i)=>`<tr class="${x.done?'pg-applied':''}">
+        <td class="pg-col-tick">${x.done ? '<span class="pg-tick" title="Applied">✓</span>' : '<span class="pg-untick" title="Not yet applied">·</span>'}</td>
+        <td><strong>${esc(x.product||'—')}</strong></td>
+        <td>${esc((key==='Fertilizers' ? x.composition : x.target) || '—')}</td>
+        <td class="pg-rate">${esc(x.dose||'—')}${x.unit?` ${esc(x.unit)}`:''}</td>
+        <td>${esc(x.method||'—')}</td>
+        ${readOnly?'':`<td><button class="pg-edit" onclick="editFromProgramme('${esc(stage)}','${esc(key)}',${i})">Edit</button></td>`}
+      </tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }).join('');
+
+  return `<section class="pg-stage-card pg-${stage.toLowerCase()}">
+    <header class="pg-stage-head">
+      <div>
+        <h4>${esc(stage)}</h4>
+        <p class="pg-when">${t.dates ? esc(t.dates) : 'Dates not set — add a transplanting and harvest date on the Profile tab'}
+          ${t.label ? `<span class="pg-week">${esc(t.label)}</span>` : ''}</p>
+      </div>
+      <div class="pg-stage-tally">
+        ${total ? `<strong>${done}/${total}</strong><span>applied</span>` : '<span class="pg-none">nothing recorded</span>'}
+      </div>
+    </header>
+    ${rows || '<p class="helper pg-empty">No products recorded for this stage yet.</p>'}
+    ${comment ? `<p class="pg-note"><span>Note</span>${esc(comment)}</p>` : ''}
+  </section>`;
+}
+
 function generatedProgramme(m, cr, timing, readOnly){
   const p = ensureProgramme(cr);
-  let fertCount = 0, body = '';
-  CROP_STAGES.forEach(stage=>{
-    const ferts = p[stage]['Fertilizers'] || [];
-    const prot  = protectionLines(cr, stage);
-    const fung  = fungicideLines(cr, stage);
-    const span  = Math.max(ferts.length, 1);
-    fertCount += ferts.length;
-    const lineCell = list => list.length
-      ? list.map(x=>`${x.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(x.text)}`).join('<br>')
-      : '<span style="color:var(--muted);">None recorded</span>';
-    const uomCell  = list => list.length ? list.map(x=>esc(x.uom)).join('<br>') : '\u2014';
-    const protCell = lineCell(prot);
-    const fungCell = lineCell(fung);
-    const rows = ferts.length ? ferts : [null];
-    const cls = 'pg-' + stage.toLowerCase();
-    rows.forEach((f, i)=>{
-      body += `<tr class="${cls}${f && f.done ? ' pg-applied' : ''}">`;
-      if(i===0){
-        body += `<td rowspan="${span}" class="pg-stage">${esc(stage)}</td>`;
-        body += `<td rowspan="${span}">${esc(timing[stage].dates || '\u2014')}${timing[stage].dates ? `<br><span style="color:var(--muted);font-size:11px;">${esc(timing[stage].label)}</span>` : ''}</td>`;
-      }
-      body += f
-        ? `<td>${f.done ? '<span class="pg-tick" title="Applied">\u2713</span> ' : ''}${esc(f.product)}
-             ${readOnly ? '' : `<button class="pg-edit" title="Edit this entry"
-               onclick="editFromProgramme('${esc(stage)}','Fertilizers',${i})">Edit</button>`}</td>
-           <td>${esc(f.composition||'\u2014')}</td><td>${esc(f.dose||'\u2014')} ${esc(f.unit||'')}</td><td>${esc(f.method||'\u2014')}</td>`
-        : `<td colspan="4" style="color:var(--muted);">No fertilizer recorded for this stage</td>`;
-      if(i===0){
-        body += `<td rowspan="${span}">${protCell}</td>`;
-        body += `<td rowspan="${span}">${uomCell(prot)}</td>`;
-        body += `<td rowspan="${span}" class="pg-fung">${fungCell}</td>`;
-        body += `<td rowspan="${span}">${uomCell(fung)}</td>`;
-        body += `<td rowspan="${span}" class="pg-comment">${esc(stageComment(cr, stage))}</td>`;
-      }
-      body += '</tr>';
-    });
-  });
+  const count = CROP_STAGES.reduce((n,st)=>
+    n + CATEGORY_KEYS.reduce((x,k)=> x + ((p[st][k]||[]).length), 0), 0);
+  const applied = CROP_STAGES.reduce((n,st)=>
+    n + CATEGORY_KEYS.reduce((x,k)=> x + ((p[st][k]||[]).filter(y=>y.done).length), 0), 0);
+
   return `
     <div class="section-label">Generated programme — ${esc(cr.crop)}</div>
     <div class="card prog-card">
@@ -6589,23 +6674,24 @@ function generatedProgramme(m, cr, timing, readOnly){
         <img class="prog-logo" src="assets/brand/tipfa-logo-primary.png"
              alt="TIPFA — Tanzania Indoor &amp; Professional Farmers Association">
         <div class="prog-headtext">
-          <div class="prog-title">${esc(m.name).toUpperCase()} — FERTILIZER &amp; CROP PROTECTION PROGRAM, BY CROP STAGE</div>
+          <div class="prog-title">${esc(m.name).toUpperCase()} — FERTILIZER &amp; CROP PROTECTION PROGRAMME</div>
           <div class="prog-sub">${esc(cr.crop)}${cr.variety?` &middot; ${esc(cr.variety)}`:''}${cr.seedCompany?` &middot; seed from ${esc(cr.seedCompany)}`:''}${cr.area?` &middot; ${esc(areaText(cr.area, cr.areaUnit, 'ha'))}`:''}</div>
         </div>
         ${farmLogo(m, 'lg')}
       </div>
       <div class="prog-rule"></div>
-      <div style="overflow-x:auto;">
-        <table class="grid-table prog-table">
-          <thead><tr>
-            <th>Crop stage</th><th>Timing</th><th>Required fertilizer</th><th>Composition / type</th>
-            <th>Dosage</th><th>Method</th><th>Pest / disease control</th><th>Pest UoM</th>
-            <th>Fungicides</th><th>Fungicide UoM</th><th>Comment</th>
-          </tr></thead>
-          <tbody>${body}</tbody>
-        </table>
+
+      <div class="prog-summary">
+        <div><strong>${CROP_STAGES.length}</strong><span>stages</span></div>
+        <div><strong>${count}</strong><span>product${count===1?'':'s'} in the programme</span></div>
+        <div><strong>${applied}</strong><span>applied so far</span></div>
       </div>
-      <div class="prog-foot">${esc(cr.crop)} — stage count: ${CROP_STAGES.length} &nbsp;|&nbsp; total fertilizer line items: ${fertCount}</div>
+
+      <div class="pg-stages">
+        ${CROP_STAGES.map(st=> progStageCard(m, cr, st, timing, readOnly)).join('')}
+      </div>
+
+      <div class="prog-foot">${esc(cr.crop)}${cr.variety?` · ${esc(cr.variety)}`:''} &nbsp;|&nbsp; ${esc(m.name)} &nbsp;|&nbsp; generated ${esc(todayStr())}</div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
         ${readOnly ? `
         <button class="btn small" onclick="exportProgrammeDocumentFor('${esc(readOnly.id)}', ${readOnly.crop})">Download this programme (looks like this page)</button>
@@ -6619,8 +6705,6 @@ function generatedProgramme(m, cr, timing, readOnly){
         ${archiveButton('Crop calendar')}
         `}
       </div>
-      ${readOnly ? '' : `<p class="helper" style="margin-top:6px;">The first download saves this programme exactly as it appears here — logo, stage colours and all — as a file you can open in any browser or print to PDF. The CSV is for spreadsheets, so it carries the data as columns without the layout.</p>`}
-      ${readOnly ? '' : `<p class="helper" style="margin-top:10px;">Every row here comes from what you recorded above — use Edit on a row, or the stage tables, to change it. The comment on each stage is yours to edit too. The programme runs from the date you transplanted to your expected harvest date. Change either on the Profile tab — using Edit on the crop — and every stage window here moves with it.</p>`}
     </div>`;
 }
 
