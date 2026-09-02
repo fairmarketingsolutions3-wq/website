@@ -525,10 +525,18 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 .metric .val{font-size:24px;font-weight:700;margin-top:4px;color:var(--deep-green);letter-spacing:-.02em;position:relative;}
 
 /* ---------- Tables ---------- */
-table/* A table that cannot fit scrolls sideways inside its own card, rather than
+/* A table that cannot fit scrolls sideways inside its own card, rather than
    pushing the whole page sideways — a page that scrolls horizontally is a
-   page where the sidebar and the buttons wander off screen. */
+   page where the sidebar and the buttons wander off screen.
+
+   This rule spent three releases doing nothing. It was written into the
+   file in the middle of the selector `table.grid-table`, leaving
+   `table` + comment + `.table-scroll`, which the browser reads as "a
+   .table-scroll inside a table" — a thing that never exists. So no table
+   ever scrolled, and because a card clips what overflows it, the right-hand
+   columns of every wide table were not merely off screen but unreachable. */
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.table-scroll{scrollbar-width:thin;}
 
 /* Keyboard focus. The inputs replace the browser's ring with a green one;
    everything else was relying on whatever the browser drew, which on a
@@ -892,6 +900,8 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
 .empty-state .btn{margin-top:16px;}
 
 /* Farm identity header on member pages */
+/* The arc behind a farm's name is decoration and was drawn 23px past the
+   right edge of a 360px screen — enough to make the whole page pannable. */
 .farm-head{
   display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line-soft);
   border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow-sm);
@@ -1064,6 +1074,59 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
   .sidebar{ background:linear-gradient(180deg,#EBE9DC 0%, rgba(239,237,226,.86) 100%); }
   .canopy{ filter:blur(16px); }
   .canopy::after{ display:none; }
+}
+
+/* ============================================================
+   On a phone
+
+   Everything above is sized for a laptop. At 360px — which is most
+   Android phones sold in Tanzania — the same padding and the same
+   type turn a screen of information into three screens of scrolling,
+   and the eye has to travel further to read less.
+
+   Nothing is hidden here. Things are simply drawn at the size the
+   screen actually is.
+   ============================================================ */
+@media (max-width:640px){
+  .content{padding:16px 14px 44px;}
+  .card{padding:14px 15px;margin-bottom:11px;border-radius:var(--radius);}
+  h1.page-title{font-size:21px;}
+  p.page-sub{font-size:12.5px;margin-bottom:16px;}
+  .section-label{margin:18px 0 8px;}
+
+  /* Two figures to a row rather than one. Three stacked full-width cards
+     to say three numbers is a screen and a half of scrolling. */
+  .grid2, .grid3, .grid4{grid-template-columns:1fr 1fr;gap:9px;}
+  .metric{padding:11px 12px;border-radius:var(--radius);}
+  .metric .val{font-size:19px;}
+  .metric .lbl{font-size:8.5px;letter-spacing:.12em;}
+  .metric::after{display:none;}
+
+  /* A form field to a line, at a size a thumb can hit and a phone will
+     not zoom into. iOS zooms any input under 16px. */
+  .grid2 > div, .grid3 > div{grid-column:1 / -1;}
+  input, select, textarea{font-size:16px;padding:11px 13px;}
+  label.f{font-size:10.5px;}
+
+  .farm-head{padding:13px 14px;gap:12px;}
+  .farm-head h2{font-size:16.5px;}
+  .today-item{padding:12px 14px;}
+  .ti-title{font-size:13.5px;}
+  .ti-go{font-size:12px;}
+  .prog-summary{gap:16px;}
+  .prog-summary strong{font-size:18px;}
+  .pg-stage-card{padding:12px 13px;}
+  .btn{padding:11px 17px;}
+  .helper{font-size:12px;}
+}
+
+/* Narrower again. 360px is the commonest Android width in service and two
+   figures sit side by side there comfortably, so this only takes over below
+   that — a 320px screen, where they genuinely do not. */
+@media (max-width:344px){
+  .grid2, .grid3, .grid4{grid-template-columns:1fr;}
+  .content{padding:14px 11px 40px;}
+  h1.page-title{font-size:19.5px;}
 }
 
 /* A phone that says it wants less motion gets a still page, not a slow one. */
@@ -2209,7 +2272,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v60';
+const BUILD = 'v61';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
