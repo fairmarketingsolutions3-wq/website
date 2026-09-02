@@ -10,7 +10,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script src="firebase-config.js"></script>
 <style>
 /* ============================================================
@@ -58,6 +57,20 @@
   --ease-spring:cubic-bezier(.22,1.2,.36,1);
   --ease-in-out:cubic-bezier(.65,0,.35,1);
   --dur-1:.18s; --dur-2:.32s; --dur-3:.52s; --dur-4:.8s;
+  --dur-5:1.4s;
+
+  /* Organic Biophilic — the direction the design tools land on for an
+     agricultural cooperative, and the one TIPFA's own palette already is.
+     Flowing shapes, natural light, nothing sharp. The greens below are the
+     brand's, thinned to atmosphere rather than repainted. */
+  --glass:rgba(255,255,255,.72);
+  --glass-line:rgba(255,255,255,.55);
+  --canopy-1:rgba(126,155,63,.42);
+  --canopy-2:rgba(64,94,53,.34);
+  --canopy-3:rgba(232,167,52,.26);
+  --sheen:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.42) 46%,transparent 72%);
+  --radius-xl:28px;
+  --shadow-glow:0 0 0 1px rgba(126,155,63,.22), 0 18px 44px -18px rgba(44,68,35,.42);
 }
 body[data-role="member"]{ --role-accent:#7E9B3F; --role-accent-dark:#405E35; }
 body[data-role="admin"]{ --role-accent:#405E35; --role-accent-dark:#2C4423; }
@@ -72,6 +85,51 @@ body{
   background:var(--field-cream);
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+}
+
+/* ============================================================
+   The canopy — light through leaves
+
+   Four soft pools of the brand's own greens and gold, drifting
+   slowly behind everything. It is three radial gradients on one
+   fixed layer: a few hundred bytes, no image to download, and it
+   never touches layout, so it cannot cost a frame anywhere that
+   matters. A farm on a slow connection pays nothing for it.
+   ============================================================ */
+.canopy{
+  position:fixed; inset:-25vmax; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(38vmax 32vmax at 12% 8%,  var(--canopy-1), transparent 62%),
+    radial-gradient(44vmax 36vmax at 88% 14%, var(--canopy-2), transparent 64%),
+    radial-gradient(34vmax 30vmax at 74% 88%, var(--canopy-3), transparent 60%),
+    radial-gradient(30vmax 26vmax at 30% 62%, rgba(47,122,130,.13), transparent 60%),
+    linear-gradient(160deg, #F4F2E6 0%, #E7E9DA 48%, #DCE3D2 100%);
+  filter:blur(8px);
+  animation:canopyDrift 46s var(--ease-in-out) infinite alternate;
+  will-change:transform;
+}
+@keyframes canopyDrift{
+  0%   { transform:translate3d(0,0,0) scale(1); }
+  50%  { transform:translate3d(2.4%,-1.8%,0) scale(1.06); }
+  100% { transform:translate3d(-2%,2.2%,0) scale(1.02); }
+}
+
+/* Rows of a field, drawn once as a repeating gradient rather than an
+   image, sitting under the content at almost nothing. */
+.canopy::after{
+  content:''; position:absolute; inset:0;
+  background-image:repeating-linear-gradient(115deg,
+    rgba(44,68,35,.085) 0 1.5px, transparent 1.5px 68px);
+  mask-image:radial-gradient(70% 60% at 50% 40%, #000 30%, transparent 78%);
+  -webkit-mask-image:radial-gradient(70% 60% at 50% 40%, #000 30%, transparent 78%);
+}
+#appScreen, #loginScreen{ position:relative; z-index:1; }
+
+/* Everything above is decoration. When a reader asks for less motion it
+   stops moving — it does not disappear, because a still gradient is not
+   the thing that causes harm. */
+@media (prefers-reduced-motion: reduce){
+  .canopy{ animation:none; }
 }
 h1,h2,h3,h4,.display,.brand,.btn,.metric .val,.tabbtn,.logintabs button,.eyebrow{
   font-family:'Poppins','Montserrat',system-ui,sans-serif;
@@ -94,7 +152,16 @@ a{color:var(--tipfa-green);}
   50%{transform:translate3d(2.5%,-3.5%,0) scale(1.055);}
 }
 
-.app{max-width:1240px;margin:0 auto;background:var(--field-cream);position:relative;}
+/* Translucent, so the canopy behind it is what you are actually looking at.
+   Painting the shell solid cream is what made the first attempt at this
+   invisible — the light was there, with a sheet of paper over it. */
+/* Barely there. The canopy is the page; this only holds the column
+   together and keeps text off the busiest part of the light. */
+.app{
+  max-width:1240px;margin:0 auto;position:relative;
+  background:linear-gradient(180deg, rgba(244,242,232,.30), rgba(239,237,226,.52));
+  box-shadow:0 0 120px -40px rgba(44,68,35,.42);
+}
 
 /* ---------- Top bar ---------- */
 .topbar{
@@ -139,6 +206,44 @@ a{color:var(--tipfa-green);}
   animation:panelIn var(--dur-4) var(--ease-out) both;
 }
 .loginbrand > *{position:relative;z-index:1;}
+
+/* ============================================================
+   The front door
+
+   Light moving behind the panel — three shafts and two drifting
+   leaf shapes, all CSS, nothing to download. The logo itself does
+   not move: the brand guidelines are explicit that logo elements
+   are never animated out of position, so the light moves and the
+   mark stays exactly where it was drawn.
+   ============================================================ */
+.loginbrand::before{
+  content:''; position:absolute; inset:-30%; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(28vmax 22vmax at 18% 12%, rgba(126,155,63,.42), transparent 62%),
+    radial-gradient(24vmax 30vmax at 84% 30%, rgba(232,167,52,.20), transparent 64%),
+    radial-gradient(26vmax 24vmax at 62% 92%, rgba(47,122,130,.24), transparent 62%);
+  animation:doorDrift 34s var(--ease-in-out) infinite alternate;
+  will-change:transform;
+}
+@keyframes doorDrift{
+  0%   { transform:translate3d(0,0,0) rotate(0deg) scale(1); }
+  100% { transform:translate3d(3%,-3%,0) rotate(8deg) scale(1.14); }
+}
+
+/* Shafts of light, as through a tunnel roof. */
+.loginbrand::after{
+  content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:repeating-linear-gradient(102deg,
+    rgba(239,237,226,.075) 0 2px, transparent 2px 58px);
+  mask-image:linear-gradient(180deg, #000 6%, transparent 82%);
+  -webkit-mask-image:linear-gradient(180deg, #000 6%, transparent 82%);
+  animation:shaftSlide 26s linear infinite;
+}
+@keyframes shaftSlide{ to{ background-position:340px 0; } }
+
+@media (prefers-reduced-motion: reduce){
+  .loginbrand::before, .loginbrand::after{ animation:none; }
+}
 .loginbrand .lb-logo{
   width:min(300px,72%);height:auto;display:block;margin-bottom:34px;
   animation:logoIn 1s var(--ease-spring) .12s both;
@@ -199,7 +304,9 @@ a{color:var(--tipfa-green);}
 .layout{display:grid;grid-template-columns:236px 1fr;gap:0;min-height:560px;position:relative;}
 .sidebar{
   border-right:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:3px;
-  position:relative;background:linear-gradient(180deg,#EBE9DC 0%, var(--field-cream) 100%);
+  position:relative;
+  background:linear-gradient(180deg, rgba(235,233,220,.72) 0%, rgba(239,237,226,.30) 100%);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 }
 .tabbtn{
   text-align:left;border:none;background:none;padding:11px 14px;border-radius:var(--radius-sm);
@@ -215,7 +322,57 @@ a{color:var(--tipfa-green);}
   content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
   background:var(--role-accent);animation:growBar var(--dur-3) var(--ease-spring) both;
 }
+
+/* The tab you are on glows faintly, the way a lit thing does, so the eye
+   finds it without reading. */
+.tabbtn.active{
+  background:linear-gradient(100deg, rgba(255,255,255,.96), rgba(255,255,255,.82));
+  box-shadow:0 2px 6px rgba(35,40,31,.06), 0 0 0 1px rgba(126,155,63,.22);
+}
 .content{padding:26px 30px 52px;position:relative;overflow:hidden;}
+
+/* ============================================================
+   The page head
+
+   A leaf-shaped field of light behind the title, turning slowly.
+   Two CSS shapes, no image, and it gives every screen a moment
+   before the data starts.
+   ============================================================ */
+.page-title{position:relative;z-index:1;}
+.content > h1.page-title::before{
+  content:''; position:absolute; z-index:-1;
+  left:-26px; top:50%; width:132px; height:132px;
+  transform:translateY(-50%);
+  background:radial-gradient(circle at 34% 34%, rgba(126,155,63,.30), rgba(64,94,53,.08) 56%, transparent 70%);
+  border-radius:62% 38% 46% 54% / 54% 46% 58% 42%;
+  animation:leafTurn 26s var(--ease-in-out) infinite alternate;
+  pointer-events:none;
+}
+@keyframes leafTurn{
+  0%   { transform:translateY(-50%) rotate(0deg)   scale(1); }
+  100% { transform:translateY(-50%) rotate(26deg)  scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce){
+  .content > h1.page-title::before{ animation:none; }
+}
+
+/* Against a busier ground, a card needs a firmer edge to stay legible. */
+.card{ border-width:1px; border-color:rgba(255,255,255,.7); }
+.grid-table thead th{ backdrop-filter:none; }
+
+/* A section label earns a leaf that draws itself in beside it, so a long
+   page reads as chapters rather than a run of identical headings. */
+.section-label{position:relative;}
+.section-label::before{
+  content:''; display:inline-block; width:0; height:2px; vertical-align:middle;
+  margin-right:0; border-radius:2px;
+  background:linear-gradient(90deg,var(--role-accent),var(--leaf-green));
+  animation:markDraw var(--dur-3) var(--ease-out) .1s forwards;
+}
+@keyframes markDraw{ to{ width:18px; margin-right:9px; } }
+@media (prefers-reduced-motion: reduce){
+  .section-label::before{ width:18px; margin-right:9px; animation:none; }
+}
 
 /* ---------- Type scale (guidelines p16) ---------- */
 h1.page-title{font-size:25px;font-weight:700;letter-spacing:-.02em;margin:0 0 5px;color:var(--deep-green);}
@@ -232,6 +389,55 @@ p.page-sub{font-size:13px;color:var(--muted);margin:0 0 22px;font-weight:300;lin
   transition:box-shadow var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out);
 }
 .card:hover{box-shadow:var(--shadow-md);}
+
+/* ============================================================
+   Surfaces
+
+   A card was a white rectangle with a hairline. It is now frosted
+   over the canopy, so the greens behind it come through faintly and
+   the page reads as one thing rather than paper stacked on paper.
+   Lifting on hover, and a slow sheen across it, because a surface
+   that answers the pointer feels made rather than generated.
+   ============================================================ */
+.card{
+  background:var(--glass);
+  backdrop-filter:saturate(1.5) blur(14px);
+  -webkit-backdrop-filter:saturate(1.5) blur(14px);
+  border-radius:var(--radius-lg);
+  border-color:var(--glass-line);
+  position:relative;
+  overflow:hidden;
+}
+/* A hairline of light along the top edge, the way sun catches a leaf. */
+.card::before{
+  content:''; position:absolute; left:0; right:0; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);
+  opacity:.8; pointer-events:none;
+}
+.card::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:var(--sheen);
+  transform:translateX(-120%);
+  transition:transform 1.1s var(--ease-out);
+}
+.card:hover{
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-glow);
+  border-color:rgba(126,155,63,.34);
+}
+.card:hover::after{ transform:translateX(120%); }
+
+/* A tap is not a hover. On a touch screen the sheen never fires, so the
+   press itself is the feedback. */
+@media (hover:none){
+  .card:hover{ transform:none; }
+  .card:hover::after{ transform:translateX(-120%); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .card::after{ display:none; }
+  .card:hover{ transform:none; }
+}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
@@ -272,6 +478,17 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 }
 .btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(64,94,53,.28);}
 .btn:active{transform:translateY(0) scale(.98);}
+
+/* Light travelling across the button as the pointer arrives. One element,
+   one transform — nothing that reflows. */
+.btn::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:var(--sheen);
+  transform:translateX(-130%);
+  transition:transform .85s var(--ease-out);
+}
+.btn:hover::after{ transform:translateX(130%); }
+@media (prefers-reduced-motion: reduce){ .btn::after{ display:none; } }
 .btn.ghost{background:transparent;border:1.5px solid var(--role-accent);color:var(--role-accent);box-shadow:none;}
 .btn.ghost:hover{background:rgba(64,94,53,.07);box-shadow:0 4px 12px rgba(64,94,53,.14);}
 .btn.small{padding:8px 14px;font-size:12.5px;}
@@ -292,7 +509,9 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 
 /* ---------- Metrics ---------- */
 .metric{
-  background:var(--card);border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 16px;
+  background:var(--glass);backdrop-filter:saturate(1.5) blur(14px);
+  -webkit-backdrop-filter:saturate(1.5) blur(14px);
+  border:1px solid var(--glass-line);border-radius:var(--radius-lg);padding:16px 18px;
   box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
   transition:transform var(--dur-3) var(--ease-spring), box-shadow var(--dur-3) var(--ease-out);
 }
@@ -306,7 +525,91 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 .metric .val{font-size:24px;font-weight:700;margin-top:4px;color:var(--deep-green);letter-spacing:-.02em;position:relative;}
 
 /* ---------- Tables ---------- */
-table.grid-table{width:100%;border-collapse:collapse;font-size:13px;}
+table/* A table that cannot fit scrolls sideways inside its own card, rather than
+   pushing the whole page sideways — a page that scrolls horizontally is a
+   page where the sidebar and the buttons wander off screen. */
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+/* Keyboard focus. The inputs replace the browser's ring with a green one;
+   everything else was relying on whatever the browser drew, which on a
+   coloured button can be all but invisible. Same ring everywhere, and only
+   for keyboard users, so a mouse click does not leave an outline behind. */
+.btn:focus-visible, .chip:focus-visible, .tabbtn:focus-visible,
+.segbtn:focus-visible, .logintabs button:focus-visible, a:focus-visible{
+  outline:3px solid var(--leaf-green);
+  outline-offset:2px;
+  border-radius:var(--radius-sm);
+}
+
+/* ---------- Charts ---------- */
+.chart-wrap{width:100%;}
+.trend{width:100%;height:auto;display:block;overflow:visible;}
+.trend .gridline{stroke:rgba(35,40,31,.10);stroke-width:1;}
+.trend .axis{font-size:10px;fill:var(--muted);font-family:'Inter',sans-serif;}
+.trend .ink{fill:none;}
+.trend .series-plan{stroke:var(--tipfa-green);stroke-width:2;stroke-dasharray:7 5;opacity:.75;}
+.trend .series-actual{stroke:var(--leaf-green);stroke-width:2.8;stroke-linecap:round;stroke-linejoin:round;}
+.trend .dot{fill:var(--leaf-green);stroke:#fff;stroke-width:1.5;}
+/* The line draws itself in, once. */
+.trend .series-plan, .trend .series-actual{
+  stroke-dashoffset:0;
+  animation:drawLine 1.5s var(--ease-out) both;
+}
+.trend .series-actual{stroke-dasharray:1400;animation-name:drawSolid;}
+@keyframes drawSolid{ from{ stroke-dashoffset:1400; } to{ stroke-dashoffset:0; } }
+@keyframes drawLine{ from{ opacity:0; } to{ opacity:.75; } }
+.trend .dot{animation:fadeIn .5s var(--ease-out) 1.2s both;}
+.chart-key{display:flex;gap:18px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:10px;}
+.chart-key i{display:inline-block;width:22px;height:0;vertical-align:middle;margin-right:7px;}
+.chart-key i.k-plan{border-top:2px dashed var(--tipfa-green);}
+.chart-key i.k-actual{border-top:3px solid var(--leaf-green);}
+.chart-key em{font-style:normal;opacity:.7;}
+
+.trend.bars rect{transform-box:fill-box;transform-origin:50% 100%;
+  animation:barRise .8s var(--ease-spring) both;}
+.trend.bars .bar-a{animation-delay:.12s;}
+@keyframes barRise{ from{ transform:scaleY(0); } to{ transform:scaleY(1); } }
+.chart-key i.k-hatch{border-top:8px solid var(--tipfa-green);opacity:.5;height:0;}
+.chart-key i.k-solid{border-top:8px solid var(--leaf-green);height:0;}
+
+.donut-wrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap;}
+.donut{width:170px;height:170px;flex:0 0 auto;transform:rotate(-90deg);}
+.donut-track{fill:none;stroke:rgba(35,40,31,.07);}
+.donut .slice{fill:none;stroke-linecap:butt;
+  animation:sliceIn .9s var(--ease-out) both;}
+@keyframes sliceIn{ from{ opacity:0; stroke-width:6; } to{ opacity:1; } }
+.donut-key{list-style:none;margin:0;padding:0;flex:1;min-width:200px;}
+.donut-key li{display:flex;align-items:center;gap:9px;padding:5px 0;font-size:13px;
+  border-bottom:1px solid var(--line-soft);}
+.donut-key li:last-child{border-bottom:none;}
+.donut-key i{width:11px;height:11px;border-radius:3px;flex:0 0 auto;}
+.donut-key span{flex:1;}
+.donut-key strong{font-variant-numeric:tabular-nums;}
+.donut-key em{font-style:normal;color:var(--muted);min-width:38px;text-align:right;
+  font-variant-numeric:tabular-nums;}
+
+@media (prefers-reduced-motion: reduce){
+  .trend.bars rect, .donut .slice{animation:none;transform:none;opacity:1;}
+}
+
+.ring{text-align:center;}
+.ring svg{width:100%;max-width:118px;height:auto;transform:rotate(-90deg);}
+.ring-track{fill:none;stroke:rgba(35,40,31,.09);stroke-width:9;}
+.ring-fill{fill:none;stroke-width:9;stroke-linecap:round;
+  animation:ringFill 1.3s var(--ease-out) .15s forwards;}
+@keyframes ringFill{ to{ stroke-dashoffset:var(--ring-to); } }
+.ring-mid{margin-top:-72px;margin-bottom:34px;font-family:'Poppins',sans-serif;
+  font-size:21px;font-weight:700;color:var(--deep-green);}
+.ring-lbl{font-size:10.5px;text-transform:uppercase;letter-spacing:.14em;
+  color:var(--muted);font-weight:600;}
+
+@media (prefers-reduced-motion: reduce){
+  .trend .series-plan, .trend .series-actual, .trend .dot{animation:none;stroke-dashoffset:0;opacity:1;}
+  .trend .series-plan{opacity:.75;}
+  .ring-fill{animation:none;stroke-dashoffset:var(--ring-to);}
+}
+
+.grid-table{width:100%;border-collapse:collapse;font-size:13px;}
 table.grid-table th{
   background:var(--tipfa-green);color:var(--field-cream);text-align:left;padding:10px 12px;font-size:10px;
   text-transform:uppercase;letter-spacing:.14em;font-weight:600;font-family:'Poppins',sans-serif;
@@ -558,6 +861,37 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
 .ts-item.done .ti-name{text-decoration:line-through;color:var(--muted);}
 .ts-actions{display:flex;gap:7px;flex-wrap:wrap;}
 @media (max-width:760px){ .tally-grid{grid-template-columns:1fr;} }
+
+/* On a narrow screen a table is given a floor to sit on, so its columns
+   scroll rather than crushing to one word per line. Above that width it is
+   left alone — a two-column table should not scroll on a laptop. */
+/* Frosted glass is drawn by compositing everything behind it, every frame.
+   On a mid-range Android that is real money for an effect nobody looks at
+   while scrolling a price list, so below the tablet breakpoint the surfaces
+   go opaque and keep the same colour. The site looks the same and scrolls
+   like a list again. */
+@media (max-width:900px){
+  .card, .metric, .app, .sidebar{
+    backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
+  }
+  .card, .metric{ background:rgba(255,255,255,.94); }
+  .app{ background:linear-gradient(180deg, rgba(244,242,232,.72), rgba(239,237,226,.88)); }
+  .sidebar{ background:linear-gradient(180deg,#EBE9DC 0%, rgba(239,237,226,.86) 100%); }
+  .canopy{ filter:blur(16px); }
+  .canopy::after{ display:none; }
+}
+
+/* A phone that says it wants less motion gets a still page, not a slow one. */
+@media (prefers-reduced-motion: reduce){
+  .canopy, .loginbrand::before, .loginbrand::after,
+  .content > h1.page-title::before{ animation:none !important; }
+}
+
+@media (max-width:760px){
+  .table-scroll > .grid-table{min-width:540px;}
+  /* Enough of a target to hit with a thumb, per WCAG 2.2 target size. */
+  .chip, .btn.small{min-height:34px;display:inline-flex;align-items:center;justify-content:center;}
+}
 
 
 /* ---------- Generated programme: TIPFA document styling ---------- */
@@ -921,6 +1255,7 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
 </style>
 </head>
 <body>
+<div class="canopy" aria-hidden="true"></div>
 <div class="app">
 
   <div class="topbar">
@@ -1689,7 +2024,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v53';
+const BUILD = 'v56';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -4010,7 +4345,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   traceError:'', traceMsg:'', traceRead:false, traceLot:'', rulesGap:[], cloudRefused:false,
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
-  inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'' };
+  inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -5044,7 +5379,7 @@ const MEMBER_TABS = [
   ['profile','Profile'], ['calendar','Crop calendar'], ['standards','Market standards'],
   ['plan','Harvest plan'], ['actual','Actual harvest'], ['orders','Orders'], ['batches','Batches'], ['store','Input store'], ['advice','Ask an agronomist'],
   ['market','Market prices'],
-  ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
+  ['inputs','Input plan'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
 ];
 // Each tab names the permission that opens it. A role that cannot do the
 // thing does not see the tab — and the rules refuse it besides.
@@ -5198,7 +5533,26 @@ function renderKeepingPlace(focusId){
   requestAnimationFrame(()=> window.scrollTo(0, y));
 }
 
+/* Forty tables are built as HTML strings across this file and only eleven
+   of them were wrapped in something that scrolls. The other twenty-nine burst
+   their card on a phone, which is most of the association. Wrapping them here
+   fixes every one at once, and every one written from now on. */
+function makeTablesScrollable(root){
+  root.querySelectorAll('table.grid-table').forEach(t=>{
+    const p = t.parentElement;
+    if(!p || p.classList.contains('table-scroll')) return;
+    let style = null;
+    try{ style = getComputedStyle(p); }catch(e){ /* detached */ }
+    if(style && (style.overflowX === 'auto' || style.overflowX === 'scroll')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'table-scroll';
+    p.insertBefore(wrap, t);
+    wrap.appendChild(t);
+  });
+}
+
 function afterRender(c){
+  makeTablesScrollable(c);
   c.classList.remove('is-swapping');
   void c.offsetWidth;
   c.classList.add('is-swapping');
@@ -6567,18 +6921,10 @@ function addMarketStandard(){
 // ---- Market prices: buyer prices + weekly/monthly/annual trend ----
 // Charts inherit the identity: Inter for labels, Tipfa Green as the primary
 // series, Harvest Orange rationed to a single highlighted series (p14).
-const CHART_INK = '#23281F', CHART_GRID = '#E4E2D4';
-if(window.Chart){
-  Chart.defaults.font.family = "'Inter', sans-serif";
-  Chart.defaults.font.size = 11;
-  Chart.defaults.color = '#6E7466';
-  Chart.defaults.animation.duration = REDUCED_MOTION ? 0 : 900;
-  Chart.defaults.animation.easing = 'easeOutQuart';
-  Chart.defaults.plugins.tooltip.backgroundColor = '#2C4423';
-  Chart.defaults.plugins.tooltip.padding = 10;
-  Chart.defaults.plugins.tooltip.cornerRadius = 8;
-  Chart.defaults.plugins.tooltip.titleFont = {family:"'Poppins', sans-serif", weight:'600'};
-}
+// Every chart is now inline SVG. The library that used to draw them was
+// 200KB fetched from a CDN to plot twelve points — the heaviest thing on the
+// page, and a blank panel whenever that CDN was slow or unreachable, which
+// over a Tanzanian mobile connection it often is.
 const CHART_SERIES = ['#405E35','#E8A734','#7E9B3F','#2C4423','#A85C3F','#8C9A6B'];
 
 function selectPriceCrop(crop){ state.priceCrop = crop; render(); }
@@ -6675,13 +7021,15 @@ function renderMarketPrices(c){
 
     <div class="section-label">Price movement — ${esc(crop)}, ${year}</div>
     <div class="card">
-      ${withData.length ? '<div style="position:relative;height:210px;"><canvas id="priceYearChart"></canvas></div>'
+      ${withData.length
+        ? priceTrend(esc(crop) + ' average price through ' + year, MONTHS.map(x=>x.slice(0,3)), priceByMonth(m, crop, year))
         : '<p class="helper" style="text-align:center;padding:22px 0;">Log a price above and the movement across the year is charted here.</p>'}
     </div>
 
     <div class="section-label">Week by week — ${MONTHS[month-1]} ${year}</div>
     <div class="card">
-      ${priceByWeek(m, crop, year, month).some(v=>v!=null) ? '<div style="position:relative;height:170px;"><canvas id="priceWeekChart"></canvas></div>'
+      ${priceByWeek(m, crop, year, month).some(v=>v!=null)
+        ? priceTrend('Week by week', [1,2,3,4].map(w=>'Week '+w), priceByWeek(m, crop, year, month))
         : '<p class="helper" style="text-align:center;padding:22px 0;">No prices logged in this month yet.</p>'}
     </div>
 
@@ -6692,8 +7040,6 @@ function renderMarketPrices(c){
       </div>
       <p class="helper" style="margin-top:10px;">${forCrop.length} price${forCrop.length===1?'':'s'} logged for ${esc(crop)} across all years.</p>
     </div>`;
-  drawPriceYearChart(m, crop, year);
-  drawPriceWeekChart(m, crop, year, month);
 }
 
 function setPricePeriod(y, mo, w){
@@ -6719,34 +7065,6 @@ function exportMarketPricesMember(){
   logAction(`${m.name} downloaded their market price table.`);
 }
 
-let priceYearChartRef = null, priceWeekChartRef = null;
-function drawPriceYearChart(m, crop, year){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('priceYearChart'); if(!ctx) return;
-  if(priceYearChartRef) priceYearChartRef.destroy();
-  priceYearChartRef = new Chart(ctx, {
-    type:'line',
-    data:{ labels:MONTHS.map(x=>x.slice(0,3)), datasets:[{
-      label:`${crop} average price (TZS/kg)`, data:priceByMonth(m, crop, year),
-      borderColor:'#405E35', backgroundColor:'rgba(64,94,53,0.14)', fill:true, tension:0.3,
-      pointBackgroundColor:'#E8A734', pointBorderColor:'#405E35', pointRadius:4, spanGaps:true }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } },
-               x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
-}
-function drawPriceWeekChart(m, crop, year, month){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('priceWeekChart'); if(!ctx) return;
-  if(priceWeekChartRef) priceWeekChartRef.destroy();
-  priceWeekChartRef = new Chart(ctx, {
-    type:'bar',
-    data:{ labels:['Week 1','Week 2','Week 3','Week 4'], datasets:[{
-      label:'Average price (TZS/kg)', data:priceByWeek(m, crop, year, month),
-      backgroundColor:'#7E9B3F', borderRadius:6, maxBarThickness:44 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } },
-               x:{ grid:{ display:false }, ticks:{ font:{ size:10 } } } } } });
-}
 function addMarketPrice(){
   const buyer = document.getElementById('price-buyer').value.trim();
   const price = Number(document.getElementById('price-value').value)||0;
@@ -7498,8 +7816,10 @@ function renderReportsMember(c){
     <div class="card"><strong>Print or save this page as PDF</strong><p class="helper">Opens your browser's print dialog — choose "Save as PDF" as the destination.</p>
       <button class="btn small gold" onclick="window.print()">Print / Save as PDF</button></div>
     <div class="section-label">Farm progress — weeks in ${MONTHS[state.selMonth-1]} ${state.selYear}</div>
-    <div class="card"><div style="position:relative;height:170px;"><canvas id="memberTrend"></canvas></div></div>`;
-  drawMemberTrendChart();
+    <div class="card">${barChart(
+      [1,2,3,4].map(w=>'Week '+w),
+      [1,2,3,4].map(w=> weekTotal(state.member, 'plan', state.selYear, state.selMonth, w)),
+      [1,2,3,4].map(w=> weekTotal(state.member, 'actual', state.selYear, state.selMonth, w)))}</div>`;
 }
 
 function exportHarvestPlanReport(id){
@@ -7558,10 +7878,7 @@ function renderStore(c){
     <div class="card">
       <input id="store-search" placeholder="Search the list — dripline, filter, pump…"
              value="${esc(state.storeSearch||'')}" oninput="storeSearch(this.value)">
-      <div class="chips" style="margin:12px 0 0;">
-        ${['All'].concat(cats).map(x=>
-          `<span class="chip ${(state.storeCat||'All')===x?'active':''}" onclick="storeCat('${esc(x)}')">${esc(x)}</span>`).join('')}
-      </div>
+      ${categoryChips(cats)}
     </div>
 
     ${cartPanel()}
@@ -7581,6 +7898,30 @@ function renderStore(c){
     </div>` : `<div class="card"><p class="helper">Nothing on the list matches that. If what you need is not stocked at all, ask for it on the Suggest an input tab.</p></div>`}
   `;
 }
+
+/* Fifteen categories laid out as chips filled a whole phone screen before a
+   single product came into view. Show the first few and the one in use, with
+   an honest count of what is folded away — not a clipped row, and nothing
+   that cannot be reached. */
+const STORE_CHIPS_SHOWN = 5;
+
+function categoryChips(cats){
+  const active = state.storeCat || 'All';
+  const all = ['All'].concat(cats);
+  const open = !!state.storeCatsOpen;
+  let shown = open ? all : all.slice(0, STORE_CHIPS_SHOWN + 1);
+  // Whatever is filtering the list is always on screen, however far down the
+  // list it sits — a filter you cannot see is a filter you forget is on.
+  if(!shown.includes(active)) shown = shown.slice(0, STORE_CHIPS_SHOWN).concat([active]);
+  const hidden = all.length - shown.length;
+  return `<div class="chips" style="margin:12px 0 0;">
+    ${shown.map(x=>
+      `<span class="chip ${active===x?'active':''}" onclick="storeCat('${esc(x)}')">${esc(x)}</span>`).join('')}
+    ${hidden > 0 ? `<button class="chip" style="border-style:dashed;" onclick="toggleStoreCats()">+${hidden} more</button>`
+      : (open ? `<button class="chip" style="border-style:dashed;" onclick="toggleStoreCats()">Show fewer</button>` : '')}
+  </div>`;
+}
+function toggleStoreCats(){ state.storeCatsOpen = !state.storeCatsOpen; render(); }
 
 function qtyControl(id){
   const q = Number(CART[id]) || 0;
@@ -9827,16 +10168,68 @@ function saveBulk(){
   setTimeout(()=>{ const el=document.getElementById('bulk-msg'); if(el) el.textContent=''; },3000);
 }
 
+/* A crop's figure for a month. The plan grid is keyed by profile id and so
+   are the entries, but the association counts by crop name — two profiles of
+   the same crop are one crop to a buyer — so the profile ids are resolved
+   back to names here rather than at a dozen call sites. */
+function profileCropName(id, key){
+  const m = MEMBERS[id];
+  const cr = m && (m.crops || []).find(x=> x.id === key);
+  if(cr) return (cr.crop || '').trim();
+  // an entry kept against a crop the farm has since removed
+  const e = harvestEntries(id).find(x=> x.profileId === key);
+  return e ? (e.crop || '').trim() : String(key || '').trim();
+}
 function memberMonthCropTotal(id, kind, year, month, crop){
   if(!harvest[id]) return 0;
-  let t=0; for(let w=1; w<=4; w++){
-    const wk = harvestWeek(id, kind, year, month, w);
-    t += (wk && wk[crop]) || 0;
+  let t = 0;
+  for(let w = 1; w <= 4; w++){
+    const wk = harvestWeekAny(id, kind, year, month, w);
+    if(!wk) continue;
+    Object.keys(wk).forEach(key=>{
+      if(profileCropName(id, key) === crop) t += Number(wk[key]) || 0;
+    });
   }
   return t;
 }
+/* ---- Actual harvest comes from the dated entries -----------------------
+   The plan is still a grid of weeks. Actual is not: reworking the harvest
+   screens moved it to dated entries against a crop profile, and nothing has
+   written the old actual grid since. Every association-wide figure kept
+   reading that grid, so the Central dashboard, the reports and growth
+   planning have been showing nought actual for every farm — the figures
+   were there the whole time, in a shape nobody was reading.
+
+   Derive it instead. One pass over a farm's entries, bucketed the same way
+   the plan is: year, month, and the week of that month the date falls in. */
+function actualBuckets(id, year){
+  const out = {};
+  harvestEntries(id).forEach(e=>{
+    if(!e.date) return;
+    const d = new Date(e.date + 'T00:00:00');
+    if(isNaN(d) || d.getFullYear() !== Number(year)) return;
+    const mo = d.getMonth() + 1, wk = weekOfMonth(d);
+    const key = e.profileId || e.crop || 'unknown';
+    ((out[mo] = out[mo] || {})[wk] = out[mo][wk] || {});
+    out[mo][wk][key] = (out[mo][wk][key] || 0) + toKg(e.amount, e.unit || 'kg');
+  });
+  return out;
+}
+function actualWeek(id, year, month, week){
+  const b = actualBuckets(id, year);
+  return (b[month] && b[month][week]) || null;
+}
+
+/* The one place the two shapes are reconciled. Everything association-wide
+   goes through here, so neither the plan grid nor the entries needs to know
+   the other exists. */
+function harvestWeekAny(id, kind, year, month, week){
+  return kind === 'actual' ? actualWeek(id, year, month, week)
+                           : harvestWeek(id, kind, year, month, week);
+}
+
 function weekTotal(id, kind, year, month, week){
-  const wk = harvestWeek(id, kind, year, month, week);
+  const wk = harvestWeekAny(id, kind, year, month, week);
   if(!wk) return 0;
   return Object.keys(wk).reduce((t,cr)=> t + (Number(wk[cr])||0), 0);
 }
@@ -9860,11 +10253,176 @@ function coopCapacityByCrop(kind, year, month){
 }
 function coopWeekByCrop(kind, year, month, week){
   return activeCrops().map(cr=>{ let t=0; activeMembers().forEach(id=>{
-    const wk = harvestWeek(id, kind, year, month, week);
-    t += (wk && wk[cr]) || 0;
+    const wk = harvestWeekAny(id, kind, year, month, week);
+    if(!wk) return;
+    Object.keys(wk).forEach(key=>{
+      if(profileCropName(id, key) === cr) t += Number(wk[key]) || 0;
+    });
   }); return t; });
 }
 function pct(actual, plan){ return plan>0 ? Math.round(actual/plan*100) : (actual>0 ? 100 : 0); }
+
+/* ============================================================
+   Charts
+
+   Drawn as inline SVG. No library: a charting bundle is 60-200KB
+   over a Tanzanian mobile connection to draw twelve points, and it
+   would be the heaviest thing on the page by a wide margin.
+
+   Plan is a dashed line, actual is solid and filled. That is
+   deliberate — a reader who cannot separate the two greens still
+   has the line style, and colour is never the only thing carrying
+   the meaning. Every chart is followed by the same numbers as text.
+   ============================================================ */
+function niceCeil(n){
+  if(n <= 0) return 10;
+  const mag = Math.pow(10, Math.floor(Math.log10(n)));
+  return Math.ceil(n / mag) * mag;
+}
+
+function trendChart(title, labels, plan, actual){
+  const W = 720, H = 240, padL = 52, padR = 14, padT = 16, padB = 30;
+  const max = niceCeil(Math.max(1, ...plan, ...actual));
+  const n = Math.max(labels.length, 2);
+  const x = i => padL + (i * (W - padL - padR)) / (n - 1);
+  const y = v => padT + (H - padT - padB) * (1 - (v / max));
+  const line = arr => arr.map((v,i)=> `${i?'L':'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(' ');
+  const area = arr => `${line(arr)} L${x(arr.length-1).toFixed(1)},${y(0)} L${x(0).toFixed(1)},${y(0)} Z`;
+  const ticks = [0, .25, .5, .75, 1].map(f=> Math.round(max * f));
+
+  return `<div class="chart-wrap">
+    <svg class="trend" viewBox="0 0 ${W} ${H}" role="img"
+         aria-label="${esc(title)}. Planned against actual harvest, in kilograms, by month.">
+      <defs>
+        <linearGradient id="fillActual" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="var(--leaf-green)" stop-opacity=".42"/>
+          <stop offset="100%" stop-color="var(--leaf-green)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      ${ticks.map(t=>`<g>
+        <line x1="${padL}" x2="${W-padR}" y1="${y(t)}" y2="${y(t)}" class="gridline"/>
+        <text x="${padL-8}" y="${y(t)+4}" class="axis" text-anchor="end">${fmt(t)}</text>
+      </g>`).join('')}
+      ${labels.map((l,i)=> i % Math.ceil(n/6) ? '' :
+        `<text x="${x(i)}" y="${H-9}" class="axis" text-anchor="middle">${esc(l)}</text>`).join('')}
+      <path d="${area(actual)}" fill="url(#fillActual)" class="ink"/>
+      <path d="${line(plan)}"   class="ink series-plan"/>
+      <path d="${line(actual)}" class="ink series-actual"/>
+      ${actual.map((v,i)=> `<circle cx="${x(i)}" cy="${y(v)}" r="3.2" class="dot ink"><title>${esc(labels[i])}: ${fmt(v)} kg actual</title></circle>`).join('')}
+    </svg>
+    <div class="chart-key">
+      <span><i class="k-plan"></i>Planned <em>dashed</em></span>
+      <span><i class="k-actual"></i>Actual <em>solid</em></span>
+    </div>
+  </div>`;
+}
+
+/* One series, for prices — there is no plan to compare a market price to,
+   so drawing a flat zero line beside it would be a lie about the data. */
+function priceTrend(title, labels, values){
+  const clean = labels.map((_,i)=> Number(values[i]) || 0);
+  return trendChart(title, labels, clean, clean).replace(
+    /<path d="[^"]*" class="ink series-plan"><\/path>|<path d="[^"]*" class="ink series-plan"\/>/, '')
+    .replace('<span><i class="k-plan"></i>Planned <em>dashed</em></span>', '');
+}
+
+/* Grouped bars — planned beside actual, week by week. Actual is solid,
+   planned is hatched, so the pair reads without relying on the two greens
+   being told apart. */
+function barChart(labels, planned, actual){
+  const W = 720, H = 210, padL = 52, padR = 12, padT = 14, padB = 28;
+  const max = niceCeil(Math.max(1, ...planned, ...actual));
+  const n = Math.max(labels.length, 1);
+  const band = (W - padL - padR) / n;
+  const bw = Math.min(26, band * 0.30);
+  const y = v => padT + (H - padT - padB) * (1 - v / max);
+  const h = v => (H - padT - padB) * (v / max);
+  const ticks = [0, .5, 1].map(f=> Math.round(max * f));
+  return `<div class="chart-wrap">
+    <svg class="trend bars" viewBox="0 0 ${W} ${H}" role="img"
+         aria-label="Planned against actual harvest in kilograms, by week.">
+      <defs>
+        <pattern id="hatchPlan" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+          <rect width="6" height="6" fill="rgba(64,94,53,.14)"/>
+          <line x1="0" y1="0" x2="0" y2="6" stroke="var(--tipfa-green)" stroke-width="2.4"/>
+        </pattern>
+      </defs>
+      ${ticks.map(t=>`<g>
+        <line x1="${padL}" x2="${W-padR}" y1="${y(t)}" y2="${y(t)}" class="gridline"/>
+        <text x="${padL-8}" y="${y(t)+4}" class="axis" text-anchor="end">${fmt(t)}</text></g>`).join('')}
+      ${labels.map((l,i)=>{
+        const cx = padL + band*i + band/2;
+        return `<g>
+          <rect x="${cx - bw - 3}" y="${y(planned[i]||0)}" width="${bw}" height="${h(planned[i]||0)}"
+                rx="4" fill="url(#hatchPlan)" class="bar-p" style="--bh:${h(planned[i]||0)}px;">
+            <title>${esc(l)}: ${fmt(planned[i]||0)} kg planned</title></rect>
+          <rect x="${cx + 3}" y="${y(actual[i]||0)}" width="${bw}" height="${h(actual[i]||0)}"
+                rx="4" fill="var(--leaf-green)" class="bar-a" style="--bh:${h(actual[i]||0)}px;">
+            <title>${esc(l)}: ${fmt(actual[i]||0)} kg actual</title></rect>
+          <text x="${cx}" y="${H-8}" class="axis" text-anchor="middle">${esc(l)}</text>
+        </g>`;
+      }).join('')}
+    </svg>
+    <div class="chart-key">
+      <span><i class="k-hatch"></i>Planned <em>hatched</em></span>
+      <span><i class="k-solid"></i>Actual <em>solid</em></span>
+    </div>
+  </div>`;
+}
+
+/* A donut for the share of the month's harvest by crop. Each slice is
+   labelled with its own name and figure beside the ring, so nobody has to
+   match a colour to a legend. */
+function donutChart(labels, values){
+  const total = values.reduce((a,b)=> a + (Number(b)||0), 0);
+  if(!total) return '<p class="helper">Nothing harvested in this month yet.</p>';
+  const r = 62, sw = 26, C = 2*Math.PI*r;
+  let acc = 0;
+  const slices = values.map((v,i)=>{
+    const frac = (Number(v)||0) / total;
+    const seg = `<circle cx="80" cy="80" r="${r}" class="slice"
+      style="stroke:${CHART_SERIES[i % CHART_SERIES.length]};
+             stroke-dasharray:${(C*frac).toFixed(2)} ${(C*(1-frac)).toFixed(2)};
+             stroke-dashoffset:${(-C*acc).toFixed(2)};
+             animation-delay:${(i*0.09).toFixed(2)}s;">
+      <title>${esc(labels[i])}: ${fmt(Math.round(v))} kg, ${Math.round(frac*100)}%</title></circle>`;
+    acc += frac;
+    return seg;
+  }).join('');
+  return `<div class="donut-wrap">
+    <svg viewBox="0 0 160 160" class="donut" role="img"
+         aria-label="Share of this month's harvest by crop.">
+      <circle cx="80" cy="80" r="${r}" class="donut-track" style="stroke-width:${sw};"/>
+      <g style="stroke-width:${sw};">${slices}</g>
+    </svg>
+    <ul class="donut-key">
+      ${labels.map((l,i)=>`<li>
+        <i style="background:${CHART_SERIES[i % CHART_SERIES.length]};"></i>
+        <span>${esc(l)}</span>
+        <strong>${fmt(Math.round(values[i]||0))} kg</strong>
+        <em>${Math.round(((values[i]||0)/total)*100)}%</em>
+      </li>`).join('')}
+    </ul>
+  </div>`;
+}
+
+/* A ring that fills to the figure. The number is inside it and is the
+   thing that matters; the ring is how far round it went. */
+function ringGauge(label, value, suffix){
+  const v = Math.max(0, Math.min(100, Number(value) || 0));
+  const r = 42, C = 2 * Math.PI * r;
+  const tone = v >= 95 ? 'var(--leaf)' : (v >= 70 ? 'var(--gold)' : 'var(--red)');
+  return `<div class="ring" role="img" aria-label="${esc(label)}: ${v}${esc(suffix||'')}">
+    <svg viewBox="0 0 110 110">
+      <circle cx="55" cy="55" r="${r}" class="ring-track"/>
+      <circle cx="55" cy="55" r="${r}" class="ring-fill"
+        style="stroke:${tone};stroke-dasharray:${C.toFixed(1)};stroke-dashoffset:${C.toFixed(1)};
+               --ring-to:${(C * (1 - v/100)).toFixed(1)};"/>
+    </svg>
+    <div class="ring-mid"><strong data-count="${v}" data-suffix="${esc(suffix||'')}">0</strong></div>
+    <div class="ring-lbl">${esc(label)}</div>
+  </div>`;
+}
 
 function comparisonBar(label, plan, actual){
   const p = pct(actual, plan);
@@ -9903,7 +10461,6 @@ function monthWeekChips(opts){
   return months + weeks;
 }
 
-let capacityChartRef=null, trendChartRef=null, memberChartRef=null;
 
 function renderDashboard(c){
   const month = state.selMonth, week = state.selWeek;
@@ -9950,51 +10507,27 @@ function renderDashboard(c){
       </div>
       ${comparisonBar('Year-to-date performance', yearPlan, yearActual)}
     </div>
+    <div class="section-label">Against plan</div>
+    <div class="card"><div class="grid3">
+      ${ringGauge('This week', pct(weekActual, weekPlan), '%')}
+      ${ringGauge(MONTHS[month-1], pct(monthActual, monthPlan), '%')}
+      ${ringGauge('Year to date', pct(yearActual, yearPlan), '%')}
+    </div></div>
     <div class="section-label">Capacity by crop (${MONTHS[month-1]}, actual)</div>
-    <div class="card"><div style="position:relative;height:200px;"><canvas id="capacityChart"></canvas></div></div>
-    <div class="section-label">Weeks in ${MONTHS[month-1]}: plan vs. actual</div>
-    <div class="card"><div style="position:relative;height:170px;"><canvas id="trendChart"></canvas></div></div>
+    <div class="card">${donutChart(activeCrops(), coopCapacityByCrop('actual', year, month))}</div>
+    <div class="section-label">Weeks in ${MONTHS[month-1]}: plan against actual</div>
+    <div class="card">${barChart(
+      [1,2,3,4].map(w=>'Week '+w),
+      [1,2,3,4].map(w=> coopWeekTotal('plan', year, month, w)),
+      [1,2,3,4].map(w=> coopWeekTotal('actual', year, month, w)))}</div>
+    <div class="section-label">The year, month by month</div>
+    <div class="card">${trendChart('Association harvest through ' + year,
+      MONTHS.map(x=> x.slice(0,3)),
+      MONTHS.map((_,i)=> coopMonthTotal('plan', year, i+1)),
+      MONTHS.map((_,i)=> coopMonthTotal('actual', year, i+1)))}</div>
     <p class="helper">Figures update automatically whenever a member saves an entry or an operator saves a bulk update.</p>`;
-  drawCapacityChart(); drawTrendChart();
 }
 
-function drawCapacityChart(){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('capacityChart'); if(!ctx) return;
-  if(capacityChartRef) capacityChartRef.destroy();
-  capacityChartRef = new Chart(ctx, { type:'doughnut', data:{ labels:activeCrops(), datasets:[{ data:coopCapacityByCrop('actual', state.selYear, state.selMonth), backgroundColor:CHART_SERIES, borderColor:'#FFFFFF', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ family:'IBM Plex Sans', size:10.5 }, color:'#23301E' } } } } });
-}
-function drawTrendChart(){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('trendChart'); if(!ctx) return;
-  if(trendChartRef) trendChartRef.destroy();
-  const month = state.selMonth;
-  const planWeeks = [1,2,3,4].map(w=>coopWeekTotal('plan',state.selYear,month,w));
-  const actualWeeks = [1,2,3,4].map(w=>coopWeekTotal('actual',state.selYear,month,w));
-  trendChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
-    datasets:[
-      { label:'Plan', data:planWeeks, backgroundColor:'#D9D7C6', borderRadius:6, maxBarThickness:26 },
-      { label:'Actual', data:actualWeeks, backgroundColor:'#405E35', borderRadius:6, maxBarThickness:26 }
-    ] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 }, color:'#6B7263' } }, x:{ grid:{ display:false }, ticks:{ font:{ size:10 }, color:'#6B7263' } } } } });
-}
-function drawMemberTrendChart(){
-  if(!window.Chart) return;
-  const ctx = document.getElementById('memberTrend'); if(!ctx) return;
-  if(memberChartRef) memberChartRef.destroy();
-  const m = state.member, month = state.selMonth;
-  const planWeeks = [1,2,3,4].map(w=> weekTotal(m,'plan',state.selYear,month,w));
-  const actualWeeks = [1,2,3,4].map(w=> weekTotal(m,'actual',state.selYear,month,w));
-  memberChartRef = new Chart(ctx, { type:'bar', data:{ labels:['Week 1','Week 2','Week 3','Week 4'],
-    datasets:[
-      { label:'Plan', data:planWeeks, backgroundColor:'#D9D7C6', borderRadius:6, maxBarThickness:26 },
-      { label:'Actual', data:actualWeeks, backgroundColor:'#7E9B3F', borderRadius:6, maxBarThickness:26 }
-    ] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{ size:10.5 } } } },
-      scales:{ y:{ grid:{ color:CHART_GRID }, ticks:{ font:{ size:10 } } }, x:{ grid:{ display:false }, ticks:{ font:{ size:9.5 } } } } } });
-}
 
 // What active farms have listed across their calendars, by product.
 function coopInputNeeds(){
