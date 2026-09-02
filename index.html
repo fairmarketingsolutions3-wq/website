@@ -609,6 +609,65 @@ table/* A table that cannot fit scrolls sideways inside its own card, rather tha
   .ring-fill{animation:none;stroke-dashoffset:var(--ring-to);}
 }
 
+/* ---------- Navigation groups ---------- */
+.nav-group{
+  font-size:9.5px;text-transform:uppercase;letter-spacing:.16em;font-weight:700;
+  color:var(--muted);padding:16px 14px 5px;
+}
+.nav-group:first-child{padding-top:4px;}
+.tabbtn{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.tab-badge{
+  min-width:19px;padding:1px 6px;border-radius:99px;background:var(--harvest-orange);
+  color:var(--deep-green);font-size:10.5px;font-weight:700;line-height:1.5;
+  font-family:'Inter',sans-serif;
+}
+
+/* ---------- Today ---------- */
+.today-list{display:grid;gap:10px;margin-bottom:18px;}
+.today-item{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  width:100%;text-align:left;cursor:pointer;
+  background:var(--glass);border:1px solid var(--glass-line);border-left:4px solid var(--leaf-green);
+  border-radius:var(--radius-lg);padding:14px 18px;
+  box-shadow:var(--shadow-sm);
+  transition:transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out);
+  animation:riseIn var(--dur-3) var(--ease-out) both;
+}
+.today-item:hover{transform:translateX(3px);box-shadow:var(--shadow-glow);}
+.today-item.t-warn{border-left-color:var(--red);}
+.today-item.t-act{border-left-color:var(--harvest-orange);}
+.today-item.t-good{border-left-color:var(--leaf-green);}
+.today-item.t-info{border-left-color:var(--line);}
+.ti-body{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1;}
+.ti-title{font-family:'Poppins',sans-serif;font-size:14px;font-weight:600;color:var(--deep-green);}
+.ti-sub{font-size:12.5px;color:var(--muted);line-height:1.5;}
+.ti-go{font-size:12.5px;font-weight:600;color:var(--tipfa-green);white-space:nowrap;}
+
+.today-clear{display:flex;align-items:center;gap:16px;}
+.tc-mark{
+  width:44px;height:44px;flex:0 0 auto;border-radius:50%;
+  background:rgba(126,155,63,.16);color:var(--tipfa-green);
+  display:flex;align-items:center;justify-content:center;
+}
+.tc-mark svg{width:22px;height:22px;}
+
+.quick-grid{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));}
+.quick-card{
+  text-align:left;cursor:pointer;padding:14px 16px;border-radius:var(--radius-lg);
+  background:var(--glass);border:1px solid var(--glass-line);
+  display:flex;flex-direction:column;gap:3px;
+  transition:transform var(--dur-2) var(--ease-out), box-shadow var(--dur-2) var(--ease-out),
+             border-color var(--dur-2) var(--ease-out);
+}
+.quick-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-glow);border-color:rgba(126,155,63,.4);}
+.quick-card strong{font-family:'Poppins',sans-serif;font-size:13.5px;color:var(--deep-green);}
+.quick-card span{font-size:12px;color:var(--muted);}
+
+@media (prefers-reduced-motion: reduce){
+  .today-item{animation:none;}
+  .today-item:hover, .quick-card:hover{transform:none;}
+}
+
 /* ---------- The input store ---------- */
 .store-filters{position:sticky;top:0;z-index:5;}
 .store-search{position:relative;display:flex;align-items:center;}
@@ -2150,7 +2209,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v58';
+const BUILD = 'v59';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3992,8 +4051,10 @@ function enterSession(role, opts){
   state.loggedIn = true;
   state.role = role;
   state.rollRead = false;
-  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'profile'; state.harvestPick = null; }
-  else { state.adminName = opts.adminName || 'TIPFA Secretariat operator'; state.tab = state.tab || 'members'; }
+  // A member lands on what is waiting for them, not on a form. An operator
+  // lands on the association's figures.
+  if(role === 'member'){ state.member = opts.member; state.tab = state.tab || 'today'; state.harvestPick = null; }
+  else { state.adminName = opts.adminName || 'TIPFA Secretariat operator'; state.tab = state.tab || 'dashboard'; }
   document.body.setAttribute('data-role', role);
   rememberSession();
 }
@@ -4471,7 +4532,8 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   traceError:'', traceMsg:'', traceRead:false, traceLot:'', rulesGap:[], cloudRefused:false,
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
-  inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false };
+  inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false,
+  todayRead:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -5496,34 +5558,52 @@ function switchTab(tab){
   if(tab === 'batches' || tab === 'traceA') state.traceRead = false;
   if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
   if(tab === 'store' || tab === 'inputsA') state.inputsRead = false;
+  if(tab === 'today') state.todayRead = false;
   state.tab = tab; render();
 }
 function selectMember(id){ state.member = id; render(); }
 function selectPeriod(p){ state.period = p; render(); }
 
-const MEMBER_TABS = [
-  ['profile','Profile'], ['calendar','Crop calendar'], ['standards','Market standards'],
-  ['plan','Harvest plan'], ['actual','Actual harvest'], ['orders','Orders'], ['batches','Batches'], ['store','Input store'], ['advice','Ask an agronomist'],
-  ['market','Market prices'],
-  ['inputs','Input plan'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
+/* ============================================================
+   Navigation
+
+   Fifteen tabs in a flat column, in the order they happened to be
+   built. A member looking for the input store read past Market
+   standards and Actual harvest to find it, and nothing on screen
+   said which of the fifteen wanted them today.
+
+   So: four groups named for what a farm is doing, and a screen in
+   front of them that says what is outstanding. The tab keys are
+   untouched — every switchTab call, every deep link and every test
+   still names the same screen.
+   ============================================================ */
+const MEMBER_GROUPS = [
+  ['', [['today','Today']]],
+  ['My farm',  [['profile','Farm profile'], ['calendar','Crop calendar'], ['standards','Market standards']]],
+  ['Harvest',  [['plan','Harvest plan'], ['actual','Actual harvest'], ['batches','Batches']]],
+  ['Trade',    [['orders','Orders'], ['store','Input store'], ['inputs','Input plan'], ['market','Market prices']]],
+  ['Support',  [['advice','Ask an agronomist'], ['comms','Communication'],
+                ['reports','Reports'], ['future','Future planning'], ['archive','Archive']]]
 ];
+const MEMBER_TABS = MEMBER_GROUPS.reduce((all,[,tabs])=> all.concat(tabs), []);
 // Each tab names the permission that opens it. A role that cannot do the
 // thing does not see the tab — and the rules refuse it besides.
-const ADMIN_TABS_ALL = [
-  ['members','Member management','members.read'],
-  ['catalogue','Crop catalogue','catalogue.read'],
-  ['calendarsA','Crop calendars','calendars.read'],
-  ['bulk','Bulk data entry','bulk.write'],
-  ['ordersA','Orders','orders.read'],
-  ['traceA','Traceability','batches.read'],
-  ['advisoryA','Advisory','advisory.read'],
-  ['inputsA','Inputs','inputs.read'],
-  ['dashboard','Central dashboard','dashboard.read'],
-  ['growth','Growth planning','growth.read'],
-  ['reportsA','Reports','reports.read'],
-  ['commsA','Communication','comms.read'],
-  ['gov','Governance','codes.read']
+const ADMIN_GROUPS = [
+  ['',           [['dashboard','Central dashboard','dashboard.read']]],
+  ['Membership', [['members','Member management','members.read'],
+                  ['gov','Governance','codes.read']]],
+  ['Growing',    [['catalogue','Crop catalogue','catalogue.read'],
+                  ['calendarsA','Crop calendars','calendars.read'],
+                  ['advisoryA','Advisory','advisory.read']]],
+  ['Trade',      [['ordersA','Orders','orders.read'],
+                  ['inputsA','Inputs','inputs.read'],
+                  ['traceA','Traceability','batches.read']]],
+  ['Records',    [['bulk','Bulk data entry','bulk.write'],
+                  ['growth','Growth planning','growth.read'],
+                  ['reportsA','Reports','reports.read'],
+                  ['commsA','Communication','comms.read']]]
 ];
+const ADMIN_TABS_ALL = ADMIN_GROUPS.reduce((all,[,tabs])=> all.concat(tabs), []);
 function adminTabs(){
   if(!USER) return ADMIN_TABS_ALL.map(([k,l])=> [k,l]);   // no roles in use yet
   return ADMIN_TABS_ALL.filter(([,,perm])=> can(perm)).map(([k,l])=> [k,l]);
@@ -5540,11 +5620,41 @@ function emptyState(title, body, action){
 }
 function noMembersYet(){ return Object.keys(MEMBERS).length === 0; }
 
+/* The groups a role may actually open. An empty group is not drawn — a
+   heading over nothing is worse than no heading. */
+function sidebarGroups(){
+  if(state.role === 'member') return MEMBER_GROUPS;
+  return ADMIN_GROUPS.map(([name, tabs])=>
+    [name, USER ? tabs.filter(t=> can(t[2])) : tabs]
+  ).filter(([,tabs])=> tabs.length);
+}
+
 function renderSidebar(){
-  const tabs = state.role==='member' ? MEMBER_TABS : adminTabs();
-  document.getElementById('sidebar').innerHTML = tabs.map(([k,label],i)=>
-    `<button class="tabbtn ${state.tab===k?'active':''}" style="animation-delay:${i*35}ms" onclick="switchTab('${k}')">${label}</button>`
-  ).join('');
+  let i = 0;
+  document.getElementById('sidebar').innerHTML = sidebarGroups().map(([name, tabs])=>`
+    ${name ? `<div class="nav-group">${esc(name)}</div>` : ''}
+    ${tabs.map(([k,label])=>{
+      const badge = tabBadge(k);
+      return `<button class="tabbtn ${state.tab===k?'active':''}" style="animation-delay:${(i++)*28}ms"
+        onclick="switchTab('${k}')">${esc(label)}${badge ? `<b class="tab-badge">${badge}</b>` : ''}</button>`;
+    }).join('')}
+  `).join('');
+}
+
+/* A count on a tab means somebody is waiting on this farm — an order to
+   answer, an agronomist who has replied. It clears itself by being read. */
+function tabBadge(key){
+  if(state.role === 'member'){
+    const uid = state.member;
+    if(key === 'orders') return allocsForFarm(uid).filter(a=> a.status === 'Offered').length || '';
+    if(key === 'store')  return cartCount() || '';
+  } else {
+    if(key === 'ordersA') return ALLOCS.filter(a=> a.status === 'Offered').length || '';
+    if(key === 'inputsA') return INPUT_REQUESTS.filter(r=> r.status === 'Sent').length || '';
+    if(key === 'advisoryA') return openCases().length || '';
+    if(key === 'members') return Object.keys(MEMBERS).filter(id=> MEMBERS[id].status === 'Pending').length || '';
+  }
+  return '';
 }
 
 /* Pull everything this session is entitled to see, without signing out and
@@ -5689,6 +5799,7 @@ function afterRender(c){
 
 function renderTabContent(c){
   if(state.role==='member'){
+    if(state.tab==='today') return renderToday(c);
     if(state.tab==='profile') return renderProfile(c);
     if(state.tab==='calendar') return renderCropCalendar(c);
     if(state.tab==='standards') return renderMarketStandards(c);
@@ -7995,6 +8106,145 @@ function exportHarvestPlanReport(id){
   logAction(`${m.name} exported harvest plan report (${MONTHS[month-1]}, week ${week}).`);
 }
 
+
+/* ============================================================
+   Today
+
+   Fifteen tabs told a member where everything was and nothing about
+   what wanted them. This screen answers one question — is there
+   anything for me to do — and every line on it goes straight to the
+   place that does it. When there is nothing, it says so plainly
+   rather than inventing work.
+   ============================================================ */
+function todayItems(){
+  const uid = state.member, m = MEMBERS[uid];
+  if(!m) return [];
+  const out = [];
+
+  const offers = allocsForFarm(uid).filter(a=> a.status === 'Offered');
+  if(offers.length) out.push({
+    tone:'act', tab:'orders',
+    title:`${offers.length} order${offers.length===1?'':'s'} waiting for your answer`,
+    body: offers.map(a=> `${fmt(a.kg)} kg of ${a.crop}${a.needBy?` by ${a.needBy}`:''}`).join(' · '),
+    action:'Answer them'
+  });
+
+  // Picked before a spray was safe: the buyer will hold the association to
+  // this, so it comes before anything else on the list.
+  const unsafe = batchesForFarm(uid).filter(b=> !batchSafety(b).ok);
+  if(unsafe.length) out.unshift({
+    tone:'warn', tab:'batches',
+    title:`${unsafe.length} batch${unsafe.length===1?' was':'es were'} picked too soon after spraying`,
+    body:'Produce picked inside a pre-harvest interval can be turned away at the buyer’s gate.',
+    action:'Check the batches'
+  });
+
+  const answered = casesForFarm(uid).filter(x=> (x.replies||[]).length && x.status === 'Answered');
+  if(answered.length) out.push({
+    tone:'good', tab:'advice',
+    title:`An agronomist has answered ${answered.length === 1 ? 'your question' : answered.length + ' of your questions'}`,
+    body: answered[0].question.slice(0, 90),
+    action:'Read the answer'
+  });
+
+  const replied = INPUT_REQUESTS.filter(r=> r.farmUid === uid && r.reply && r.status !== 'Sent');
+  if(replied.length) out.push({
+    tone:'good', tab:'store',
+    title:`The Secretariat answered your input request`,
+    body: replied[0].reply.slice(0, 90),
+    action:'See it'
+  });
+
+  // A crop with no harvest recorded for a fortnight after it was due to
+  // start is either late or unrecorded, and the farm is the only one who
+  // knows which.
+  const today = todayStr();
+  (m.crops || []).forEach(cr=>{
+    if(!cr.firstHarvest || cr.firstHarvest > today) return;
+    if(entriesForProfile(uid, cr.id).length) return;
+    out.push({ tone:'act', tab:'actual',
+      title:`Nothing recorded yet for ${profileLabel(cr)}`,
+      body:`Picking was due to start ${prettyDate(cr.firstHarvest)}.`,
+      action:'Record a pick' });
+  });
+
+  if(!(m.crops || []).length) out.push({
+    tone:'act', tab:'profile',
+    title:'No crops on your profile yet',
+    body:'Almost everything else follows from your crops — the calendar, the plan, what you can be offered.',
+    action:'Add a crop' });
+
+  if(m.status === 'Pending') out.push({
+    tone:'info', tab:'profile',
+    title:'Your membership is with the Secretariat for review',
+    body:'You can fill in your profile and crops in the meantime.',
+    action:'Open your profile' });
+
+  return out;
+}
+
+function renderToday(c){
+  const uid = state.member, m = MEMBERS[uid];
+  if(!m) return;
+  if(cloudOn() && !state.todayRead){
+    state.todayRead = true;
+    Promise.resolve()
+      .then(()=> cloudPullOrders()).then(()=> cloudPullTrace())
+      .then(()=> cloudPullAdvisory()).then(()=> cloudPullInputs())
+      .then(()=> render());
+  }
+  const items = todayItems();
+  const crops = (m.crops || []).length;
+  const picked = harvestEntries(uid).reduce((t,e)=> t + toKg(e.amount, e.unit || 'kg'), 0);
+  const expected = (m.crops || []).reduce((t,cr)=>{ const e = expectedHarvest(cr); return t + (e.ok ? e.total : 0); }, 0);
+
+  c.innerHTML = `
+    ${farmHeader(m)}
+    <h1 class="page-title">${greeting()}</h1>
+    <p class="page-sub">${items.length ? 'Here is what is waiting on you' : 'Nothing is waiting on you'}</p>
+
+    <div class="grid3">
+      ${orderMetric('Crops on your profile', String(crops))}
+      ${orderMetric('Picked so far', massText(picked))}
+      ${orderMetric('Expected this season', expected ? massText(expected) : '—')}
+    </div>
+
+    ${items.length ? `<div class="today-list">
+      ${items.map((x,i)=>`<button class="today-item t-${x.tone}" style="animation-delay:${i*60}ms"
+          onclick="switchTab('${x.tab}')">
+        <span class="ti-body">
+          <span class="ti-title">${esc(x.title)}</span>
+          <span class="ti-sub">${esc(x.body)}</span>
+        </span>
+        <span class="ti-go">${esc(x.action)} &rarr;</span>
+      </button>`).join('')}
+    </div>` : `<div class="card today-clear">
+      <div class="tc-mark">${lineIcon('<path d="M20 6L9 17l-5-5"/>')}</div>
+      <div>
+        <strong>Everything is up to date.</strong>
+        <p class="helper" style="margin:4px 0 0;">No orders waiting, no batches to check, nothing outstanding. Your records are where they should be.</p>
+      </div>
+    </div>`}
+
+    <div class="section-label">Go to</div>
+    <div class="quick-grid">
+      ${[['actual','Record a pick','What you harvested today'],
+         ['store','Input store','Order what you need'],
+         ['calendar','Crop calendar','Your programme by stage'],
+         ['advice','Ask an agronomist','Get help with a problem']].map(([tab,t,sub])=>
+        `<button class="quick-card" onclick="switchTab('${tab}')">
+          <strong>${esc(t)}</strong><span>${esc(sub)}</span>
+        </button>`).join('')}
+    </div>`;
+}
+
+function greeting(){
+  const h = new Date().getHours();
+  const when = h < 12 ? 'Good morning' : (h < 17 ? 'Good afternoon' : 'Good evening');
+  const m = MEMBERS[state.member];
+  const who = m && m.contact ? m.contact.split(/\s+/)[0] : '';
+  return who ? `${when}, ${esc(who)}` : when;
+}
 
 /* ============================================================
    The input store — the member's side
