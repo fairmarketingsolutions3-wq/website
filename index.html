@@ -306,7 +306,23 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 .metric .val{font-size:24px;font-weight:700;margin-top:4px;color:var(--deep-green);letter-spacing:-.02em;position:relative;}
 
 /* ---------- Tables ---------- */
-table.grid-table{width:100%;border-collapse:collapse;font-size:13px;}
+table/* A table that cannot fit scrolls sideways inside its own card, rather than
+   pushing the whole page sideways — a page that scrolls horizontally is a
+   page where the sidebar and the buttons wander off screen. */
+.table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+
+/* Keyboard focus. The inputs replace the browser's ring with a green one;
+   everything else was relying on whatever the browser drew, which on a
+   coloured button can be all but invisible. Same ring everywhere, and only
+   for keyboard users, so a mouse click does not leave an outline behind. */
+.btn:focus-visible, .chip:focus-visible, .tabbtn:focus-visible,
+.segbtn:focus-visible, .logintabs button:focus-visible, a:focus-visible{
+  outline:3px solid var(--leaf-green);
+  outline-offset:2px;
+  border-radius:var(--radius-sm);
+}
+
+.grid-table{width:100%;border-collapse:collapse;font-size:13px;}
 table.grid-table th{
   background:var(--tipfa-green);color:var(--field-cream);text-align:left;padding:10px 12px;font-size:10px;
   text-transform:uppercase;letter-spacing:.14em;font-weight:600;font-family:'Poppins',sans-serif;
@@ -558,6 +574,15 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
 .ts-item.done .ti-name{text-decoration:line-through;color:var(--muted);}
 .ts-actions{display:flex;gap:7px;flex-wrap:wrap;}
 @media (max-width:760px){ .tally-grid{grid-template-columns:1fr;} }
+
+/* On a narrow screen a table is given a floor to sit on, so its columns
+   scroll rather than crushing to one word per line. Above that width it is
+   left alone — a two-column table should not scroll on a laptop. */
+@media (max-width:760px){
+  .table-scroll > .grid-table{min-width:540px;}
+  /* Enough of a target to hit with a thumb, per WCAG 2.2 target size. */
+  .chip, .btn.small{min-height:34px;display:inline-flex;align-items:center;justify-content:center;}
+}
 
 
 /* ---------- Generated programme: TIPFA document styling ---------- */
@@ -1689,7 +1714,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v53';
+const BUILD = 'v54';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -4010,7 +4035,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   traceError:'', traceMsg:'', traceRead:false, traceLot:'', rulesGap:[], cloudRefused:false,
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
-  inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'' };
+  inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -5044,7 +5069,7 @@ const MEMBER_TABS = [
   ['profile','Profile'], ['calendar','Crop calendar'], ['standards','Market standards'],
   ['plan','Harvest plan'], ['actual','Actual harvest'], ['orders','Orders'], ['batches','Batches'], ['store','Input store'], ['advice','Ask an agronomist'],
   ['market','Market prices'],
-  ['inputs','Inputs'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
+  ['inputs','Input plan'], ['future','Future planning'], ['reports','Reports'], ['comms','Communication'], ['archive','Archive']
 ];
 // Each tab names the permission that opens it. A role that cannot do the
 // thing does not see the tab — and the rules refuse it besides.
@@ -5198,7 +5223,26 @@ function renderKeepingPlace(focusId){
   requestAnimationFrame(()=> window.scrollTo(0, y));
 }
 
+/* Forty tables are built as HTML strings across this file and only eleven
+   of them were wrapped in something that scrolls. The other twenty-nine burst
+   their card on a phone, which is most of the association. Wrapping them here
+   fixes every one at once, and every one written from now on. */
+function makeTablesScrollable(root){
+  root.querySelectorAll('table.grid-table').forEach(t=>{
+    const p = t.parentElement;
+    if(!p || p.classList.contains('table-scroll')) return;
+    let style = null;
+    try{ style = getComputedStyle(p); }catch(e){ /* detached */ }
+    if(style && (style.overflowX === 'auto' || style.overflowX === 'scroll')) return;
+    const wrap = document.createElement('div');
+    wrap.className = 'table-scroll';
+    p.insertBefore(wrap, t);
+    wrap.appendChild(t);
+  });
+}
+
 function afterRender(c){
+  makeTablesScrollable(c);
   c.classList.remove('is-swapping');
   void c.offsetWidth;
   c.classList.add('is-swapping');
@@ -7558,10 +7602,7 @@ function renderStore(c){
     <div class="card">
       <input id="store-search" placeholder="Search the list — dripline, filter, pump…"
              value="${esc(state.storeSearch||'')}" oninput="storeSearch(this.value)">
-      <div class="chips" style="margin:12px 0 0;">
-        ${['All'].concat(cats).map(x=>
-          `<span class="chip ${(state.storeCat||'All')===x?'active':''}" onclick="storeCat('${esc(x)}')">${esc(x)}</span>`).join('')}
-      </div>
+      ${categoryChips(cats)}
     </div>
 
     ${cartPanel()}
@@ -7581,6 +7622,30 @@ function renderStore(c){
     </div>` : `<div class="card"><p class="helper">Nothing on the list matches that. If what you need is not stocked at all, ask for it on the Suggest an input tab.</p></div>`}
   `;
 }
+
+/* Fifteen categories laid out as chips filled a whole phone screen before a
+   single product came into view. Show the first few and the one in use, with
+   an honest count of what is folded away — not a clipped row, and nothing
+   that cannot be reached. */
+const STORE_CHIPS_SHOWN = 5;
+
+function categoryChips(cats){
+  const active = state.storeCat || 'All';
+  const all = ['All'].concat(cats);
+  const open = !!state.storeCatsOpen;
+  let shown = open ? all : all.slice(0, STORE_CHIPS_SHOWN + 1);
+  // Whatever is filtering the list is always on screen, however far down the
+  // list it sits — a filter you cannot see is a filter you forget is on.
+  if(!shown.includes(active)) shown = shown.slice(0, STORE_CHIPS_SHOWN).concat([active]);
+  const hidden = all.length - shown.length;
+  return `<div class="chips" style="margin:12px 0 0;">
+    ${shown.map(x=>
+      `<span class="chip ${active===x?'active':''}" onclick="storeCat('${esc(x)}')">${esc(x)}</span>`).join('')}
+    ${hidden > 0 ? `<button class="chip" style="border-style:dashed;" onclick="toggleStoreCats()">+${hidden} more</button>`
+      : (open ? `<button class="chip" style="border-style:dashed;" onclick="toggleStoreCats()">Show fewer</button>` : '')}
+  </div>`;
+}
+function toggleStoreCats(){ state.storeCatsOpen = !state.storeCatsOpen; render(); }
 
 function qtyControl(id){
   const q = Number(CART[id]) || 0;
