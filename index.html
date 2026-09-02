@@ -2311,7 +2311,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v62';
+const BUILD = 'v63';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -4651,7 +4651,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
   inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false,
-  todayRead:false };
+  todayRead:false, handOver:null };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -11489,6 +11489,7 @@ function renderGovernance(c){
               : `<button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeAdmin(${i})">Remove</button>`}</td>
       </tr>`).join('')}</tbody></table>
       ${roleNote()}
+      ${handOverPanel()}
       ${cloudOn() ? `
         <p class="helper" style="margin-top:12px;">This is the association's roll, read from the shared database, so an operator who signed up on any device appears here.
         A new operator creates their own account from the Administrator tab of the sign-in screen, quoting the operator sign-up code below — an account cannot be made for someone else from here, because only they can set their own password.</p>
@@ -11516,7 +11517,10 @@ function renderGovernance(c){
    change it. Everyone else sees the role as a plain word: the control is
    hidden because it would only be refused, not because hiding it is what
    stops them. The database is what stops them. */
-const STAFF_ROLES = ['superAdmin','secretariat','qualityOfficer','agronomist','logistics','auditor'];
+/* System owner is not in this list on purpose. It is not a role you pick
+   from a menu, because picking it from a menu is how an association ends up
+   with two of them. It is handed over — see handOverOwnership below. */
+const STAFF_ROLES = ['secretariat','qualityOfficer','agronomist','logistics','auditor'];
 
 function roleCell(a){
   const rec = a.uid ? USERS[a.uid] : null;
@@ -11528,11 +11532,70 @@ function roleCell(a){
     return `<span class="helper">${esc(roleLabel(role))}${suspended ? ' \u00b7 suspended' : ''}</span>`;
   }
   const mine = a.uid === CLOUD_STATE.uid;
+  // The owner's own row shows what they are and offers no menu: an owner
+  // demoting themselves is how an association is left with none.
+  if(role === 'superAdmin'){
+    return `<span class="status-pill status-active">System owner</span>
+      ${mine ? '<div class="helper" style="margin-top:4px;">This is you.</div>' : ''}`;
+  }
   return `<select class="small" onchange="setAdminRole('${esc(a.uid)}', this.value)"${mine?' disabled':''}>
       ${STAFF_ROLES.map(r=>`<option value="${r}"${r===role?' selected':''}>${esc(roleLabel(r))}</option>`).join('')}
       ${STAFF_ROLES.indexOf(role) === -1 && role ? `<option value="${esc(role)}" selected>${esc(roleLabel(role))}</option>` : ''}
     </select>
-    ${mine ? '' : `<button class="btn small ghost" style="margin-left:6px;" onclick="setAdminStatus('${esc(a.uid)}', '${suspended ? 'active' : 'suspended'}')">${suspended ? 'Restore' : 'Suspend'}</button>`}`;
+    ${mine ? '' : `
+      <button class="btn small ghost" style="margin-left:6px;" onclick="setAdminStatus('${esc(a.uid)}', '${suspended ? 'active' : 'suspended'}')">${suspended ? 'Restore' : 'Suspend'}</button>
+      <button class="btn small ghost" style="margin-left:6px;" onclick="askHandOver('${esc(a.uid)}')">Make system owner</button>`}`;
+}
+
+/* ---- Handing the association over ------------------------------------
+   There is one system owner, always. Making somebody else the owner is
+   therefore not a promotion but a transfer: the claim moves first, then
+   they become the owner, then you become Secretariat. Doing it in that
+   order means there is never a moment with two owners or none, and the
+   rules only accept the role for whoever the claim names.
+
+   It cannot be undone from this side afterwards. Once the claim has moved
+   you are Secretariat, and only the new owner can give it back. */
+function askHandOver(uid){ state.handOver = uid; render(); }
+function cancelHandOver(){ state.handOver = null; render(); }
+
+function handOverPanel(){
+  if(!state.handOver) return '';
+  const rec = USERS[state.handOver] || {};
+  const who = rec.displayName || rec.email || state.handOver;
+  return `<div class="card" style="border-color:var(--harvest-orange);">
+    <strong>Hand the association over to ${esc(who)}?</strong>
+    <p class="helper" style="margin-top:6px;">They become the system owner and you become Secretariat. There is only ever one system owner, so this is a handover, not a second one.</p>
+    <p class="helper">You will no longer be able to change anyone's role, including your own. Only ${esc(who)} can give it back.</p>
+    <div style="margin-top:10px;">
+      <button class="btn small" onclick="handOverOwnership('${esc(state.handOver)}')">Yes, hand it over</button>
+      <button class="btn small ghost" onclick="cancelHandOver()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+async function handOverOwnership(uid){
+  const me = CLOUD_STATE.uid;
+  if(!uid || !me || uid === me) return;
+  const rec = USERS[uid] || {};
+  const who = rec.displayName || rec.email || uid;
+  state.handOver = null;
+  try{
+    // The claim moves first, and only the owner may move it. Until it has
+    // moved, the rules will not accept the role for anybody.
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'settings', 'ownership'),
+                 { owner: uid, claimedAt: new Date().toISOString(), handedOverBy: me }, {merge:true});
+    await cloudSetUserField(uid, 'role', 'superAdmin');
+    await cloudSetUserField(me,  'role', 'secretariat');
+    await cloudPullUsers();
+    state.orderMsg = `${who} is now the system owner. You are Secretariat.`;
+    logAction(`Operator ${state.adminName||''} handed system ownership to ${who}.`);
+  }catch(e){
+    state.orderError = 'The handover did not complete: ' + ((e && e.message) || e) +
+      ' — check the Governance roll to see who holds ownership before trying again.';
+  }
+  render();
 }
 
 function roleNote(){
