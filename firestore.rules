@@ -105,29 +105,47 @@ service cloud.firestore {
 
     // Accounts made before roles existed are still operators: the presence of
     // an operators/{uid} document is the older proof, and it keeps working.
+    //
+    // But only until a role is recorded. Written as a plain `or`, this clause
+    // defeated the whole role system: every operator holds one of these
+    // documents, so an auditor — whose point is to write nothing — passed
+    // every write check in the file. A role that cannot take anything away is
+    // not a role. So the old proof now applies only where there is no role to
+    // read, and once there is, the role is the answer.
     function hasOperatorDoc() {
       return signedIn()
         && exists(/databases/$(database)/documents/operators/$(request.auth.uid));
     }
+    function legacyOperator() {
+      return hasOperatorDoc() && !hasUserRec();
+    }
 
     // Anyone on the association's side of the platform. Reading only.
     function isStaff() {
-      return hasOperatorDoc()
+      return legacyOperator()
         || hasRole(['superAdmin','secretariat','qualityOfficer','agronomist',
                     'logistics','auditor']);
     }
 
-    // Staff who may change members' records. An auditor is deliberately not
-    // here: an auditor sees everything and touches nothing.
+    // Staff who may change association records generally. An auditor is
+    // deliberately not here: an auditor sees everything and touches nothing.
     function isOperator() {
-      return hasOperatorDoc()
+      return legacyOperator()
         || hasRole(['superAdmin','secretariat','qualityOfficer','agronomist',
                     'logistics']);
     }
 
+    // A member's own record is the association's register, and keeping it is
+    // the Secretariat's job. A quality officer inspects batches and an
+    // agronomist gives advice; neither has business rewriting a farm's
+    // profile, its crops or its harvest, so neither may.
+    function keepsTheRegister() {
+      return legacyOperator() || hasRole(['superAdmin','secretariat']);
+    }
+
     // The Secretariat's own settings — the catalogue and the sign-up codes.
     function isSecretariat() {
-      return hasOperatorDoc() || hasRole(['superAdmin','secretariat']);
+      return legacyOperator() || hasRole(['superAdmin','secretariat']);
     }
 
     function isOwner() {
@@ -189,7 +207,7 @@ service cloud.firestore {
     // meant to see all of it.
     match /settings/catalogue {
       allow read: if signedIn();
-      allow write: if isSecretariat();
+      allow write: if isSecretariat();      // the catalogue is the Secretariat's
     }
 
     // ---- Roles ------------------------------------------------------------
@@ -260,14 +278,14 @@ service cloud.firestore {
                     && request.resource.data.name is string
                     && request.resource.data.name.size() > 0
                     && request.resource.data.email is string;
-      allow update: if owns(uid) || isOperator();
-      allow delete: if isOperator();
+      allow update: if owns(uid) || keepsTheRegister();
+      allow delete: if keepsTheRegister();
     }
 
     // ---- Harvest figures ------------------------------------------------
     match /harvest/{uid} {
       allow read:   if owns(uid) || isStaff();
-      allow write:  if owns(uid) || isOperator();
+      allow write:  if owns(uid) || keepsTheRegister();
     }
 
     // ---- Orders and allocation -------------------------------------------

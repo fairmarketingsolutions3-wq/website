@@ -617,6 +617,16 @@ tr.crop-edit .grid2{margin-bottom:4px;}
   .ring-fill{animation:none;stroke-dashoffset:var(--ring-to);}
 }
 
+/* An action this role may not take. Dimmed rather than removed, so an
+   operator can see the association does the thing and know to ask, instead
+   of concluding the platform cannot. */
+.not-allowed{
+  opacity:.42;
+  cursor:not-allowed !important;
+  filter:grayscale(.5);
+}
+.not-allowed:hover{transform:none !important;box-shadow:none !important;}
+
 /* ---------- Navigation groups ---------- */
 .nav-group{
   font-size:9.5px;text-transform:uppercase;letter-spacing:.16em;font-weight:700;
@@ -2311,7 +2321,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v63';
+const BUILD = 'v64';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3908,6 +3918,83 @@ function can(perm){
     return a === '*' || a === action;
   });
 }
+/* ============================================================
+   What a role may actually do
+
+   Roles decided which tabs an operator saw and nothing else, so an
+   auditor — whose whole point is to read everything and change
+   nothing — could open Member management and approve a farm. The
+   tab was the lock and there was nothing behind the door.
+
+   Rather than thread a check through a hundred buttons and miss
+   some, every action that writes is named here once and wrapped at
+   start-up. A call that the role cannot make does not happen, and
+   afterRender dims the button so nobody presses it expecting it to.
+
+   This is courtesy, not security. The rules refuse the same writes
+   at the database; this only stops the console pretending otherwise.
+   ============================================================ */
+const WRITE_GUARDS = {
+  // Members
+  approveMember:'members.write', removeMember:'members.write',
+  saveMemberEdit:'members.write',
+  // The crop catalogue
+  addCatalogueCrop:'catalogue.write', addCatalogueVariety:'catalogue.write',
+  saveCatalogueVariety:'catalogue.write',
+  removeCatalogueCrop:'catalogue.write', removeCatalogueVariety:'catalogue.write',
+  // Orders
+  addOrder:'orders.write', askEveryone:'orders.write', offerTo:'orders.write',
+  sendDraft:'orders.write', withdrawAlloc:'orders.write',
+  markDelivered:'orders.write', setOrderStatus:'orders.write',
+  // The input store
+  saveInput:'inputs.write', deleteInput:'inputs.write', toggleInput:'inputs.write',
+  restoreInputList:'inputs.write', setRequestStatus:'inputs.write',
+  stockSuggestion:'inputs.write', declineSuggestion:'inputs.write',
+  // Traceability
+  addIssue:'complaints.write', resolveIssue:'complaints.write',
+  // Advisory
+  answerCase:'advisory.write', addKnowledge:'knowledge.write',
+  // Governance
+  setSignupCode:'codes.write', setAdminRole:'roles.write', setAdminStatus:'roles.write',
+  handOverOwnership:'roles.write', removeAdmin:'roles.write',
+  // Bulk entry
+  saveBulk:'bulk.write'
+};
+
+/* A role that cannot do a thing should not be offered the button. Read the
+   function name out of the handler and dim anything it may not call. */
+function dimForbiddenActions(root){
+  if(state.role !== 'admin' || !USER) return;
+  root.querySelectorAll('[onclick]').forEach(el=>{
+    const m = /^\s*([A-Za-z_$][\w$]*)\s*\(/.exec(el.getAttribute('onclick') || '');
+    if(!m) return;
+    const perm = WRITE_GUARDS[m[1]];
+    if(!perm || can(perm)) return;
+    el.classList.add('not-allowed');
+    el.setAttribute('aria-disabled', 'true');
+    if('disabled' in el) el.disabled = true;
+    el.title = `${roleLabel(roleIs())} cannot do this. Ask the system owner.`;
+  });
+}
+
+function guardAdminWrites(){
+  Object.keys(WRITE_GUARDS).forEach(name=>{
+    const fn = window[name];
+    if(typeof fn !== 'function' || fn.__guarded) return;
+    const wrapped = function(){
+      if(state.role === 'admin' && USER && !can(WRITE_GUARDS[name])){
+        state.orderError = `Your role is ${roleLabel(roleIs())}, which cannot do that. ` +
+          `The system owner sets roles on the Governance tab.`;
+        try{ render(); }catch(_){ }
+        return;
+      }
+      return fn.apply(this, arguments);
+    };
+    wrapped.__guarded = true;
+    window[name] = wrapped;
+  });
+}
+
 function roleIs(){ return USER ? USER.role : null; }
 function roleLabel(r){ return ROLE_LABELS[r] || r || '—'; }
 
@@ -5937,6 +6024,7 @@ function labelTableCells(t){
 
 function afterRender(c){
   makeTablesScrollable(c);
+  dimForbiddenActions(c);
   c.classList.remove('is-swapping');
   void c.offsetWidth;
   c.classList.add('is-swapping');
@@ -8881,6 +8969,7 @@ function renderInputsAdmin(c){
   const head = `
     <h1 class="page-title">Inputs</h1>
     <p class="page-sub">The list members buy from, what they have asked for, and what they want stocked</p>
+    ${readOnlyNote('inputs.write', "the input list and the requests")}
     ${orderNotices()}
     <div class="chips">
       <span class="chip ${t==='requests'?'active':''}" onclick="setInputsTab('requests')">Requests${openReqs.length?` · ${openReqs.length}`:''}</span>
@@ -9400,6 +9489,7 @@ function renderTraceAdmin(c){
   c.innerHTML = `
     <h1 class="page-title">Traceability</h1>
     <p class="page-sub">A lot code goes in; the farm, the pick and everything applied to it come back</p>
+    ${readOnlyNote('complaints.write', "batches and complaints")}
     ${state.traceError ? `<div class="card"><p class="helper cat-local">${esc(state.traceError)}</p></div>${(state.traceError='')||''}` : ''}
     ${state.traceMsg ? `<div class="card"><p class="helper">${esc(state.traceMsg)}</p></div>${(state.traceMsg='')||''}` : ''}
     ${rulesGapBanner()}
@@ -9616,6 +9706,7 @@ function renderOrdersAdmin(c){
   c.innerHTML = `
     <h1 class="page-title">Orders</h1>
     <p class="page-sub">What customers have asked for, and which farms are filling it</p>
+    ${readOnlyNote('orders.write', "the order book")}
     ${orderNotices()}
 
     <div class="card">
@@ -10109,6 +10200,7 @@ function renderCatalogue(c){
   c.innerHTML = `
     <h1 class="page-title">Crop catalogue</h1>
     <p class="page-sub">The crops and varieties every member farm chooses from · ${CATALOGUE.length} crop${CATALOGUE.length===1?'':'s'}, ${CATALOGUE.reduce((n,x)=>n+(x.varieties||[]).length,0)} varieties</p>
+    ${readOnlyNote('catalogue.write', "the crop catalogue")}
     <div class="card">
       <p class="helper" style="margin:0 0 10px;">A farm picks a crop and variety from this list and enters how many seedlings it put in. Everything in its harvest plan follows from what you set here: how many plants belong in a square metre, and what one plant yields week by week. ${cloudOn() ? 'Saving sends it to the shared database, so a change reaches every farm.' : '<strong>Not connected to the shared database — changes stay on this device.</strong>'}</p>
       ${state.catMsg ? `<p class="helper" style="color:var(--deep-green);">${CHECK_ICON} ${esc(state.catMsg)}</p>` : ''}
@@ -10390,11 +10482,21 @@ function renameFarmVariety(cropName, was, now){
   });
 }
 
+/* Said once at the top of a screen, so nobody works out what they cannot do
+   by pressing things. */
+function readOnlyNote(perm, what){
+  if(state.role !== 'admin' || !USER || can(perm)) return '';
+  return `<div class="card" style="border-color:var(--line);">
+    <p class="helper" style="margin:0;">You are ${esc(roleLabel(roleIs()))}, so you can read ${esc(what)} but not change ${'it'}. The system owner sets roles on the Governance tab.</p>
+  </div>`;
+}
+
 function renderMembers(c){
   const panel = state.memberPanel;
   c.innerHTML = `
     <h1 class="page-title">Member management</h1>
     <p class="page-sub">Approve registrations, register new farms, and view, edit, or remove any profile</p>
+    ${readOnlyNote('members.write', "the membership register")}
     ${noMembersYet() ? emptyState('No farms have registered yet',
         cloudOn() ? 'Every farm that signs up appears here, whichever device it used.'
                   : 'Farms appear here as soon as they sign up in this browser. Without the shared database, a farm that registered on a different device will not show until its backup is restored from Governance.') : `
@@ -11670,6 +11772,7 @@ function removeAdmin(i){
   render();
 }
 
+guardAdminWrites();
 loadSettings();
 loadMembers();
 loadCatalogue();
