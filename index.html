@@ -58,6 +58,20 @@
   --ease-spring:cubic-bezier(.22,1.2,.36,1);
   --ease-in-out:cubic-bezier(.65,0,.35,1);
   --dur-1:.18s; --dur-2:.32s; --dur-3:.52s; --dur-4:.8s;
+  --dur-5:1.4s;
+
+  /* Organic Biophilic — the direction the design tools land on for an
+     agricultural cooperative, and the one TIPFA's own palette already is.
+     Flowing shapes, natural light, nothing sharp. The greens below are the
+     brand's, thinned to atmosphere rather than repainted. */
+  --glass:rgba(255,255,255,.72);
+  --glass-line:rgba(255,255,255,.55);
+  --canopy-1:rgba(126,155,63,.42);
+  --canopy-2:rgba(64,94,53,.34);
+  --canopy-3:rgba(232,167,52,.26);
+  --sheen:linear-gradient(100deg,transparent 20%,rgba(255,255,255,.42) 46%,transparent 72%);
+  --radius-xl:28px;
+  --shadow-glow:0 0 0 1px rgba(126,155,63,.22), 0 18px 44px -18px rgba(44,68,35,.42);
 }
 body[data-role="member"]{ --role-accent:#7E9B3F; --role-accent-dark:#405E35; }
 body[data-role="admin"]{ --role-accent:#405E35; --role-accent-dark:#2C4423; }
@@ -72,6 +86,51 @@ body{
   background:var(--field-cream);
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+}
+
+/* ============================================================
+   The canopy — light through leaves
+
+   Four soft pools of the brand's own greens and gold, drifting
+   slowly behind everything. It is three radial gradients on one
+   fixed layer: a few hundred bytes, no image to download, and it
+   never touches layout, so it cannot cost a frame anywhere that
+   matters. A farm on a slow connection pays nothing for it.
+   ============================================================ */
+.canopy{
+  position:fixed; inset:-25vmax; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(38vmax 32vmax at 12% 8%,  var(--canopy-1), transparent 62%),
+    radial-gradient(44vmax 36vmax at 88% 14%, var(--canopy-2), transparent 64%),
+    radial-gradient(34vmax 30vmax at 74% 88%, var(--canopy-3), transparent 60%),
+    radial-gradient(30vmax 26vmax at 30% 62%, rgba(47,122,130,.13), transparent 60%),
+    linear-gradient(160deg, #F4F2E6 0%, #E7E9DA 48%, #DCE3D2 100%);
+  filter:blur(8px);
+  animation:canopyDrift 46s var(--ease-in-out) infinite alternate;
+  will-change:transform;
+}
+@keyframes canopyDrift{
+  0%   { transform:translate3d(0,0,0) scale(1); }
+  50%  { transform:translate3d(2.4%,-1.8%,0) scale(1.06); }
+  100% { transform:translate3d(-2%,2.2%,0) scale(1.02); }
+}
+
+/* Rows of a field, drawn once as a repeating gradient rather than an
+   image, sitting under the content at almost nothing. */
+.canopy::after{
+  content:''; position:absolute; inset:0;
+  background-image:repeating-linear-gradient(115deg,
+    rgba(44,68,35,.085) 0 1.5px, transparent 1.5px 68px);
+  mask-image:radial-gradient(70% 60% at 50% 40%, #000 30%, transparent 78%);
+  -webkit-mask-image:radial-gradient(70% 60% at 50% 40%, #000 30%, transparent 78%);
+}
+#appScreen, #loginScreen{ position:relative; z-index:1; }
+
+/* Everything above is decoration. When a reader asks for less motion it
+   stops moving — it does not disappear, because a still gradient is not
+   the thing that causes harm. */
+@media (prefers-reduced-motion: reduce){
+  .canopy{ animation:none; }
 }
 h1,h2,h3,h4,.display,.brand,.btn,.metric .val,.tabbtn,.logintabs button,.eyebrow{
   font-family:'Poppins','Montserrat',system-ui,sans-serif;
@@ -94,7 +153,16 @@ a{color:var(--tipfa-green);}
   50%{transform:translate3d(2.5%,-3.5%,0) scale(1.055);}
 }
 
-.app{max-width:1240px;margin:0 auto;background:var(--field-cream);position:relative;}
+/* Translucent, so the canopy behind it is what you are actually looking at.
+   Painting the shell solid cream is what made the first attempt at this
+   invisible — the light was there, with a sheet of paper over it. */
+/* Barely there. The canopy is the page; this only holds the column
+   together and keeps text off the busiest part of the light. */
+.app{
+  max-width:1240px;margin:0 auto;position:relative;
+  background:linear-gradient(180deg, rgba(244,242,232,.30), rgba(239,237,226,.52));
+  box-shadow:0 0 120px -40px rgba(44,68,35,.42);
+}
 
 /* ---------- Top bar ---------- */
 .topbar{
@@ -139,6 +207,44 @@ a{color:var(--tipfa-green);}
   animation:panelIn var(--dur-4) var(--ease-out) both;
 }
 .loginbrand > *{position:relative;z-index:1;}
+
+/* ============================================================
+   The front door
+
+   Light moving behind the panel — three shafts and two drifting
+   leaf shapes, all CSS, nothing to download. The logo itself does
+   not move: the brand guidelines are explicit that logo elements
+   are never animated out of position, so the light moves and the
+   mark stays exactly where it was drawn.
+   ============================================================ */
+.loginbrand::before{
+  content:''; position:absolute; inset:-30%; z-index:0; pointer-events:none;
+  background:
+    radial-gradient(28vmax 22vmax at 18% 12%, rgba(126,155,63,.42), transparent 62%),
+    radial-gradient(24vmax 30vmax at 84% 30%, rgba(232,167,52,.20), transparent 64%),
+    radial-gradient(26vmax 24vmax at 62% 92%, rgba(47,122,130,.24), transparent 62%);
+  animation:doorDrift 34s var(--ease-in-out) infinite alternate;
+  will-change:transform;
+}
+@keyframes doorDrift{
+  0%   { transform:translate3d(0,0,0) rotate(0deg) scale(1); }
+  100% { transform:translate3d(3%,-3%,0) rotate(8deg) scale(1.14); }
+}
+
+/* Shafts of light, as through a tunnel roof. */
+.loginbrand::after{
+  content:''; position:absolute; inset:0; z-index:0; pointer-events:none;
+  background:repeating-linear-gradient(102deg,
+    rgba(239,237,226,.075) 0 2px, transparent 2px 58px);
+  mask-image:linear-gradient(180deg, #000 6%, transparent 82%);
+  -webkit-mask-image:linear-gradient(180deg, #000 6%, transparent 82%);
+  animation:shaftSlide 26s linear infinite;
+}
+@keyframes shaftSlide{ to{ background-position:340px 0; } }
+
+@media (prefers-reduced-motion: reduce){
+  .loginbrand::before, .loginbrand::after{ animation:none; }
+}
 .loginbrand .lb-logo{
   width:min(300px,72%);height:auto;display:block;margin-bottom:34px;
   animation:logoIn 1s var(--ease-spring) .12s both;
@@ -199,7 +305,9 @@ a{color:var(--tipfa-green);}
 .layout{display:grid;grid-template-columns:236px 1fr;gap:0;min-height:560px;position:relative;}
 .sidebar{
   border-right:1px solid var(--line); padding:18px 12px; display:flex; flex-direction:column; gap:3px;
-  position:relative;background:linear-gradient(180deg,#EBE9DC 0%, var(--field-cream) 100%);
+  position:relative;
+  background:linear-gradient(180deg, rgba(235,233,220,.72) 0%, rgba(239,237,226,.30) 100%);
+  backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
 }
 .tabbtn{
   text-align:left;border:none;background:none;padding:11px 14px;border-radius:var(--radius-sm);
@@ -215,7 +323,57 @@ a{color:var(--tipfa-green);}
   content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;
   background:var(--role-accent);animation:growBar var(--dur-3) var(--ease-spring) both;
 }
+
+/* The tab you are on glows faintly, the way a lit thing does, so the eye
+   finds it without reading. */
+.tabbtn.active{
+  background:linear-gradient(100deg, rgba(255,255,255,.96), rgba(255,255,255,.82));
+  box-shadow:0 2px 6px rgba(35,40,31,.06), 0 0 0 1px rgba(126,155,63,.22);
+}
 .content{padding:26px 30px 52px;position:relative;overflow:hidden;}
+
+/* ============================================================
+   The page head
+
+   A leaf-shaped field of light behind the title, turning slowly.
+   Two CSS shapes, no image, and it gives every screen a moment
+   before the data starts.
+   ============================================================ */
+.page-title{position:relative;z-index:1;}
+.content > h1.page-title::before{
+  content:''; position:absolute; z-index:-1;
+  left:-26px; top:50%; width:132px; height:132px;
+  transform:translateY(-50%);
+  background:radial-gradient(circle at 34% 34%, rgba(126,155,63,.30), rgba(64,94,53,.08) 56%, transparent 70%);
+  border-radius:62% 38% 46% 54% / 54% 46% 58% 42%;
+  animation:leafTurn 26s var(--ease-in-out) infinite alternate;
+  pointer-events:none;
+}
+@keyframes leafTurn{
+  0%   { transform:translateY(-50%) rotate(0deg)   scale(1); }
+  100% { transform:translateY(-50%) rotate(26deg)  scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce){
+  .content > h1.page-title::before{ animation:none; }
+}
+
+/* Against a busier ground, a card needs a firmer edge to stay legible. */
+.card{ border-width:1px; border-color:rgba(255,255,255,.7); }
+.grid-table thead th{ backdrop-filter:none; }
+
+/* A section label earns a leaf that draws itself in beside it, so a long
+   page reads as chapters rather than a run of identical headings. */
+.section-label{position:relative;}
+.section-label::before{
+  content:''; display:inline-block; width:0; height:2px; vertical-align:middle;
+  margin-right:0; border-radius:2px;
+  background:linear-gradient(90deg,var(--role-accent),var(--leaf-green));
+  animation:markDraw var(--dur-3) var(--ease-out) .1s forwards;
+}
+@keyframes markDraw{ to{ width:18px; margin-right:9px; } }
+@media (prefers-reduced-motion: reduce){
+  .section-label::before{ width:18px; margin-right:9px; animation:none; }
+}
 
 /* ---------- Type scale (guidelines p16) ---------- */
 h1.page-title{font-size:25px;font-weight:700;letter-spacing:-.02em;margin:0 0 5px;color:var(--deep-green);}
@@ -232,6 +390,55 @@ p.page-sub{font-size:13px;color:var(--muted);margin:0 0 22px;font-weight:300;lin
   transition:box-shadow var(--dur-3) var(--ease-out), transform var(--dur-3) var(--ease-out);
 }
 .card:hover{box-shadow:var(--shadow-md);}
+
+/* ============================================================
+   Surfaces
+
+   A card was a white rectangle with a hairline. It is now frosted
+   over the canopy, so the greens behind it come through faintly and
+   the page reads as one thing rather than paper stacked on paper.
+   Lifting on hover, and a slow sheen across it, because a surface
+   that answers the pointer feels made rather than generated.
+   ============================================================ */
+.card{
+  background:var(--glass);
+  backdrop-filter:saturate(1.5) blur(14px);
+  -webkit-backdrop-filter:saturate(1.5) blur(14px);
+  border-radius:var(--radius-lg);
+  border-color:var(--glass-line);
+  position:relative;
+  overflow:hidden;
+}
+/* A hairline of light along the top edge, the way sun catches a leaf. */
+.card::before{
+  content:''; position:absolute; left:0; right:0; top:0; height:1px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent);
+  opacity:.8; pointer-events:none;
+}
+.card::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:var(--sheen);
+  transform:translateX(-120%);
+  transition:transform 1.1s var(--ease-out);
+}
+.card:hover{
+  transform:translateY(-2px);
+  box-shadow:var(--shadow-glow);
+  border-color:rgba(126,155,63,.34);
+}
+.card:hover::after{ transform:translateX(120%); }
+
+/* A tap is not a hover. On a touch screen the sheen never fires, so the
+   press itself is the feedback. */
+@media (hover:none){
+  .card:hover{ transform:none; }
+  .card:hover::after{ transform:translateX(-120%); }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .card::after{ display:none; }
+  .card:hover{ transform:none; }
+}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
@@ -272,6 +479,17 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 }
 .btn:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(64,94,53,.28);}
 .btn:active{transform:translateY(0) scale(.98);}
+
+/* Light travelling across the button as the pointer arrives. One element,
+   one transform — nothing that reflows. */
+.btn::after{
+  content:''; position:absolute; inset:0; pointer-events:none;
+  background:var(--sheen);
+  transform:translateX(-130%);
+  transition:transform .85s var(--ease-out);
+}
+.btn:hover::after{ transform:translateX(130%); }
+@media (prefers-reduced-motion: reduce){ .btn::after{ display:none; } }
 .btn.ghost{background:transparent;border:1.5px solid var(--role-accent);color:var(--role-accent);box-shadow:none;}
 .btn.ghost:hover{background:rgba(64,94,53,.07);box-shadow:0 4px 12px rgba(64,94,53,.14);}
 .btn.small{padding:8px 14px;font-size:12.5px;}
@@ -292,7 +510,9 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 
 /* ---------- Metrics ---------- */
 .metric{
-  background:var(--card);border:1px solid var(--line-soft);border-radius:var(--radius);padding:14px 16px;
+  background:var(--glass);backdrop-filter:saturate(1.5) blur(14px);
+  -webkit-backdrop-filter:saturate(1.5) blur(14px);
+  border:1px solid var(--glass-line);border-radius:var(--radius-lg);padding:16px 18px;
   box-shadow:var(--shadow-sm);position:relative;overflow:hidden;
   transition:transform var(--dur-3) var(--ease-spring), box-shadow var(--dur-3) var(--ease-out);
 }
@@ -578,6 +798,28 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
 /* On a narrow screen a table is given a floor to sit on, so its columns
    scroll rather than crushing to one word per line. Above that width it is
    left alone — a two-column table should not scroll on a laptop. */
+/* Frosted glass is drawn by compositing everything behind it, every frame.
+   On a mid-range Android that is real money for an effect nobody looks at
+   while scrolling a price list, so below the tablet breakpoint the surfaces
+   go opaque and keep the same colour. The site looks the same and scrolls
+   like a list again. */
+@media (max-width:900px){
+  .card, .metric, .app, .sidebar{
+    backdrop-filter:none !important; -webkit-backdrop-filter:none !important;
+  }
+  .card, .metric{ background:rgba(255,255,255,.94); }
+  .app{ background:linear-gradient(180deg, rgba(244,242,232,.72), rgba(239,237,226,.88)); }
+  .sidebar{ background:linear-gradient(180deg,#EBE9DC 0%, rgba(239,237,226,.86) 100%); }
+  .canopy{ filter:blur(16px); }
+  .canopy::after{ display:none; }
+}
+
+/* A phone that says it wants less motion gets a still page, not a slow one. */
+@media (prefers-reduced-motion: reduce){
+  .canopy, .loginbrand::before, .loginbrand::after,
+  .content > h1.page-title::before{ animation:none !important; }
+}
+
 @media (max-width:760px){
   .table-scroll > .grid-table{min-width:540px;}
   /* Enough of a target to hit with a thumb, per WCAG 2.2 target size. */
@@ -946,6 +1188,7 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
 </style>
 </head>
 <body>
+<div class="canopy" aria-hidden="true"></div>
 <div class="app">
 
   <div class="topbar">
@@ -1714,7 +1957,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v54';
+const BUILD = 'v55';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
