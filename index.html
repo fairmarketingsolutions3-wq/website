@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>TIPFA Association Platform</title>
+<!-- Which of the two appearances this is, decided before the first paint so
+     the page never draws as a desktop and then rearranges into a phone.
+     760 is the one breakpoint; it is repeated in the stylesheet and in
+     MOBILE_MAX below, and a test holds the three to each other. -->
+<script>document.documentElement.setAttribute('data-view',
+  window.matchMedia('(max-width:760px)').matches ? 'mobile' : 'desktop');</script>
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Association Platform — member farm records, harvest planning and secretariat oversight for the Tanzania Indoor &amp; Professional Farmers Association.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -85,6 +91,11 @@ body{
   background:var(--field-cream);
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+  /* A phone must not re-flow the type to a size the layout was not built
+     for, and a double tap must not zoom the page: both of those are how a
+     locked layout starts drifting sideways under a thumb. */
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;
+  touch-action:manipulation;
 }
 
 /* ============================================================
@@ -525,10 +536,18 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 .metric .val{font-size:24px;font-weight:700;margin-top:4px;color:var(--deep-green);letter-spacing:-.02em;position:relative;}
 
 /* ---------- Tables ---------- */
-table/* A table that cannot fit scrolls sideways inside its own card, rather than
+/* A table that cannot fit scrolls sideways inside its own card, rather than
    pushing the whole page sideways — a page that scrolls horizontally is a
-   page where the sidebar and the buttons wander off screen. */
+   page where the sidebar and the buttons wander off screen.
+
+   This rule spent three releases doing nothing. It was written into the
+   file in the middle of the selector `table.grid-table`, leaving
+   `table` + comment + `.table-scroll`, which the browser reads as "a
+   .table-scroll inside a table" — a thing that never exists. So no table
+   ever scrolled, and because a card clips what overflows it, the right-hand
+   columns of every wide table were not merely off screen but unreachable. */
 .table-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.table-scroll{scrollbar-width:thin;}
 
 /* Keyboard focus. The inputs replace the browser's ring with a green one;
    everything else was relying on whatever the browser drew, which on a
@@ -607,6 +626,136 @@ table/* A table that cannot fit scrolls sideways inside its own card, rather tha
   .trend .series-plan, .trend .series-actual, .trend .dot{animation:none;stroke-dashoffset:0;opacity:1;}
   .trend .series-plan{opacity:.75;}
   .ring-fill{animation:none;stroke-dashoffset:var(--ring-to);}
+}
+
+/* An action this role may not take. Dimmed rather than removed, so an
+   operator can see the association does the thing and know to ask, instead
+   of concluding the platform cannot. */
+.not-allowed{
+  opacity:.42;
+  cursor:not-allowed !important;
+  filter:grayscale(.5);
+}
+.not-allowed:hover{transform:none !important;box-shadow:none !important;}
+
+/* ============================================================
+   The phone's app bar and its one drawer
+
+   Drawn only in the mobile appearance. A three-line button, the
+   section you are on, and the mark. Everything you can go to is
+   behind that button, in one list, grouped as the desktop rail
+   groups it — not split between a bar and an overflow sheet.
+   ============================================================ */
+.appbar{display:none;}
+.navdrawer{display:none;}
+
+:root[data-view="mobile"] .appbar{
+  display:flex; align-items:center; gap:10px;
+  position:sticky; top:0; z-index:60;
+  padding:8px 12px calc(8px) ; min-height:56px;
+  background:rgba(255,255,255,.985);
+  backdrop-filter:saturate(1.5) blur(18px); -webkit-backdrop-filter:saturate(1.5) blur(18px);
+  border-bottom:1px solid var(--line-soft);
+}
+.ab-burger{
+  position:relative; flex:none; width:44px; height:44px;    /* full touch target */
+  display:flex; align-items:center; justify-content:center;
+  border:none; background:none; cursor:pointer; border-radius:12px;
+  -webkit-tap-highlight-color:transparent;
+}
+.ab-burger:active{background:rgba(64,94,53,.09);}
+.ab-lines{display:flex; flex-direction:column; gap:4px; width:19px;}
+.ab-lines i{display:block; height:2px; border-radius:2px; background:var(--deep-green);}
+.ab-lines i:nth-child(2){width:76%;}   /* the middle line short, so it reads as a menu */
+/* The count rides the corner of the button with a ring of the bar's own
+   colour, so it reads as sitting on top of the lines rather than crossing
+   one of them. */
+.ab-dot{
+  position:absolute; top:2px; right:0; min-width:16px; padding:0 3px;
+  border-radius:99px; background:var(--harvest-orange); color:var(--deep-green);
+  border:2px solid #fff;
+  font-size:9.5px; font-weight:700; line-height:16px; text-align:center;
+}
+.ab-where{flex:1; min-width:0;}
+.ab-sec{
+  font-family:'Poppins',sans-serif; font-size:15px; font-weight:600;
+  color:var(--deep-green); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ab-mark{width:26px; height:26px; flex:none; opacity:.9;}
+
+/* ---- the drawer ---- */
+/* :not([hidden]) is load-bearing: an attribute-scoped class rule outranks
+   the browser's own [hidden]{display:none}, and without it the shut drawer
+   stays a full-screen invisible pane that eats every tap on the site. */
+:root[data-view="mobile"] .navdrawer:not([hidden]){
+  display:block; position:fixed; inset:0; z-index:80;
+}
+.nd-scrim{position:absolute; inset:0; background:rgba(35,40,31,.46);
+  animation:fadeIn var(--dur-2) var(--ease-out) both;}
+.nd-panel{
+  position:absolute; top:0; bottom:0; left:0;
+  width:min(86vw, 340px); display:flex; flex-direction:column;
+  background:var(--field-cream); box-shadow:2px 0 30px -8px rgba(35,40,31,.45);
+  padding:calc(10px + env(safe-area-inset-top)) 0 env(safe-area-inset-bottom);
+  animation:drawerIn var(--dur-3) var(--ease-spring) both;
+}
+@keyframes drawerIn{ from{ transform:translateX(-100%); } to{ transform:translateX(0); } }
+.nd-head{display:flex; align-items:center; justify-content:space-between;
+  padding:4px 8px 10px 18px;}
+.nd-title{font-family:'Poppins',sans-serif; font-size:13px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
+.nd-close{width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+  border:none; background:none; cursor:pointer; color:var(--deep-green); border-radius:12px;}
+.nd-close:active{background:rgba(64,94,53,.09);}
+.nd-close svg{width:19px; height:19px;}
+
+.nd-list{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 12px 14px;
+  overscroll-behavior:contain;}   /* scrolling the list does not drag the page */
+.nd-group{font-size:9.5px; text-transform:uppercase; letter-spacing:.16em;
+  font-weight:700; color:var(--muted); padding:15px 6px 6px;}
+.nd-item{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  width:100%; min-height:46px; text-align:left; border:none; cursor:pointer;
+  background:transparent; border-radius:12px; padding:11px 12px; margin-bottom:2px;
+  font-size:14.5px; color:var(--ink); font-family:'Inter',sans-serif;
+  transition:background var(--dur-1) var(--ease-out);
+}
+.nd-item:active{background:rgba(64,94,53,.09);}
+.nd-item.active{background:var(--tipfa-green); color:var(--field-cream); font-weight:600;}
+.nd-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.nd-badge{flex:none; min-width:19px; padding:0 5px; border-radius:99px;
+  background:var(--harvest-orange); color:var(--deep-green);
+  font-size:11px; font-weight:700; line-height:19px; text-align:center;}
+.nd-item.active .nd-badge{background:var(--field-cream); color:var(--deep-green);}
+
+/* The way out sits below a rule, away from the section it would
+   otherwise be mistaken for. */
+.nd-foot{border-top:1px solid var(--line-soft); padding:12px 18px 16px; flex:none;}
+.nd-acct{display:flex; align-items:center; gap:10px;}
+.nd-who{flex:1; min-width:0;}
+.nd-name{font-family:'Poppins',sans-serif; font-size:14px; font-weight:600;
+  color:var(--deep-green); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.nd-sub{font-size:11.5px; color:var(--muted); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap;}
+.nd-initials{width:36px; height:36px; flex:none; border-radius:11px;
+  background:var(--tipfa-green); color:var(--field-cream);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Poppins',sans-serif; font-size:13px; font-weight:600;}
+.nd-tools{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:11px 0 0;}
+.nd-tools .refresh-btn{margin-left:0;}
+.nd-tools .cloud-badge{margin-left:0;}
+.nd-out{
+  width:100%; min-height:44px; margin-top:11px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); border-radius:12px;
+  font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600; color:var(--deep-green);
+}
+.nd-out:active{background:#F3F1E6;}
+
+/* The page behind a drawer must not scroll under it. */
+:root[data-view="mobile"] body.nav-open{overflow:hidden;}
+
+@media (prefers-reduced-motion: reduce){
+  .nd-panel, .nd-scrim{animation:none;}
 }
 
 /* ---------- Navigation groups ---------- */
@@ -892,6 +1041,8 @@ table.grid-table input{margin:0;padding:7px 9px;font-size:12.5px;}
 .empty-state .btn{margin-top:16px;}
 
 /* Farm identity header on member pages */
+/* The arc behind a farm's name is decoration and was drawn 23px past the
+   right edge of a 360px screen — enough to make the whole page pannable. */
 .farm-head{
   display:flex;align-items:center;gap:18px;background:var(--card);border:1px solid var(--line-soft);
   border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow-sm);
@@ -1066,14 +1217,106 @@ input.tick{width:17px;height:17px;margin:0;accent-color:var(--tipfa-green);curso
   .canopy::after{ display:none; }
 }
 
+/* ============================================================
+   On a phone
+
+   Everything above is sized for a laptop. At 360px — which is most
+   Android phones sold in Tanzania — the same padding and the same
+   type turn a screen of information into three screens of scrolling,
+   and the eye has to travel further to read less.
+
+   Nothing is hidden here. Things are simply drawn at the size the
+   screen actually is.
+   ============================================================ */
+@media (max-width:640px){
+  .content{padding:16px 14px 44px;}
+  .card{padding:14px 15px;margin-bottom:11px;border-radius:var(--radius);}
+  h1.page-title{font-size:21px;}
+  p.page-sub{font-size:12.5px;margin-bottom:16px;}
+  .section-label{margin:18px 0 8px;}
+
+  /* Two figures to a row rather than one. Three stacked full-width cards
+     to say three numbers is a screen and a half of scrolling. */
+  .grid2, .grid3, .grid4{grid-template-columns:1fr 1fr;gap:9px;}
+  .metric{padding:11px 12px;border-radius:var(--radius);}
+  .metric .val{font-size:19px;}
+  .metric .lbl{font-size:8.5px;letter-spacing:.12em;}
+  .metric::after{display:none;}
+
+  /* A form field to a line, at a size a thumb can hit and a phone will
+     not zoom into. iOS zooms any input under 16px. */
+  .grid2 > div, .grid3 > div{grid-column:1 / -1;}
+  input, select, textarea{font-size:16px;padding:11px 13px;}
+  label.f{font-size:10.5px;}
+
+  .farm-head{padding:13px 14px;gap:12px;}
+  .farm-head h2{font-size:16.5px;}
+  .today-item{padding:12px 14px;}
+  .ti-title{font-size:13.5px;}
+  .ti-go{font-size:12px;}
+  .prog-summary{gap:16px;}
+  .prog-summary strong{font-size:18px;}
+  .pg-stage-card{padding:12px 13px;}
+  .btn{padding:11px 17px;}
+  .helper{font-size:12px;}
+
+  /* A table becomes a list of rows. Each cell keeps the heading it sat
+     under, so a row reads top to bottom instead of left to right, and
+     there is nothing beside anything to be cut off by the screen edge. */
+  .table-scroll{overflow-x:visible;}
+  .table-scroll > .grid-table{min-width:0;}
+  .grid-table thead{position:absolute;width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap;}   /* still read aloud, not drawn */
+  .grid-table, .grid-table tbody, .grid-table tr, .grid-table td{display:block;width:auto;}
+  .grid-table tr{
+    border:1px solid var(--line-soft);border-radius:var(--radius-sm);
+    padding:4px 12px;margin-bottom:9px;background:rgba(255,255,255,.62);
+  }
+  .grid-table tr:last-child{margin-bottom:0;}
+  .grid-table td{
+    display:flex;align-items:flex-start;justify-content:space-between;gap:14px;
+    padding:7px 0;border:none;border-bottom:1px solid var(--line-soft);
+    text-align:right;
+  }
+  .grid-table tr td:last-child{border-bottom:none;}
+  .grid-table td::before{
+    content:attr(data-label);
+    flex:0 0 42%;text-align:left;
+    font-size:10px;text-transform:uppercase;letter-spacing:.11em;
+    font-weight:700;color:var(--muted);padding-top:2px;
+  }
+  /* A cell with no heading of its own — a note, or a row of buttons —
+     takes the whole width rather than pretending to be a field. */
+  .grid-table td:not([data-label]){display:block;text-align:left;}
+  .grid-table td[data-span]{display:block;text-align:left;}
+  .grid-table td:empty{display:none;}
+  .grid-table tfoot td{display:flex;}
+  .pg-lines .pg-col-tick{width:auto;}
+}
+
+/* Narrower again. 360px is the commonest Android width in service and two
+   figures sit side by side there comfortably, so this only takes over below
+   that — a 320px screen, where they genuinely do not. */
+@media (max-width:344px){
+  .grid2, .grid3, .grid4{grid-template-columns:1fr;}
+  .content{padding:14px 11px 40px;}
+  h1.page-title{font-size:19.5px;}
+}
+
 /* A phone that says it wants less motion gets a still page, not a slow one. */
 @media (prefers-reduced-motion: reduce){
   .canopy, .loginbrand::before, .loginbrand::after,
   .content > h1.page-title::before{ animation:none !important; }
 }
 
-@media (max-width:760px){
+/* Between the phone and the laptop a table is still a table, and is given a
+   floor so its columns do not crush. Below 640px it is not a table at all —
+   it is a list of rows — so the floor would only push the values off the
+   side of the card, which is exactly what it was doing. */
+@media (min-width:641px) and (max-width:760px){
   .table-scroll > .grid-table{min-width:540px;}
+}
+@media (max-width:760px){
   /* Enough of a target to hit with a thumb, per WCAG 2.2 target size. */
   .chip, .btn.small{min-height:34px;display:inline-flex;align-items:center;justify-content:center;}
 }
@@ -1413,19 +1656,66 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
   .values, .lb-foot{display:none;}
   .loginpane{padding:32px 22px 44px;}
 }
+/* ============================================================
+   The mobile appearance
+
+   Not the desktop console at a smaller size. One column, one bar,
+   one navigation, one thing to read at a time. The desktop chrome —
+   the green masthead, the sign-in strip, the side rail — is not
+   shrunk here, it is replaced by the app bar and the drawer.
+
+   760px is the line, and it is the same 760 the head script and
+   MOBILE_MAX use. A test holds the three to each other.
+   ============================================================ */
 @media (max-width:760px){
+  /* the desktop chrome, replaced rather than squeezed */
+  .topbar{display:none;}
+  .subbar{display:none;}
+  .sidebar{display:none;}
   .layout{grid-template-columns:1fr;}
-  .sidebar{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px;background:#EBE9DC;}
-  .tabbtn{white-space:nowrap;}
-  .tabbtn.active::before{left:12px;right:12px;top:auto;bottom:0;width:auto;height:3px;border-radius:3px 3px 0 0;}
-  .grid2, .grid3, .grid4{grid-template-columns:1fr 1fr;}
-  .content{padding:20px 16px 40px;}
-  .topbar{padding:12px 16px;}
-  .brandlogo{width:28px;}
-  .brandblock .tagline{display:none;}
-}
-@media (max-width:520px){
+
+  /* one column. A phone reads down, not across. */
   .grid2, .grid3, .grid4{grid-template-columns:1fr;}
+  /* two-up is for numbers only, where a stack would be a long march */
+  .grid3.metrics, .grid4.metrics, .metric-row{grid-template-columns:1fr 1fr;}
+
+  .content{padding:16px 14px calc(28px + env(safe-area-inset-bottom));}
+  .app{padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
+
+  /* Nothing is allowed to set its own width past the screen. */
+  .content, .content *{max-width:100%;}
+  .card{border-radius:16px;}
+
+  /* The app bar already names the section in the same words. Printing it
+     again as a 25px heading spent three lines saying nothing new, so it is
+     kept for the heading outline and for a screen reader, and not drawn. */
+  h1.page-title{
+    position:absolute; width:1px; height:1px; margin:0; padding:0;
+    overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;
+  }
+  .content > h1.page-title::before{display:none;}
+  p.page-sub{margin:0 0 16px; font-size:13px;}
+
+  /* Four stage cards side by side is four columns of broken words. */
+  .stage-rail{grid-template-columns:1fr;}
+  .quick-grid{grid-template-columns:1fr;}
+
+  /* A file input's native button plus its filename does not fit beside a
+     label on a phone; give it the whole line. */
+  input[type="file"]{width:100%;}
+
+  /* 44px is the floor for anything a thumb has to land on (HIG 44pt,
+     Material 48dp). Several fields and buttons were coming out at 38-42. */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea,
+  .btn, button.tabbtn, .chip{min-height:44px;}
+  .btn{display:inline-flex; align-items:center; justify-content:center;}
+  .chip{display:inline-flex; align-items:center;}
+}
+
+/* Above the line the login screen keeps its masthead; below it the hero
+   carries the identity on its own and the bar would only repeat it. */
+@media (max-width:760px){
+  .appbar:empty{display:none;}
 }
 
 /* ---------- Reduced motion ---------- */
@@ -1466,11 +1756,13 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
   <div id="loginScreen"></div>
 
   <div id="appScreen" style="display:none;">
+    <header class="appbar" id="appbar"></header>
     <div class="subbar" id="subbar"></div>
     <div class="layout">
       <div class="sidebar" id="sidebar"></div>
       <div class="content" id="content"></div>
     </div>
+    <div class="navdrawer" id="navdrawer" hidden></div>
   </div>
 
 </div>
@@ -2209,7 +2501,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v60';
+const BUILD = 'v66';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3806,6 +4098,83 @@ function can(perm){
     return a === '*' || a === action;
   });
 }
+/* ============================================================
+   What a role may actually do
+
+   Roles decided which tabs an operator saw and nothing else, so an
+   auditor — whose whole point is to read everything and change
+   nothing — could open Member management and approve a farm. The
+   tab was the lock and there was nothing behind the door.
+
+   Rather than thread a check through a hundred buttons and miss
+   some, every action that writes is named here once and wrapped at
+   start-up. A call that the role cannot make does not happen, and
+   afterRender dims the button so nobody presses it expecting it to.
+
+   This is courtesy, not security. The rules refuse the same writes
+   at the database; this only stops the console pretending otherwise.
+   ============================================================ */
+const WRITE_GUARDS = {
+  // Members
+  approveMember:'members.write', removeMember:'members.write',
+  saveMemberEdit:'members.write',
+  // The crop catalogue
+  addCatalogueCrop:'catalogue.write', addCatalogueVariety:'catalogue.write',
+  saveCatalogueVariety:'catalogue.write',
+  removeCatalogueCrop:'catalogue.write', removeCatalogueVariety:'catalogue.write',
+  // Orders
+  addOrder:'orders.write', askEveryone:'orders.write', offerTo:'orders.write',
+  sendDraft:'orders.write', withdrawAlloc:'orders.write',
+  markDelivered:'orders.write', setOrderStatus:'orders.write',
+  // The input store
+  saveInput:'inputs.write', deleteInput:'inputs.write', toggleInput:'inputs.write',
+  restoreInputList:'inputs.write', setRequestStatus:'inputs.write',
+  stockSuggestion:'inputs.write', declineSuggestion:'inputs.write',
+  // Traceability
+  addIssue:'complaints.write', resolveIssue:'complaints.write',
+  // Advisory
+  answerCase:'advisory.write', addKnowledge:'knowledge.write',
+  // Governance
+  setSignupCode:'codes.write', setAdminRole:'roles.write', setAdminStatus:'roles.write',
+  handOverOwnership:'roles.write', removeAdmin:'roles.write',
+  // Bulk entry
+  saveBulk:'bulk.write'
+};
+
+/* A role that cannot do a thing should not be offered the button. Read the
+   function name out of the handler and dim anything it may not call. */
+function dimForbiddenActions(root){
+  if(state.role !== 'admin' || !USER) return;
+  root.querySelectorAll('[onclick]').forEach(el=>{
+    const m = /^\s*([A-Za-z_$][\w$]*)\s*\(/.exec(el.getAttribute('onclick') || '');
+    if(!m) return;
+    const perm = WRITE_GUARDS[m[1]];
+    if(!perm || can(perm)) return;
+    el.classList.add('not-allowed');
+    el.setAttribute('aria-disabled', 'true');
+    if('disabled' in el) el.disabled = true;
+    el.title = `${roleLabel(roleIs())} cannot do this. Ask the system owner.`;
+  });
+}
+
+function guardAdminWrites(){
+  Object.keys(WRITE_GUARDS).forEach(name=>{
+    const fn = window[name];
+    if(typeof fn !== 'function' || fn.__guarded) return;
+    const wrapped = function(){
+      if(state.role === 'admin' && USER && !can(WRITE_GUARDS[name])){
+        state.orderError = `Your role is ${roleLabel(roleIs())}, which cannot do that. ` +
+          `The system owner sets roles on the Governance tab.`;
+        try{ render(); }catch(_){ }
+        return;
+      }
+      return fn.apply(this, arguments);
+    };
+    wrapped.__guarded = true;
+    window[name] = wrapped;
+  });
+}
+
 function roleIs(){ return USER ? USER.role : null; }
 function roleLabel(r){ return ROLE_LABELS[r] || r || '—'; }
 
@@ -4549,7 +4918,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
   inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false,
-  todayRead:false };
+  todayRead:false, handOver:null, navOpen:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -5490,7 +5859,7 @@ function renderLogin(){
         ${state.forgotMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.forgotMsg)}</div>` : ''}
         <div class="card">
           <label class="f">Phone number or email</label>
-          <input id="login-id" placeholder="+255 7XX XXX XXX or you@example.com">
+          <input id="login-id" placeholder="+255 7XX XXX XXX">
           <label class="f">Password</label>
           ${pwdField('login-password','Your password')}
           <button class="btn" style="width:100%;margin-top:10px;" onclick="doMemberLogin(this)">Sign in to your farm</button>
@@ -5575,6 +5944,7 @@ function switchTab(tab){
   if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
   if(tab === 'store' || tab === 'inputsA') state.inputsRead = false;
   if(tab === 'today') state.todayRead = false;
+  state.navOpen = false;      // choosing a section closes the drawer
   state.tab = tab;
   rememberSession();          // a refresh comes back to the screen you were on
   render();
@@ -5645,6 +6015,130 @@ function sidebarGroups(){
   return ADMIN_GROUPS.map(([name, tabs])=>
     [name, USER ? tabs.filter(t=> can(t[2])) : tabs]
   ).filter(([,tabs])=> tabs.length);
+}
+
+/* ============================================================
+   One navigation, behind three lines
+
+   The sidebar first became a row of fifteen tabs that scrolled
+   sideways. Then it became four places at the bottom plus More,
+   which put the navigation in two places at once: some sections in
+   the bar, the rest behind a sheet, and no single list of where you
+   could go.
+
+   On a phone it is one thing now. A three-line button in the app
+   bar opens a drawer holding every section, grouped exactly as the
+   desktop rail groups them, with who you are and the way out at the
+   bottom of it. Same tab keys, same permission checks — one place.
+   ============================================================ */
+
+function toggleNav(){
+  state.navOpen = !state.navOpen;
+  render();
+  // A drawer that opens without taking focus leaves a keyboard behind on the
+  // page underneath, tabbing through what the scrim is covering.
+  if(state.navOpen){
+    const first = document.querySelector('.nd-item.active') || document.querySelector('.nd-item');
+    if(first) first.focus({preventScroll:true});
+  } else {
+    const burger = document.querySelector('.ab-burger');
+    if(burger) burger.focus({preventScroll:true});
+  }
+}
+function closeNav(){ if(state.navOpen){ state.navOpen = false; render();
+  const burger = document.querySelector('.ab-burger');
+  if(burger) burger.focus({preventScroll:true}); } }
+
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape' && state.navOpen) closeNav();
+});
+
+/* Everything waiting on you, added up, so the closed drawer can say
+   there is something inside without being opened to find out. */
+function navBadgeTotal(){
+  return sidebarGroups()
+    .flatMap(([,tabs])=> tabs.map(([k])=> Number(tabBadge(k)) || 0))
+    .reduce((a,b)=> a+b, 0);
+}
+
+/* The bar across the top of a phone: the way into the navigation, the
+   mark, and the name of the section you are actually on — which the
+   drawer cannot tell you while it is shut. */
+function renderAppBar(){
+  const el = document.getElementById('appbar');
+  if(!el) return;
+  if(!state.loggedIn){ el.innerHTML = ''; return; }
+  const total = navBadgeTotal();
+  const here = sidebarGroups().flatMap(([,tabs])=> tabs).find(([k])=> k === state.tab);
+  el.innerHTML = `
+    <button class="ab-burger" onclick="toggleNav()" aria-label="Open the section list"
+            aria-expanded="${state.navOpen ? 'true' : 'false'}" aria-controls="navdrawer">
+      <span class="ab-lines" aria-hidden="true"><i></i><i></i><i></i></span>
+      ${total ? `<b class="ab-dot" aria-hidden="true">${total > 9 ? '9+' : total}</b>` : ''}
+    </button>
+    <div class="ab-where">
+      <div class="ab-sec">${esc(here ? here[1] : 'TIPFA')}</div>
+    </div>
+    <img class="ab-mark" src="assets/brand/tipfa-symbol.png" alt="TIPFA">`;
+}
+
+/* Who you are, the connection, and the way out — at the foot of the
+   drawer, kept apart from the sections so Log out is never the thing
+   a thumb hits reaching for the last one (HIG: separate destructive
+   actions from navigation). */
+function navAccount(){
+  const isMember = state.role === 'member';
+  const m = isMember ? MEMBERS[state.member] : null;
+  const who = isMember ? (m ? m.name : '') : (state.adminName || 'TIPFA Secretariat operator');
+  const sub = isMember
+    ? (m && m.location ? m.location : 'Farm member access')
+    : (USER ? roleLabel(USER.role) : 'Administrator access');
+  return `<div class="nd-foot">
+      <div class="nd-acct">
+        ${isMember && m ? farmLogo(m,'sm')
+          : `<span class="nd-initials">${esc((who||'?').slice(0,2).toUpperCase())}</span>`}
+        <div class="nd-who">
+          <div class="nd-name">${esc(who)}</div>
+          <div class="nd-sub">${esc(sub)}</div>
+        </div>
+      </div>
+      <div class="nd-tools">${refreshButton()}${cloudBadge()}</div>
+      <button class="nd-out" onclick="logout()">Log out</button>
+    </div>`;
+}
+
+function renderNavDrawer(){
+  const el = document.getElementById('navdrawer');
+  if(!el) return;
+  if(!state.navOpen || !state.loggedIn){
+    el.innerHTML = ''; el.hidden = true;
+    document.body.classList.remove('nav-open');
+    return;
+  }
+  el.hidden = false;
+  document.body.classList.add('nav-open');
+  el.innerHTML = `
+    <div class="nd-scrim" onclick="closeNav()"></div>
+    <nav class="nd-panel" role="dialog" aria-modal="true" aria-label="Sections">
+      <div class="nd-head">
+        <span class="nd-title">Sections</span>
+        <button class="nd-close" onclick="closeNav()" aria-label="Close">
+          ${lineIcon('<path d="M6 6l12 12"/><path d="M18 6L6 18"/>')}
+        </button>
+      </div>
+      <div class="nd-list">
+        ${sidebarGroups().map(([name, tabs])=>`
+          ${name ? `<div class="nd-group">${esc(name)}</div>` : ''}
+          ${tabs.map(([k,label])=>{
+            const badge = tabBadge(k);
+            return `<button class="nd-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')">
+              <span class="nd-label">${esc(label)}</span>
+              ${badge?`<b class="nd-badge">${badge}</b>`:''}
+            </button>`;
+          }).join('')}`).join('')}
+      </div>
+      ${navAccount()}
+    </nav>`;
 }
 
 function renderSidebar(){
@@ -5736,7 +6230,7 @@ function renderSubbar(){
   if(state.role==='member'){
     const m = MEMBERS[state.member];
     bar.innerHTML = `<label>Signed in as</label>${farmLogo(m,'sm')}<span class="who-name">${esc(m.name)}</span>
-      <span class="helper" style="margin-left:8px;">${esc(m.location)} &middot; only your own farm's data is visible in this session.</span>
+      <span class="helper" style="margin-left:8px;">${m.location ? esc(m.location)+' &middot; ' : ''}only your own farm's data is visible in this session.</span>
       ${refreshButton()}${cloudBadge()}`;
   } else {
     bar.innerHTML = `<label>Signed in as</label><span class="who-name">${esc(state.adminName||'TIPFA Secretariat operator')}</span>
@@ -5749,7 +6243,44 @@ function periodChips(){
   return `<div class="chips">${PERIODS.map(p=>`<span class="chip ${state.period===p?'active':''}" onclick="selectPeriod('${p}');switchTab('${state.tab}')">${p.charAt(0).toUpperCase()+p.slice(1)}</span>`).join('')}</div>`;
 }
 
+/* ============================================================
+   Two appearances, not one squeezed
+
+   A phone is not a narrow desktop. Below MOBILE_MAX the site is drawn as a
+   phone app — one column, one navigation, its own type and spacing scale;
+   above it, as a desktop console with a side rail and multi-column pages.
+   CSS handles what is only a matter of size. This switch handles the rest:
+   the parts where the two want different markup, not different padding.
+
+   data-view on the root element is what the stylesheet keys off, so a rule
+   can say "mobile" without restating the breakpoint and drifting from it.
+   ============================================================ */
+const MOBILE_MAX = 760;
+const MOBILE_Q = window.matchMedia(`(max-width:${MOBILE_MAX}px)`);
+function isMobile(){ return MOBILE_Q.matches; }
+
+function applyViewMode(){
+  const view = isMobile() ? 'mobile' : 'desktop';
+  if(document.documentElement.getAttribute('data-view') !== view){
+    document.documentElement.setAttribute('data-view', view);
+    return true;                       // changed
+  }
+  return false;
+}
+applyViewMode();
+
+/* Rotating a phone, or dragging a desktop window narrow, crosses the line.
+   The drawer belongs to one appearance and the side rail to the other, so
+   whatever was open on the way across is closed rather than left orphaned. */
+(MOBILE_Q.addEventListener ? MOBILE_Q.addEventListener.bind(MOBILE_Q,'change')
+                           : MOBILE_Q.addListener.bind(MOBILE_Q))(()=>{
+  applyViewMode();
+  state.navOpen = false;
+  if(state.loggedIn) render();
+});
+
 function render(){
+  applyViewMode();
   // A calendar lifted onto the page body would be orphaned by this redraw,
   // and its id would collide with the fresh field about to be written.
   document.querySelectorAll('body > .datepop').forEach(p=> p.remove());
@@ -5764,7 +6295,7 @@ function render(){
   }
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
-  renderSidebar(); renderSubbar();
+  renderSidebar(); renderSubbar(); renderAppBar(); renderNavDrawer();
   const c = document.getElementById('content');
   renderTabContent(c);
   afterRender(c);
@@ -5794,19 +6325,48 @@ function renderKeepingPlace(focusId){
 function makeTablesScrollable(root){
   root.querySelectorAll('table.grid-table').forEach(t=>{
     const p = t.parentElement;
-    if(!p || p.classList.contains('table-scroll')) return;
-    let style = null;
-    try{ style = getComputedStyle(p); }catch(e){ /* detached */ }
-    if(style && (style.overflowX === 'auto' || style.overflowX === 'scroll')) return;
-    const wrap = document.createElement('div');
-    wrap.className = 'table-scroll';
-    p.insertBefore(wrap, t);
-    wrap.appendChild(t);
+    if(p && !p.classList.contains('table-scroll')){
+      let style = null;
+      try{ style = getComputedStyle(p); }catch(e){ /* detached */ }
+      if(!style || (style.overflowX !== 'auto' && style.overflowX !== 'scroll')){
+        const wrap = document.createElement('div');
+        wrap.className = 'table-scroll';
+        p.insertBefore(wrap, t);
+        wrap.appendChild(t);
+      }
+    }
+    labelTableCells(t);
+  });
+}
+
+/* On a phone a table stops being a table. Scrolling one sideways still means
+   half of it is off screen, and a member should not have to drag a column
+   into view to read what a row says — so below the tablet width every row
+   becomes its own block and every cell carries the heading it belonged to.
+   Nothing is cut off because nothing is beside anything.
+
+   The heading is copied onto the cell here rather than written into forty
+   template strings, so it holds for every table on the platform and for
+   every one written later. */
+function labelTableCells(t){
+  const heads = Array.from(t.querySelectorAll('thead th')).map(th=> th.textContent.trim());
+  if(!heads.length) return;
+  t.querySelectorAll('tbody tr').forEach(tr=>{
+    let col = 0;
+    Array.from(tr.children).forEach(cell=>{
+      const span = Number(cell.getAttribute('colspan')) || 1;
+      // A cell spanning the row is a note about the row, not a field in it.
+      if(span === 1 && heads[col] && !cell.hasAttribute('data-label'))
+        cell.setAttribute('data-label', heads[col]);
+      if(span > 1) cell.setAttribute('data-span', '1');
+      col += span;
+    });
   });
 }
 
 function afterRender(c){
   makeTablesScrollable(c);
+  dimForbiddenActions(c);
   c.classList.remove('is-swapping');
   void c.offsetWidth;
   c.classList.add('is-swapping');
@@ -5857,7 +6417,7 @@ function farmHeader(m, extra){
     ${farmLogo(m,'xl')}
     <div class="fh-meta">
       <h2>${esc(m.name)}</h2>
-      <div class="fh-sub">${esc(m.category)} member &middot; ${esc(m.location)} &middot; registered ${esc(m.registered)}</div>
+      <div class="fh-sub">${[esc(m.category)+' member', m.location?esc(m.location):'', 'registered '+esc(m.registered)].filter(Boolean).join(' &middot; ')}</div>
       <div style="margin-top:8px;"><span class="status-pill status-${m.status.toLowerCase()}">${esc(m.status)}</span>
       ${extra||''}</div>
     </div>
@@ -8751,6 +9311,7 @@ function renderInputsAdmin(c){
   const head = `
     <h1 class="page-title">Inputs</h1>
     <p class="page-sub">The list members buy from, what they have asked for, and what they want stocked</p>
+    ${readOnlyNote('inputs.write', "the input list and the requests")}
     ${orderNotices()}
     <div class="chips">
       <span class="chip ${t==='requests'?'active':''}" onclick="setInputsTab('requests')">Requests${openReqs.length?` · ${openReqs.length}`:''}</span>
@@ -9270,6 +9831,7 @@ function renderTraceAdmin(c){
   c.innerHTML = `
     <h1 class="page-title">Traceability</h1>
     <p class="page-sub">A lot code goes in; the farm, the pick and everything applied to it come back</p>
+    ${readOnlyNote('complaints.write', "batches and complaints")}
     ${state.traceError ? `<div class="card"><p class="helper cat-local">${esc(state.traceError)}</p></div>${(state.traceError='')||''}` : ''}
     ${state.traceMsg ? `<div class="card"><p class="helper">${esc(state.traceMsg)}</p></div>${(state.traceMsg='')||''}` : ''}
     ${rulesGapBanner()}
@@ -9486,6 +10048,7 @@ function renderOrdersAdmin(c){
   c.innerHTML = `
     <h1 class="page-title">Orders</h1>
     <p class="page-sub">What customers have asked for, and which farms are filling it</p>
+    ${readOnlyNote('orders.write', "the order book")}
     ${orderNotices()}
 
     <div class="card">
@@ -9979,6 +10542,7 @@ function renderCatalogue(c){
   c.innerHTML = `
     <h1 class="page-title">Crop catalogue</h1>
     <p class="page-sub">The crops and varieties every member farm chooses from · ${CATALOGUE.length} crop${CATALOGUE.length===1?'':'s'}, ${CATALOGUE.reduce((n,x)=>n+(x.varieties||[]).length,0)} varieties</p>
+    ${readOnlyNote('catalogue.write', "the crop catalogue")}
     <div class="card">
       <p class="helper" style="margin:0 0 10px;">A farm picks a crop and variety from this list and enters how many seedlings it put in. Everything in its harvest plan follows from what you set here: how many plants belong in a square metre, and what one plant yields week by week. ${cloudOn() ? 'Saving sends it to the shared database, so a change reaches every farm.' : '<strong>Not connected to the shared database — changes stay on this device.</strong>'}</p>
       ${state.catMsg ? `<p class="helper" style="color:var(--deep-green);">${CHECK_ICON} ${esc(state.catMsg)}</p>` : ''}
@@ -10260,11 +10824,21 @@ function renameFarmVariety(cropName, was, now){
   });
 }
 
+/* Said once at the top of a screen, so nobody works out what they cannot do
+   by pressing things. */
+function readOnlyNote(perm, what){
+  if(state.role !== 'admin' || !USER || can(perm)) return '';
+  return `<div class="card" style="border-color:var(--line);">
+    <p class="helper" style="margin:0;">You are ${esc(roleLabel(roleIs()))}, so you can read ${esc(what)} but not change ${'it'}. The system owner sets roles on the Governance tab.</p>
+  </div>`;
+}
+
 function renderMembers(c){
   const panel = state.memberPanel;
   c.innerHTML = `
     <h1 class="page-title">Member management</h1>
     <p class="page-sub">Approve registrations, register new farms, and view, edit, or remove any profile</p>
+    ${readOnlyNote('members.write', "the membership register")}
     ${noMembersYet() ? emptyState('No farms have registered yet',
         cloudOn() ? 'Every farm that signs up appears here, whichever device it used.'
                   : 'Farms appear here as soon as they sign up in this browser. Without the shared database, a farm that registered on a different device will not show until its backup is restored from Governance.') : `
@@ -11317,7 +11891,7 @@ function backupPanel(){
       </div>
       <p class="helper" style="margin:2px 0 8px;">Then, on the other device, sign in as an operator and restore that file here:</p>
       <div class="import-opts">
-        <select id="restore-mode" style="width:auto;margin:0;">
+        <select id="restore-mode" style="max-width:100%;margin:0;">
           <option value="merge">Merge — add what is missing, keep what is here</option>
           <option value="replace">Replace — make this device match the file exactly</option>
         </select>
@@ -11359,6 +11933,7 @@ function renderGovernance(c){
               : `<button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="removeAdmin(${i})">Remove</button>`}</td>
       </tr>`).join('')}</tbody></table>
       ${roleNote()}
+      ${handOverPanel()}
       ${cloudOn() ? `
         <p class="helper" style="margin-top:12px;">This is the association's roll, read from the shared database, so an operator who signed up on any device appears here.
         A new operator creates their own account from the Administrator tab of the sign-in screen, quoting the operator sign-up code below — an account cannot be made for someone else from here, because only they can set their own password.</p>
@@ -11386,7 +11961,10 @@ function renderGovernance(c){
    change it. Everyone else sees the role as a plain word: the control is
    hidden because it would only be refused, not because hiding it is what
    stops them. The database is what stops them. */
-const STAFF_ROLES = ['superAdmin','secretariat','qualityOfficer','agronomist','logistics','auditor'];
+/* System owner is not in this list on purpose. It is not a role you pick
+   from a menu, because picking it from a menu is how an association ends up
+   with two of them. It is handed over — see handOverOwnership below. */
+const STAFF_ROLES = ['secretariat','qualityOfficer','agronomist','logistics','auditor'];
 
 function roleCell(a){
   const rec = a.uid ? USERS[a.uid] : null;
@@ -11398,11 +11976,70 @@ function roleCell(a){
     return `<span class="helper">${esc(roleLabel(role))}${suspended ? ' \u00b7 suspended' : ''}</span>`;
   }
   const mine = a.uid === CLOUD_STATE.uid;
+  // The owner's own row shows what they are and offers no menu: an owner
+  // demoting themselves is how an association is left with none.
+  if(role === 'superAdmin'){
+    return `<span class="status-pill status-active">System owner</span>
+      ${mine ? '<div class="helper" style="margin-top:4px;">This is you.</div>' : ''}`;
+  }
   return `<select class="small" onchange="setAdminRole('${esc(a.uid)}', this.value)"${mine?' disabled':''}>
       ${STAFF_ROLES.map(r=>`<option value="${r}"${r===role?' selected':''}>${esc(roleLabel(r))}</option>`).join('')}
       ${STAFF_ROLES.indexOf(role) === -1 && role ? `<option value="${esc(role)}" selected>${esc(roleLabel(role))}</option>` : ''}
     </select>
-    ${mine ? '' : `<button class="btn small ghost" style="margin-left:6px;" onclick="setAdminStatus('${esc(a.uid)}', '${suspended ? 'active' : 'suspended'}')">${suspended ? 'Restore' : 'Suspend'}</button>`}`;
+    ${mine ? '' : `
+      <button class="btn small ghost" style="margin-left:6px;" onclick="setAdminStatus('${esc(a.uid)}', '${suspended ? 'active' : 'suspended'}')">${suspended ? 'Restore' : 'Suspend'}</button>
+      <button class="btn small ghost" style="margin-left:6px;" onclick="askHandOver('${esc(a.uid)}')">Make system owner</button>`}`;
+}
+
+/* ---- Handing the association over ------------------------------------
+   There is one system owner, always. Making somebody else the owner is
+   therefore not a promotion but a transfer: the claim moves first, then
+   they become the owner, then you become Secretariat. Doing it in that
+   order means there is never a moment with two owners or none, and the
+   rules only accept the role for whoever the claim names.
+
+   It cannot be undone from this side afterwards. Once the claim has moved
+   you are Secretariat, and only the new owner can give it back. */
+function askHandOver(uid){ state.handOver = uid; render(); }
+function cancelHandOver(){ state.handOver = null; render(); }
+
+function handOverPanel(){
+  if(!state.handOver) return '';
+  const rec = USERS[state.handOver] || {};
+  const who = rec.displayName || rec.email || state.handOver;
+  return `<div class="card" style="border-color:var(--harvest-orange);">
+    <strong>Hand the association over to ${esc(who)}?</strong>
+    <p class="helper" style="margin-top:6px;">They become the system owner and you become Secretariat. There is only ever one system owner, so this is a handover, not a second one.</p>
+    <p class="helper">You will no longer be able to change anyone's role, including your own. Only ${esc(who)} can give it back.</p>
+    <div style="margin-top:10px;">
+      <button class="btn small" onclick="handOverOwnership('${esc(state.handOver)}')">Yes, hand it over</button>
+      <button class="btn small ghost" onclick="cancelHandOver()">Cancel</button>
+    </div>
+  </div>`;
+}
+
+async function handOverOwnership(uid){
+  const me = CLOUD_STATE.uid;
+  if(!uid || !me || uid === me) return;
+  const rec = USERS[uid] || {};
+  const who = rec.displayName || rec.email || uid;
+  state.handOver = null;
+  try{
+    // The claim moves first, and only the owner may move it. Until it has
+    // moved, the rules will not accept the role for anybody.
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, 'settings', 'ownership'),
+                 { owner: uid, claimedAt: new Date().toISOString(), handedOverBy: me }, {merge:true});
+    await cloudSetUserField(uid, 'role', 'superAdmin');
+    await cloudSetUserField(me,  'role', 'secretariat');
+    await cloudPullUsers();
+    state.orderMsg = `${who} is now the system owner. You are Secretariat.`;
+    logAction(`Operator ${state.adminName||''} handed system ownership to ${who}.`);
+  }catch(e){
+    state.orderError = 'The handover did not complete: ' + ((e && e.message) || e) +
+      ' — check the Governance roll to see who holds ownership before trying again.';
+  }
+  render();
 }
 
 function roleNote(){
@@ -11477,6 +12114,7 @@ function removeAdmin(i){
   render();
 }
 
+guardAdminWrites();
 loadSettings();
 loadMembers();
 loadCatalogue();
