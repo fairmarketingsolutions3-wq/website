@@ -2103,6 +2103,79 @@ function expectedHarvest(cr){
   return out;
 }
 
+/* What a farm can actually put on a lorry in one week.
+
+   The season total is the wrong number to judge an order by. A farm
+   expecting 1,680 kg is not a farm that can hand over 1,680 kg — it hands
+   over a share of that every week from its first harvest to its last, and
+   an order wanted by a date can only be filled out of the weeks before it.
+
+   So: total expected harvest divided by the number of weeks the crop is
+   picked in. The window is the farm's own — first harvest date to last
+   harvest date — because the farm is the one that knows when it clears.
+   Where a farm has not given both dates, the catalogue's own bearing weeks
+   for the variety stand in, and the figure says which of the two it came
+   from rather than presenting a guess as a record. */
+function weeklyExpected(cr){
+  const e = expectedHarvest(cr);
+  const out = { total: e.total, ok: false, why: e.why,
+                harvestWeeks: 0, perWeek: 0, from: '',
+                firstHarvest: (cr && cr.firstHarvest) || '',
+                lastHarvest: (cr && cr.expected) || '' };
+  if(!e.ok) return out;                    // no yield, or nothing planted
+
+  const a = out.firstHarvest ? new Date(out.firstHarvest) : null;
+  const b = out.lastHarvest  ? new Date(out.lastHarvest)  : null;
+  if(a && b && !isNaN(a) && !isNaN(b) && b >= a){
+    // Whole weeks between the two dates, and never less than one: a crop
+    // picked over a single week still has a weekly figure, and it is the
+    // whole of it.
+    out.harvestWeeks = Math.max(1, Math.round((b - a) / MS_WEEK));
+    out.from = 'dates';
+  } else {
+    const weeks = catalogueHarvestWeeks(cr && cr.crop, cr && cr.variety);
+    if(weeks){ out.harvestWeeks = weeks; out.from = 'catalogue'; }
+  }
+  if(!out.harvestWeeks){ out.why = 'no-window'; return out; }
+
+  out.perWeek = e.total / out.harvestWeeks;
+  out.ok = true;
+  return out;
+}
+
+/* How many weeks the catalogue says this thing bears for, when the farm has
+   not given its own dates. The variety first and then the crop, the same
+   order yieldSettings picks in, so a crop recorded under a variety name the
+   catalogue does not carry still gets an answer. */
+function catalogueHarvestWeeks(cropName, varietyName){
+  const crop = catalogueCrop(cropName);
+  // The bearing months sit on the variety, not the crop, so a farm that
+  // recorded a variety name the catalogue does not carry falls back to the
+  // crop's own varieties — how long that crop bears for is a fact about the
+  // crop, and any of its varieties states it better than nothing does.
+  let b = bearingMonths(varietyOf(cropName, varietyName));
+  if(!b && crop){
+    for(const v of (crop.varieties || [])){
+      b = bearingMonths(v);
+      if(b) break;
+    }
+  }
+  if(!b) return 0;
+  return Math.max(1, Math.round((b.last - b.first + 1) * WEEKS_PER_MONTH));
+}
+
+/* Said in one place so the plan and the order screens word it identically. */
+function harvestWindowText(w){
+  if(!w.harvestWeeks) return '';
+  const weeks = `${w.harvestWeeks} week${w.harvestWeeks === 1 ? '' : 's'}`;
+  if(w.from === 'dates'){
+    const d = t=> t ? new Date(t).toLocaleDateString('en-GB',
+                      {day:'2-digit',month:'short',year:'numeric'}) : '';
+    return `${weeks} — ${d(w.firstHarvest)} to ${d(w.lastHarvest)}`;
+  }
+  return `${weeks} — from the catalogue, no harvest dates on this crop yet`;
+}
+
 /* Fill in the confirmed figures without touching anything an operator has
    already set, and match a crop that is here under an earlier name rather
    than adding a second one beside it. */
@@ -2501,7 +2574,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v66';
+const BUILD = 'v67';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3093,6 +3166,53 @@ function farmExpectedKg(m, crop){
   }, 0);
 }
 
+/* What this farm can put up in one week of that crop — the season total
+   spread across the weeks it is picked in. This is the figure orders are
+   judged and offered on: an order is a delivery on a date, and a farm can
+   only fill it out of a week's picking, not out of a whole season's. */
+function farmWeeklyKg(m, crop){
+  return farmCropProfiles(m, crop).reduce((t,cr)=>{
+    const w = weeklyExpected(cr);
+    return t + (w.ok ? w.perWeek : 0);
+  }, 0);
+}
+
+/* How many weeks of picking are behind that weekly figure, so the order
+   screen can say where it came from rather than showing a bare number. */
+function farmHarvestWeeks(m, crop){
+  return farmCropProfiles(m, crop).reduce((t,cr)=>{
+    const w = weeklyExpected(cr);
+    return Math.max(t, w.ok ? w.harvestWeeks : 0);
+  }, 0);
+}
+
+/* What the farm can actually put together by the day the customer needs it:
+   its weekly rate times the weeks of picking that fall before that date.
+
+   The weekly rate alone is too strict — a farm picking 31 kg a week from
+   May can hand over far more than 31 kg by September, and offering it one
+   week's worth would strand most of an order. The season total is too
+   generous, because the weeks after the deadline are no use to this order.
+   The weeks in between are the honest answer, and never more than the
+   season holds. */
+function farmSupplyBy(m, crop, needBy){
+  const end = needBy ? new Date(needBy) : null;
+  return farmCropProfiles(m, crop).reduce((t, cr)=>{
+    const w = weeklyExpected(cr);
+    if(!w.ok) { const e = expectedHarvest(cr); return t + (e.ok ? e.total : 0); }
+    if(!end || isNaN(end)) return t + w.total;      // no deadline: all of it
+
+    // Picking cannot start before the crop does, nor before today.
+    const first = w.firstHarvest ? new Date(w.firstHarvest) : null;
+    const now = new Date();
+    const from = (first && !isNaN(first) && first > now) ? first : now;
+    if(end <= from) return t;                       // wanted before it bears
+
+    const weeks = Math.max(0, Math.round((end - from) / MS_WEEK));
+    return t + Math.min(w.total, w.perWeek * weeks);
+  }, 0);
+}
+
 /* The earliest date this farm expects to be picking that crop. */
 function farmHarvestFrom(m, crop){
   let best = null;
@@ -3125,10 +3245,13 @@ function farmDeliveryRate(uid){
 function scoreFarmForOrder(id, m, o){
   const why = [];
   if(m.status !== 'Active'){
-    return { id, name:m.name, score:0, expectedKg:0, from:null,
-             why:['not an active member'], eligible:false, askable:false };
+    return { id, name:m.name, score:0, expectedKg:0, weeklyKg:0, harvestWeeks:0, byDate:0,
+             from:null, why:['not an active member'], eligible:false, askable:false };
   }
   const expectedKg = farmExpectedKg(m, o.crop);
+  const weeklyKg = farmWeeklyKg(m, o.crop);
+  const hWeeks = farmHarvestWeeks(m, o.crop);
+  const byDate = farmSupplyBy(m, o.crop, o.needBy);
   // A farm that has not recorded this crop cannot be scored — there is
   // nothing to score it on. That is not the same as being unable to grow
   // it: a farm joins before it fills in its crops, and the association
@@ -3136,17 +3259,28 @@ function scoreFarmForOrder(id, m, o){
   // So it ranks last and is asked rather than ruled out. The farm itself
   // knows whether it has capsicum; the platform only knows what it was told.
   if(expectedKg <= 0){
-    return { id, name:m.name, score:0, expectedKg:0, from:null,
-             why:[`no ${o.crop} in their crop records`], eligible:false,
+    return { id, name:m.name, score:0, expectedKg:0, weeklyKg:0, harvestWeeks:0, byDate:0,
+             from:null, why:[`no ${o.crop} in their crop records`], eligible:false,
              askable:true };
   }
 
   // Capacity — measured against what is still to place, so a farm that can
   // fill the rest on its own scores full marks rather than being compared
   // with an order size nobody could meet alone.
+  //
+  // Built up from the weekly rate rather than read off the season total.
+  // Scoring on the season said a farm expecting 1,680 kg could fill a
+  // 1,500 kg order on its own, whenever the customer wanted it. What it can
+  // really offer is its weekly picking times the weeks left before the date.
   const need = orderRemaining(o) || Number(o.kg) || 1;
-  const capacity = Math.min(1, expectedKg / need);
-  why.push(`${fmt(Math.round(expectedKg))} kg expected`);
+  const supply = weeklyKg > 0 ? byDate : expectedKg;
+  const capacity = Math.min(1, supply / need);
+  if(weeklyKg > 0){
+    why.push(`${fmt(Math.round(weeklyKg))} kg a week (${fmt(Math.round(expectedKg))} kg over ${hWeeks} harvest week${hWeeks===1?'':'s'})`);
+    if(o.needBy) why.push(`${fmt(Math.round(byDate))} kg of that by ${o.needBy}`);
+  } else {
+    why.push(`${fmt(Math.round(expectedKg))} kg expected, no harvest window recorded`);
+  }
 
   // Timing — ready before the customer needs it, or not.
   const from = farmHarvestFrom(m, o.crop);
@@ -3174,7 +3308,8 @@ function scoreFarmForOrder(id, m, o){
   else why.push('nothing allocated yet');
 
   const score = Math.round(100 * (0.40*capacity + 0.25*timing + 0.20*rec.rate + 0.15*turn));
-  return { id, name:m.name, score, expectedKg, from, why, eligible:true, askable:true,
+  return { id, name:m.name, score, expectedKg, weeklyKg, harvestWeeks:hWeeks, byDate,
+           from, why, eligible:true, askable:true,
            parts:{capacity, timing, delivery:rec.rate, turn} };
 }
 
@@ -3194,8 +3329,8 @@ function rankFarmsForOrder(o){
 }
 
 /* Split what is left of an order across the farms that scored best, giving
-   each no more than it expects to harvest. A suggestion, not a decision —
-   every figure stays editable before anything is sent. */
+   each no more than it expects to pick in a week. A suggestion, not a
+   decision — every figure stays editable before anything is sent. */
 function suggestAllocation(o){
   const ranked = rankFarmsForOrder(o).filter(r=> r.eligible && r.score > 0);
   let left = orderRemaining(o);
@@ -3203,7 +3338,9 @@ function suggestAllocation(o){
   ranked.forEach(r=>{
     if(left <= 0) return;
     if(allocsFor(o.id).some(a=> a.farmUid === r.id && a.status !== 'Declined')) return;
-    const give = Math.min(left, Math.round(r.expectedKg));
+    // A farm with a weekly rate has already answered: byDate 0 means it
+    // cannot pick any of this before the date, not that nothing is known.
+    const give = Math.min(left, Math.round(r.weeklyKg > 0 ? r.byDate : r.expectedKg));
     if(give <= 0) return;
     out.push({ farmUid:r.id, name:r.name, kg:give, score:r.score });
     left -= give;
@@ -8251,14 +8388,29 @@ function expectedCard(cr, opts){
       <button class="btn" onclick="switchTab('profile')">Go to ${esc(countLabel(e.unit))}</button>
     </div>`;
   }
+  // The season total, and then the number a farm actually plans around: what
+  // it expects to pick in a week, from its first harvest to its last.
+  const w = weeklyExpected(cr);
+  const weekly = w.ok
+    ? `<div class="big-row"><span class="big-lbl">Harvest window</span>
+         <span class="big-val" style="font-size:15px;">${esc(harvestWindowText(w))}</span></div>
+       <div class="big-row total"><span class="big-lbl">Expected each week</span>
+         <span class="big-total">${massText(w.perWeek)}</span></div>
+       <p class="helper" style="margin:6px 0 0;">${massText(e.total)} over ${w.harvestWeeks} harvest week${w.harvestWeeks===1?'':'s'}.${
+         w.from === 'catalogue'
+           ? ' Add your first and last harvest dates on the profile to use your own window.'
+           : ''}</p>`
+    : `<p class="helper" style="margin:6px 0 0;">Add a first harvest date and a last harvest date on the profile and this becomes a weekly figure — what you expect to pick each week rather than across the whole season.</p>`;
+
   return `<div class="card big-card">${nameLine}
     <div class="big-row"><span class="big-lbl">Total harvest per ${esc(countWord(e.unit,1))}</span>
       <span class="big-val">${e.yieldPer} ${esc(e.yieldUnit)}</span></div>
     <div class="big-row"><span class="big-lbl">${esc(countLabel(e.unit))}</span>
       <span class="big-val">${fmt(e.count)}</span></div>
+    <div class="big-row"><span class="big-lbl">Expected total harvest</span>
+      <span class="big-val">${massText(e.total)}</span></div>
     <div class="big-rule"></div>
-    <div class="big-row total"><span class="big-lbl">Expected total harvest</span>
-      <span class="big-total">${massText(e.total)}</span></div>
+    ${weekly}
     ${opts.extra || ''}
   </div>`;
 }
@@ -10212,7 +10364,7 @@ function renderOrderDetail(c, id){
     ${left > 0 ? `
     <div class="section-label">Who can fill the rest</div>
     <div class="card">
-      <p class="helper" style="margin:0 0 10px;">Ranked from the farms' own records — what they expect to harvest, when it is ready, what they delivered before, and how much they have already had. Every figure is theirs, and the reasoning is beside each one.</p>
+      <p class="helper" style="margin:0 0 10px;">Ranked from the farms' own records — what they expect to pick <strong>in a week</strong>, when it is ready, what they delivered before, and how much they have already had. A season total is not what a farm can hand over on a date, so the weekly figure is what is ranked and offered here. Every figure is theirs, and the reasoning is beside each one.</p>
       ${ranked.some(r=> r.eligible) ? '' : `<p class="helper" style="margin:0 0 10px;color:var(--red);">
         No farm has ${esc(o.crop)} in its crop records, so there is nothing to rank on. That does not mean nobody grows it — a farm joins before it fills its crops in. Ask them and let them answer.</p>`}
       ${ranked.some(r=> r.eligible)
@@ -10221,11 +10373,12 @@ function renderOrderDetail(c, id){
       ${askableFarms(o).length ? `<button class="btn small ${ranked.some(r=>r.eligible)?'ghost':''}" onclick="askEveryone('${esc(o.id)}')">Ask all ${askableFarms(o).length} active farm${askableFarms(o).length===1?'':'s'}</button>` : ''}
       ${state.allocDraft && state.allocDraft.orderId === o.id ? allocDraftTable(o) : ''}
       <table class="grid-table" style="margin-top:14px;"><thead><tr>
-        <th>Farm</th><th>Score</th><th>Expected</th><th>Why</th><th></th></tr></thead><tbody>
+        <th>Farm</th><th>Score</th><th>Expected a week</th><th>Why</th><th></th></tr></thead><tbody>
         ${ranked.map(r=>`<tr${r.eligible?'':' style="opacity:.55;"'}>
           <td>${esc(r.name)}</td>
           <td>${r.eligible ? `<strong>${r.score}</strong>` : '—'}</td>
-          <td>${r.expectedKg ? fmt(Math.round(r.expectedKg))+' kg' : '—'}</td>
+          <td>${r.weeklyKg ? `${fmt(Math.round(r.weeklyKg))} kg`
+                : (r.expectedKg ? `<span class="helper">${fmt(Math.round(r.expectedKg))} kg / season</span>` : '—')}</td>
           <td><span class="helper">${r.why.map(esc).join(' · ')}</span></td>
           <td>${r.askable && !mine.some(a=> a.farmUid === r.id && a.status !== 'Declined')
                 ? `<button class="btn small ghost" onclick="offerTo('${esc(o.id)}','${esc(r.id)}')">${r.eligible ? 'Offer' : 'Ask anyway'}</button>` : ''}</td>
@@ -10331,7 +10484,13 @@ function offerTo(id, farmUid){
   state.orderError = ''; state.orderMsg = '';
   const o = orderById(id);
   if(!o) return;
-  const kg = Math.min(orderRemaining(o), Math.round(farmExpectedKg(MEMBERS[farmUid] || {}, o.crop)) || orderRemaining(o));
+  const m = MEMBERS[farmUid] || {};
+  // Offer a week's picking, not a season's — an offer a farm cannot meet
+  // costs the association the order and the farm its delivery record.
+  const supply = farmWeeklyKg(m, o.crop) > 0
+    ? Math.round(farmSupplyBy(m, o.crop, o.needBy))
+    : Math.round(farmExpectedKg(m, o.crop));
+  const kg = Math.min(orderRemaining(o), supply || orderRemaining(o));
   placeAlloc(o, farmUid, kg);
   if(o.status === 'Open'){ o.status = 'Allocated'; cloudPushOrder(o); }
   saveMembers();
@@ -10413,6 +10572,21 @@ function renderOrdersMember(c){
   `;
 }
 
+/* What this share is in the farm's own terms. A number of kilograms means
+   little on its own; a number of weeks of your own picking is the thing you
+   accept or decline on. */
+function allocAgainstWeek(a){
+  const m = MEMBERS[a.farmUid];
+  if(!m || !a.kg) return '';
+  const perWeek = farmWeeklyKg(m, a.crop);
+  if(!(perWeek > 0)) return '';
+  const weeks = Number(a.kg) / perWeek;
+  const said = weeks < 1
+    ? `about ${Math.round(weeks * 100)}% of one week's picking`
+    : `about ${weeks < 10 ? Math.round(weeks * 10) / 10 : Math.round(weeks)} weeks of your picking`;
+  return `<div class="helper">${fmt(Math.round(perWeek))} kg is what you expect each week — this share is ${said}.</div>`;
+}
+
 function allocCard(a){
   const canAnswer = a.status === 'Offered';
   return `<div class="card">
@@ -10423,6 +10597,7 @@ function allocCard(a){
           ${a.customer ? `for ${esc(a.customer)}` : 'for the association'}${a.needBy ? ` · needed by ${esc(a.needBy)}` : ''}${a.pricePerKg ? ` · ${fmt(a.pricePerKg)} TZS/kg` : ''}
         </div>
         ${a.pricePerKg && a.kg ? `<div class="helper">Worth ${fmt(Math.round(a.pricePerKg * a.kg))} TZS to your farm.</div>` : ''}
+        ${allocAgainstWeek(a)}
         ${a.note ? `<div class="helper">Your note: ${esc(a.note)}</div>` : ''}
       </div>
       <div style="text-align:right;">${allocPill(a.status)}</div>
