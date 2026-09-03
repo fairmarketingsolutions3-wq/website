@@ -2106,39 +2106,59 @@ function expectedHarvest(cr){
 /* What a farm can actually put on a lorry in one week.
 
    The season total is the wrong number to judge an order by. A farm
-   expecting 1,680 kg is not a farm that can hand over 1,680 kg — it hands
-   over a share of that every week from its first harvest to its last, and
-   an order wanted by a date can only be filled out of the weeks before it.
+   expecting 800 kg is not a farm that can hand over 800 kg — it hands over
+   a share of that every week it is picking, and an order wanted by a date
+   can only be filled out of the weeks before it.
 
-   So: total expected harvest divided by the number of weeks the crop is
-   picked in. The window is the farm's own — first harvest date to last
-   harvest date — because the farm is the one that knows when it clears.
-   Where a farm has not given both dates, the catalogue's own bearing weeks
-   for the variety stand in, and the figure says which of the two it came
-   from rather than presenting a guess as a record. */
+   So: total expected harvest divided by the weeks the crop is picked in.
+
+   The divisor is the catalogue's bearing window, not the farm's own dates,
+   and that distinction is the whole of it. The yield figure the total comes
+   from — 2 kg a capsicum plant — is what one plant gives across the crop's
+   whole bearing period. Capsicum bears for six months, so those 2 kg are 24
+   weeks of picking. Dividing the same 2 kg by a 13-week window a farm typed
+   in claims the plant yields twice as fast as the association says it does.
+
+   The farm's own first and last harvest dates say *when* it is picking and,
+   if they are shorter than the crop bears for, that it is clearing early —
+   which means less fruit, not faster fruit. That is reported beside the
+   figure rather than folded silently into it. */
 function weeklyExpected(cr){
   const e = expectedHarvest(cr);
   const out = { total: e.total, ok: false, why: e.why,
                 harvestWeeks: 0, perWeek: 0, from: '',
+                pickingWeeks: 0, clearsEarly: false, pickingTotal: e.total,
                 firstHarvest: (cr && cr.firstHarvest) || '',
                 lastHarvest: (cr && cr.expected) || '' };
   if(!e.ok) return out;                    // no yield, or nothing planted
 
+  // How long this crop bears, per the association's own catalogue. This is
+  // the period the total is stated over, so it is the only honest divisor.
+  out.harvestWeeks = catalogueHarvestWeeks(cr && cr.crop, cr && cr.variety);
+  out.from = 'catalogue';
+
+  // The farm's own window: when it will be picking, and for how long.
   const a = out.firstHarvest ? new Date(out.firstHarvest) : null;
   const b = out.lastHarvest  ? new Date(out.lastHarvest)  : null;
   if(a && b && !isNaN(a) && !isNaN(b) && b >= a){
-    // Whole weeks between the two dates, and never less than one: a crop
-    // picked over a single week still has a weekly figure, and it is the
-    // whole of it.
-    out.harvestWeeks = Math.max(1, Math.round((b - a) / MS_WEEK));
-    out.from = 'dates';
-  } else {
-    const weeks = catalogueHarvestWeeks(cr && cr.crop, cr && cr.variety);
-    if(weeks){ out.harvestWeeks = weeks; out.from = 'catalogue'; }
+    out.pickingWeeks = Math.max(1, Math.round((b - a) / MS_WEEK));
+    // With no catalogue window to go on, the farm's own dates are all there
+    // is, and they are better than nothing.
+    if(!out.harvestWeeks){ out.harvestWeeks = out.pickingWeeks; out.from = 'dates'; }
   }
   if(!out.harvestWeeks){ out.why = 'no-window'; return out; }
 
   out.perWeek = e.total / out.harvestWeeks;
+
+  // Clearing before the crop stops bearing gives fewer weeks of fruit, not
+  // more fruit per week.
+  if(out.pickingWeeks && out.pickingWeeks < out.harvestWeeks){
+    out.clearsEarly = true;
+    out.pickingTotal = out.perWeek * out.pickingWeeks;
+  } else if(!out.pickingWeeks){
+    out.pickingWeeks = out.harvestWeeks;
+  }
+
   out.ok = true;
   return out;
 }
@@ -2168,12 +2188,24 @@ function catalogueHarvestWeeks(cropName, varietyName){
 function harvestWindowText(w){
   if(!w.harvestWeeks) return '';
   const weeks = `${w.harvestWeeks} week${w.harvestWeeks === 1 ? '' : 's'}`;
-  if(w.from === 'dates'){
-    const d = t=> t ? new Date(t).toLocaleDateString('en-GB',
-                      {day:'2-digit',month:'short',year:'numeric'}) : '';
-    return `${weeks} — ${d(w.firstHarvest)} to ${d(w.lastHarvest)}`;
-  }
-  return `${weeks} — from the catalogue, no harvest dates on this crop yet`;
+  const d = t=> t ? new Date(t).toLocaleDateString('en-GB',
+                    {day:'2-digit',month:'short',year:'numeric'}) : '';
+  if(w.from === 'dates') return `${weeks} — ${d(w.firstHarvest)} to ${d(w.lastHarvest)}`;
+  return `${weeks} — how long this crop bears, per the catalogue`;
+}
+
+/* When a farm's own dates stop before the crop does. Said plainly, because
+   the farm may have typed the wrong date or may genuinely be clearing for
+   the next planting, and only the farm knows which. */
+function clearsEarlyNote(w){
+  if(!w.clearsEarly) return '';
+  const d = t=> t ? new Date(t).toLocaleDateString('en-GB',
+                    {day:'2-digit',month:'short',year:'numeric'}) : '';
+  return `Your dates cover ${w.pickingWeeks} week${w.pickingWeeks===1?'':'s'} of that — `
+       + `${d(w.firstHarvest)} to ${d(w.lastHarvest)} — so you would pick about `
+       + `${massText(w.pickingTotal)} of the ${massText(w.total)}. `
+       + `If you mean to pick the whole crop, put the last harvest date `
+       + `${w.harvestWeeks} weeks after the first.`;
 }
 
 /* Fill in the confirmed figures without touching anything an operator has
@@ -2574,7 +2606,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v67';
+const BUILD = 'v68';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3175,6 +3207,42 @@ function farmWeeklyKg(m, crop){
     const w = weeklyExpected(cr);
     return t + (w.ok ? w.perWeek : 0);
   }, 0);
+}
+
+/* How long a share will take this farm to pick, in its own weeks. A share
+   of 150 kg means nothing on its own; "about five weeks of their picking"
+   is what tells an operator whether it lands before the customer's date. */
+function weeksToCover(m, crop, kg){
+  const perWeek = farmWeeklyKg(m, crop);
+  if(!(perWeek > 0) || !(kg > 0)) return 0;
+  return kg / perWeek;
+}
+function weeksToCoverText(weeks){
+  if(!weeks) return '';
+  if(weeks < 1) return 'under a week';
+  const n = weeks < 10 ? Math.round(weeks * 10) / 10 : Math.round(weeks);
+  return `${n} week${n === 1 ? '' : 's'}`;
+}
+
+/* What this farm has actually picked of that crop since it took the share on.
+
+   An accepted share and a delivered share are the two things the order book
+   knew about, and between them is the part that matters most while an order
+   is live: whether the farm has started picking at all. That sits in the
+   farm's own harvest records, which the order screen was never reading. */
+function pickedSince(farmUid, crop, sinceIso){
+  const since = sinceIso ? String(sinceIso).slice(0,10) : '';
+  return harvestEntries(farmUid)
+    .filter(e=> (e.crop || '') === crop && (!since || (e.date || '') >= since))
+    .reduce((t,e)=> t + toKg(e.amount, e.unit || 'kg'), 0);
+}
+/* The day picking started against a share, so the order book can say when. */
+function firstPickSince(farmUid, crop, sinceIso){
+  const since = sinceIso ? String(sinceIso).slice(0,10) : '';
+  const dates = harvestEntries(farmUid)
+    .filter(e=> (e.crop || '') === crop && (!since || (e.date || '') >= since))
+    .map(e=> e.date || '').filter(Boolean).sort();
+  return dates[0] || '';
 }
 
 /* How many weeks of picking are behind that weekly figure, so the order
@@ -3884,10 +3952,25 @@ function rulesGapBanner(){
     </div>`;
   }
   if(!state.rulesGap || !state.rulesGap.length) return '';
+  // The two links are the whole job. Naming the task without handing over
+  // either of the things it needs — the file and the console — is why this
+  // banner can sit unactioned for weeks.
+  const cfg = window.TIPFA_FIREBASE_CONFIG || {};
+  const proj = cfg.projectId || '';
+  const rulesTab = proj
+    ? `https://console.firebase.google.com/project/${encodeURIComponent(proj)}/firestore/rules`
+    : 'https://console.firebase.google.com/';
+  const rulesFile = 'https://github.com/fairmarketingsolutions3-wq/website/blob/main/firestore.rules';
   return `<div class="card" style="border-color:var(--red);">
     <strong>The shared database is refusing these records, so nothing here reaches anybody.</strong>
-    <p class="helper" style="margin-top:6px;">It has not been told they exist. Publish <code>firestore.rules</code>: Firebase console &rarr; Build &rarr; Firestore Database &rarr; Rules &rarr; replace everything &rarr; Publish. Until then whatever you record stays on this device, and a farm on another phone sees nothing.</p>
-    <p class="helper" style="margin-top:6px;">Refused: ${state.rulesGap.map(esc).join(' · ')}</p>
+    <p class="helper" style="margin-top:6px;">The database has never been told these records exist. Until it is, whatever you record stays on this device and a farm on another phone sees nothing. It is a one-off job on the Firebase console — and it has to be done again whenever the rules file changes, which it did most recently when roles were added.</p>
+    <ol class="helper" style="margin:8px 0 0 18px;padding:0;line-height:1.8;">
+      <li><a href="${rulesFile}" target="_blank" rel="noopener"><strong>Open firestore.rules</strong></a> and copy the whole file.</li>
+      <li><a href="${rulesTab}" target="_blank" rel="noopener"><strong>Open the Rules tab${proj ? ' for ' + esc(proj) : ''}</strong></a> in the Firebase console.</li>
+      <li>Select everything in the editor, paste over it, press <strong>Publish</strong>.</li>
+      <li>Come back here and press <strong>Check again</strong>.</li>
+    </ol>
+    <p class="helper" style="margin-top:8px;">Refused: ${state.rulesGap.map(esc).join(' · ')}</p>
     <button class="btn small ghost" style="margin-top:6px;" onclick="recheckRules()">Check again</button>
   </div>`;
 }
@@ -8396,11 +8479,9 @@ function expectedCard(cr, opts){
          <span class="big-val" style="font-size:15px;">${esc(harvestWindowText(w))}</span></div>
        <div class="big-row total"><span class="big-lbl">Expected each week</span>
          <span class="big-total">${massText(w.perWeek)}</span></div>
-       <p class="helper" style="margin:6px 0 0;">${massText(e.total)} over ${w.harvestWeeks} harvest week${w.harvestWeeks===1?'':'s'}.${
-         w.from === 'catalogue'
-           ? ' Add your first and last harvest dates on the profile to use your own window.'
-           : ''}</p>`
-    : `<p class="helper" style="margin:6px 0 0;">Add a first harvest date and a last harvest date on the profile and this becomes a weekly figure — what you expect to pick each week rather than across the whole season.</p>`;
+       <p class="helper" style="margin:6px 0 0;">${massText(e.total)} over ${w.harvestWeeks} harvest week${w.harvestWeeks===1?'':'s'}.</p>
+       ${w.clearsEarly ? `<p class="helper" style="margin:6px 0 0;color:var(--gold-ink,#8A6412);">${esc(clearsEarlyNote(w))}</p>` : ''}`
+    : `<p class="helper" style="margin:6px 0 0;">The Secretariat has not recorded how long this crop bears for, so there is no window to divide the total across. Adding a first and a last harvest date on your profile gives one.</p>`;
 
   return `<div class="card big-card">${nameLine}
     <div class="big-row"><span class="big-lbl">Total harvest per ${esc(countWord(e.unit,1))}</span>
@@ -10342,18 +10423,36 @@ function renderOrderDetail(c, id){
     <div class="section-label">Farms filling this order</div>
     <div class="card">
       ${mine.length ? `<table class="grid-table"><thead><tr>
-        <th>Farm</th><th>Share</th><th>Price</th><th>Status</th><th>Answered</th><th></th></tr></thead><tbody>
-        ${mine.map(a=>`<tr>
-          <td>${esc((MEMBERS[a.farmUid]||{}).name || a.farmUid)}</td>
+        <th>Farm</th><th>Share</th><th>Weeks to pick</th><th>Picked so far</th>
+        <th>Price</th><th>Status</th><th>Answered</th><th></th></tr></thead><tbody>
+        ${mine.map(a=>{
+          const fm = MEMBERS[a.farmUid] || {};
+          const weeks = weeksToCover(fm, a.crop, Number(a.kg) || 0);
+          // Picking counts from when the farm took the share on, or from
+          // when it was offered if it has not answered yet.
+          const since = a.respondedAt || a.created || '';
+          const got = pickedSince(a.farmUid, a.crop, since);
+          const started = firstPickSince(a.farmUid, a.crop, since);
+          const share = Number(a.kg) || 0;
+          const pct = share ? Math.min(100, Math.round((got / share) * 100)) : 0;
+          return `<tr>
+          <td>${esc(fm.name || a.farmUid)}</td>
           <td>${fmt(a.kg)} kg</td>
+          <td>${weeks ? esc(weeksToCoverText(weeks))
+                : '<span class="helper">no weekly figure</span>'}</td>
+          <td>${got > 0
+                ? `<strong>${fmt(Math.round(got))} kg</strong> <span class="helper">${pct}% · first picked ${esc(started)}</span>`
+                : '<span class="helper">nothing picked yet</span>'}</td>
           <td>${a.pricePerKg ? fmt(a.pricePerKg)+' TZS/kg' : '—'}</td>
           <td>${allocPill(a.status)}${a.note?` <span class="helper">${esc(a.note)}</span>`:''}</td>
           <td>${a.respondedAt ? esc(a.respondedAt.slice(0,10)) : '<span class="helper">waiting</span>'}</td>
           <td>${a.status === 'Accepted'
                 ? `<button class="btn small ghost" onclick="markDelivered('${esc(a.id)}')">Mark delivered</button>` : ''}
               <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="withdrawAlloc('${esc(a.id)}')">Withdraw</button></td>
-        </tr>`).join('')}
-      </tbody></table>` : '<p class="helper">Nothing placed yet.</p>'}
+        </tr>`;}).join('')}
+      </tbody></table>
+      <p class="helper" style="margin:10px 0 0;">Picked so far is read from each farm's own harvest records for this crop, counted from the day it took the share on — so a farm that has started picking shows here before anything is marked delivered.</p>`
+        : '<p class="helper">Nothing placed yet.</p>'}
     </div>
 
     ${mine.length === 0 ? `<div class="card" style="border-color:var(--harvest-orange);">
@@ -10373,16 +10472,20 @@ function renderOrderDetail(c, id){
       ${askableFarms(o).length ? `<button class="btn small ${ranked.some(r=>r.eligible)?'ghost':''}" onclick="askEveryone('${esc(o.id)}')">Ask all ${askableFarms(o).length} active farm${askableFarms(o).length===1?'':'s'}</button>` : ''}
       ${state.allocDraft && state.allocDraft.orderId === o.id ? allocDraftTable(o) : ''}
       <table class="grid-table" style="margin-top:14px;"><thead><tr>
-        <th>Farm</th><th>Score</th><th>Expected a week</th><th>Why</th><th></th></tr></thead><tbody>
-        ${ranked.map(r=>`<tr${r.eligible?'':' style="opacity:.55;"'}>
+        <th>Farm</th><th>Score</th><th>Expected a week</th>
+        <th>Weeks for ${fmt(Math.round(left))} kg</th><th>Why</th><th></th></tr></thead><tbody>
+        ${ranked.map(r=>{
+          const cover = r.weeklyKg ? left / r.weeklyKg : 0;
+          return `<tr${r.eligible?'':' style="opacity:.55;"'}>
           <td>${esc(r.name)}</td>
           <td>${r.eligible ? `<strong>${r.score}</strong>` : '—'}</td>
           <td>${r.weeklyKg ? `${fmt(Math.round(r.weeklyKg))} kg`
                 : (r.expectedKg ? `<span class="helper">${fmt(Math.round(r.expectedKg))} kg / season</span>` : '—')}</td>
+          <td>${cover ? esc(weeksToCoverText(cover)) : '—'}</td>
           <td><span class="helper">${r.why.map(esc).join(' · ')}</span></td>
           <td>${r.askable && !mine.some(a=> a.farmUid === r.id && a.status !== 'Declined')
                 ? `<button class="btn small ghost" onclick="offerTo('${esc(o.id)}','${esc(r.id)}')">${r.eligible ? 'Offer' : 'Ask anyway'}</button>` : ''}</td>
-        </tr>`).join('')}
+        </tr>`;}).join('')}
       </tbody></table>
       ${ranked.length ? '' : '<p class="helper">No farms are registered yet, so there is nobody to place this with.</p>'}
     </div>` : `<div class="card"><p class="helper">The whole order is placed.</p></div>`}
