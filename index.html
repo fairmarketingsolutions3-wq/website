@@ -627,6 +627,114 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 }
 .not-allowed:hover{transform:none !important;box-shadow:none !important;}
 
+/* ============================================================
+   The bar at the bottom
+
+   Drawn only on a phone. Four places somebody actually goes and
+   More for the rest, at the bottom where a thumb reaches — instead
+   of fifteen tabs scrolling sideways across the top with the group
+   headings scrolling along inside them.
+   ============================================================ */
+.bottomnav{display:none;}
+.moresheet{display:none;}
+
+@media (max-width:760px){
+  .bottomnav{
+    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:60;
+    background:rgba(255,255,255,.985);
+    backdrop-filter:saturate(1.6) blur(18px); -webkit-backdrop-filter:saturate(1.6) blur(18px);
+    border-top:1px solid var(--line-soft);
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    box-shadow:0 -6px 22px -12px rgba(44,68,35,.35);
+  }
+  .bn-item{
+    flex:1; border:none; background:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:7px 2px; color:var(--muted); min-height:52px;
+    transition:color var(--dur-2) var(--ease-out);
+  }
+  .bn-icon{position:relative; display:flex;}
+  .bn-icon svg{width:23px; height:23px;}
+  .bn-label{font-size:10.5px; font-weight:600; letter-spacing:.01em;}
+  .bn-item.active{color:var(--tipfa-green);}
+  .bn-item.active .bn-icon svg{stroke-width:2.4;}
+  .bn-item:active{transform:scale(.94);}
+  .bn-dot{
+    position:absolute; top:-5px; right:-9px; min-width:16px; padding:0 4px;
+    border-radius:99px; background:var(--harvest-orange); color:var(--deep-green);
+    font-size:10px; font-weight:700; line-height:16px; text-align:center;
+  }
+
+  /* The sidebar is that bar now; it is not also drawn across the top. */
+  .sidebar{display:none;}
+  .layout{grid-template-columns:1fr;}
+  .cart-bar{bottom:calc(72px + env(safe-area-inset-bottom));}
+
+  /* Everything not in the bar, in a sheet that comes up from it.
+
+     :not([hidden]) is load-bearing: a class rule in a media query outranks
+     the browser's own [hidden]{display:none}, so without it the closed sheet
+     stays a full-screen invisible pane over the page and eats every tap. */
+  .moresheet:not([hidden]){display:block; position:fixed; inset:0; z-index:70;}
+  .ms-scrim{position:absolute; inset:0; background:rgba(35,40,31,.42);
+    animation:fadeIn var(--dur-2) var(--ease-out) both;}
+  .ms-panel{
+    position:absolute; left:0; right:0; bottom:0; max-height:78vh; overflow-y:auto;
+    background:var(--field-cream); border-radius:22px 22px 0 0;
+    padding:8px 14px calc(20px + env(safe-area-inset-bottom));
+    animation:sheetUp var(--dur-3) var(--ease-spring) both;
+  }
+  @keyframes sheetUp{ from{ transform:translateY(100%); } to{ transform:translateY(0); } }
+  .ms-grip{width:40px; height:4px; border-radius:99px; background:var(--line);
+    margin:6px auto 12px; cursor:pointer;}
+  .ms-head{font-family:'Poppins',sans-serif; font-size:15px; font-weight:600;
+    color:var(--deep-green); margin:0 4px 8px;}
+  .ms-group{font-size:9.5px; text-transform:uppercase; letter-spacing:.16em;
+    font-weight:700; color:var(--muted); padding:14px 4px 5px;}
+  .ms-item{
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+    width:100%; text-align:left; border:none; cursor:pointer;
+    background:var(--card); border-radius:var(--radius-sm);
+    padding:13px 14px; margin-bottom:6px; font-size:14px; color:var(--ink);
+    font-family:'Inter',sans-serif;
+  }
+  .ms-item.active{background:var(--tipfa-green); color:var(--field-cream); font-weight:600;}
+
+  /* Who you are, and the way out — the sign-in strip's job, done once. */
+  .ms-acct{display:flex; align-items:center; gap:11px; padding:2px 4px 12px;
+    border-bottom:1px solid var(--line-soft); margin-bottom:4px;}
+  .ms-acct-who{flex:1; min-width:0;}
+  .ms-acct-name{font-family:'Poppins',sans-serif; font-size:15px; font-weight:600;
+    color:var(--deep-green); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+  .ms-acct-sub{font-size:12px; color:var(--muted); overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap;}
+  .ms-initials{width:38px; height:38px; flex:none; border-radius:11px;
+    background:var(--tipfa-green); color:var(--field-cream);
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Poppins',sans-serif; font-size:14px; font-weight:600;}
+  .ms-out{border:1px solid var(--line); background:var(--card); cursor:pointer;
+    border-radius:99px; padding:8px 14px; font-size:12.5px; font-weight:600;
+    color:var(--deep-green); font-family:'Inter',sans-serif; flex:none;}
+  .ms-tools{display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:10px 4px 0;}
+  .ms-tools .refresh-btn{margin-left:0;}
+  .ms-tools .cloud-badge{margin-left:0;}
+  .ms-panel .ms-head{margin-top:16px;}
+
+  /* The name, the role and the way out are in the sheet now. Repeating them
+     across the top bar and again in a strip below it spent the first third
+     of a phone screen saying the same thing three times. */
+  .subbar{display:none;}
+  .topbar{padding:10px 14px;}
+  .session{display:none;}
+  .brandtext .bt-name span{display:none;}   /* "TIPFA" alone at this width */
+}
+
+@media (prefers-reduced-motion: reduce){
+  .ms-panel, .ms-scrim{animation:none;}
+  .bn-item:active{transform:none;}
+}
+
 /* ---------- Navigation groups ---------- */
 .nav-group{
   font-size:9.5px;text-transform:uppercase;letter-spacing:.16em;font-weight:700;
@@ -1527,11 +1635,11 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
 }
 @media (max-width:760px){
   .layout{grid-template-columns:1fr;}
-  .sidebar{flex-direction:row;overflow-x:auto;border-right:none;border-bottom:1px solid var(--line);padding:10px;background:#EBE9DC;}
-  .tabbtn{white-space:nowrap;}
-  .tabbtn.active::before{left:12px;right:12px;top:auto;bottom:0;width:auto;height:3px;border-radius:3px 3px 0 0;}
   .grid2, .grid3, .grid4{grid-template-columns:1fr 1fr;}
-  .content{padding:20px 16px 40px;}
+  /* The tail clears the bar at the bottom — bar, safe area and a gap. This
+     is the shorthand, so it is also where the bottom value has to live: set
+     it in the bar's own block and this later rule silently wins. */
+  .content{padding:20px 16px calc(96px + env(safe-area-inset-bottom));}
   .topbar{padding:12px 16px;}
   .brandlogo{width:28px;}
   .brandblock .tagline{display:none;}
@@ -1583,6 +1691,8 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
       <div class="sidebar" id="sidebar"></div>
       <div class="content" id="content"></div>
     </div>
+    <nav class="bottomnav" id="bottomnav" aria-label="Sections"></nav>
+    <div class="moresheet" id="moresheet" hidden></div>
   </div>
 
 </div>
@@ -2321,7 +2431,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v64';
+const BUILD = 'v65';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -4738,7 +4848,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
   inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false,
-  todayRead:false, handOver:null };
+  todayRead:false, handOver:null, moreOpen:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -5764,6 +5874,7 @@ function switchTab(tab){
   if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
   if(tab === 'store' || tab === 'inputsA') state.inputsRead = false;
   if(tab === 'today') state.todayRead = false;
+  state.moreOpen = false;
   state.tab = tab;
   rememberSession();          // a refresh comes back to the screen you were on
   render();
@@ -5834,6 +5945,107 @@ function sidebarGroups(){
   return ADMIN_GROUPS.map(([name, tabs])=>
     [name, USER ? tabs.filter(t=> can(t[2])) : tabs]
   ).filter(([,tabs])=> tabs.length);
+}
+
+/* ============================================================
+   The bar at the bottom, on a phone
+
+   The sidebar became a row of fifteen tabs that scrolled sideways,
+   with the group headings scrolling along inside it. Nothing about
+   that is reachable with a thumb and nothing about it says where you
+   are.
+
+   So on a phone the navigation moves to the bottom, where the thumb
+   is: four places somebody actually goes, and More for the rest. It
+   is the same tab keys and the same permission checks — only drawn
+   where a hand can reach it.
+   ============================================================ */
+const MEMBER_BOTTOM = [
+  ['today',  'Home',    '<path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>'],
+  ['actual', 'Harvest', '<path d="M12 21V9"/><path d="M12 9C12 9 7 8 5 4c4-1 7 2 7 5z"/><path d="M12 12c0-3 3-6 7-5-2 4-7 5-7 5z"/>'],
+  ['store',  'Store',   '<path d="M4 8h16l-1.2 11.2a2 2 0 01-2 1.8H7.2a2 2 0 01-2-1.8z"/><path d="M9 8V6a3 3 0 016 0v2"/>'],
+  ['orders', 'Orders',  '<path d="M6 3h12l1 5H5z"/><path d="M6 8v12a1 1 0 001 1h10a1 1 0 001-1V8"/><path d="M10 12h4"/>']
+];
+const ADMIN_BOTTOM = [
+  ['dashboard','Overview', '<path d="M3 13h6V3H3z"/><path d="M15 21h6V11h-6z"/><path d="M3 21h6v-4H3z"/><path d="M15 7h6V3h-6z"/>'],
+  ['members',  'Members',  '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M17 11a3 3 0 100-6"/><path d="M17.5 14.5c2 .6 3.5 2.4 3.5 5"/>'],
+  ['ordersA',  'Orders',   '<path d="M6 3h12l1 5H5z"/><path d="M6 8v12a1 1 0 001 1h10a1 1 0 001-1V8"/><path d="M10 12h4"/>'],
+  ['traceA',   'Trace',    '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>']
+];
+
+function bottomTabs(){
+  const list = state.role === 'member' ? MEMBER_BOTTOM : ADMIN_BOTTOM;
+  if(state.role !== 'member' && USER)
+    return list.filter(([k])=> ADMIN_TABS_ALL.some(t=> t[0] === k && can(t[2])));
+  return list;
+}
+
+function renderBottomNav(){
+  const el = document.getElementById('bottomnav');
+  if(!el) return;
+  const tabs = bottomTabs();
+  const inBar = tabs.some(([k])=> k === state.tab);
+  el.innerHTML = tabs.map(([k,label,path])=>{
+    const badge = tabBadge(k);
+    return `<button class="bn-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')" aria-label="${esc(label)}">
+      <span class="bn-icon">${lineIcon(path)}${badge?`<b class="bn-dot">${badge}</b>`:''}</span>
+      <span class="bn-label">${esc(label)}</span>
+    </button>`;
+  }).join('') + `
+    <button class="bn-item ${(!inBar || state.moreOpen)?'active':''}" onclick="toggleMore()" aria-label="More">
+      <span class="bn-icon">${lineIcon('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>')}</span>
+      <span class="bn-label">More</span>
+    </button>`;
+}
+
+function toggleMore(){ state.moreOpen = !state.moreOpen; render(); }
+function closeMore(){ state.moreOpen = false; render(); }
+
+/* Everything that is not in the bar, grouped as it is in the sidebar. */
+function renderMoreSheet(){
+  const el = document.getElementById('moresheet');
+  if(!el) return;
+  if(!state.moreOpen){ el.innerHTML = ''; el.hidden = true; return; }
+  el.hidden = false;
+  const inBar = bottomTabs().map(([k])=> k);
+  el.innerHTML = `
+    <div class="ms-scrim" onclick="closeMore()"></div>
+    <div class="ms-panel" role="dialog" aria-label="All sections">
+      <div class="ms-grip" onclick="closeMore()"></div>
+      ${moreAccount()}
+      <div class="ms-head">All sections</div>
+      ${sidebarGroups().map(([name, tabs])=>{
+        const rest = tabs.filter(([k])=> !inBar.includes(k));
+        if(!rest.length) return '';
+        return `${name ? `<div class="ms-group">${esc(name)}</div>` : ''}
+          ${rest.map(([k,label])=>{
+            const badge = tabBadge(k);
+            return `<button class="ms-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')">
+              ${esc(label)}${badge?`<b class="tab-badge">${badge}</b>`:''}</button>`;
+          }).join('')}`;
+      }).join('')}
+    </div>`;
+}
+
+/* On a phone the top bar carries the mark alone and the sign-in strip is not
+   drawn, so who you are signed in as, the state of the connection and the way
+   out all live here — the one place a thumb goes looking for them. */
+function moreAccount(){
+  const isMember = state.role === 'member';
+  const m = isMember ? MEMBERS[state.member] : null;
+  const who = isMember ? (m ? m.name : '') : (state.adminName || 'TIPFA Secretariat operator');
+  const sub = isMember
+    ? (m && m.location ? m.location : 'Farm member access')
+    : (USER ? roleLabel(USER.role) : 'Administrator access');
+  return `<div class="ms-acct">
+      ${isMember && m ? farmLogo(m,'sm') : `<span class="ms-initials">${esc((who||'?').slice(0,2).toUpperCase())}</span>`}
+      <div class="ms-acct-who">
+        <div class="ms-acct-name">${esc(who)}</div>
+        <div class="ms-acct-sub">${esc(sub)}</div>
+      </div>
+      <button class="ms-out" onclick="logout()">Log out</button>
+    </div>
+    <div class="ms-tools">${refreshButton()}${cloudBadge()}</div>`;
 }
 
 function renderSidebar(){
@@ -5925,7 +6137,7 @@ function renderSubbar(){
   if(state.role==='member'){
     const m = MEMBERS[state.member];
     bar.innerHTML = `<label>Signed in as</label>${farmLogo(m,'sm')}<span class="who-name">${esc(m.name)}</span>
-      <span class="helper" style="margin-left:8px;">${esc(m.location)} &middot; only your own farm's data is visible in this session.</span>
+      <span class="helper" style="margin-left:8px;">${m.location ? esc(m.location)+' &middot; ' : ''}only your own farm's data is visible in this session.</span>
       ${refreshButton()}${cloudBadge()}`;
   } else {
     bar.innerHTML = `<label>Signed in as</label><span class="who-name">${esc(state.adminName||'TIPFA Secretariat operator')}</span>
@@ -5953,7 +6165,7 @@ function render(){
   }
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
-  renderSidebar(); renderSubbar();
+  renderSidebar(); renderSubbar(); renderBottomNav(); renderMoreSheet();
   const c = document.getElementById('content');
   renderTabContent(c);
   afterRender(c);
@@ -6075,7 +6287,7 @@ function farmHeader(m, extra){
     ${farmLogo(m,'xl')}
     <div class="fh-meta">
       <h2>${esc(m.name)}</h2>
-      <div class="fh-sub">${esc(m.category)} member &middot; ${esc(m.location)} &middot; registered ${esc(m.registered)}</div>
+      <div class="fh-sub">${[esc(m.category)+' member', m.location?esc(m.location):'', 'registered '+esc(m.registered)].filter(Boolean).join(' &middot; ')}</div>
       <div style="margin-top:8px;"><span class="status-pill status-${m.status.toLowerCase()}">${esc(m.status)}</span>
       ${extra||''}</div>
     </div>
