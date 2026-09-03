@@ -2,8 +2,14 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
 <title>TIPFA Association Platform</title>
+<!-- Which of the two appearances this is, decided before the first paint so
+     the page never draws as a desktop and then rearranges into a phone.
+     760 is the one breakpoint; it is repeated in the stylesheet and in
+     MOBILE_MAX below, and a test holds the three to each other. -->
+<script>document.documentElement.setAttribute('data-view',
+  window.matchMedia('(max-width:760px)').matches ? 'mobile' : 'desktop');</script>
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Association Platform — member farm records, harvest planning and secretariat oversight for the Tanzania Indoor &amp; Professional Farmers Association.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -85,6 +91,11 @@ body{
   background:var(--field-cream);
   -webkit-font-smoothing:antialiased;
   overflow-x:hidden;
+  /* A phone must not re-flow the type to a size the layout was not built
+     for, and a double tap must not zoom the page: both of those are how a
+     locked layout starts drifting sideways under a thumb. */
+  -webkit-text-size-adjust:100%; text-size-adjust:100%;
+  touch-action:manipulation;
 }
 
 /* ============================================================
@@ -628,111 +639,123 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 .not-allowed:hover{transform:none !important;box-shadow:none !important;}
 
 /* ============================================================
-   The bar at the bottom
+   The phone's app bar and its one drawer
 
-   Drawn only on a phone. Four places somebody actually goes and
-   More for the rest, at the bottom where a thumb reaches — instead
-   of fifteen tabs scrolling sideways across the top with the group
-   headings scrolling along inside them.
+   Drawn only in the mobile appearance. A three-line button, the
+   section you are on, and the mark. Everything you can go to is
+   behind that button, in one list, grouped as the desktop rail
+   groups it — not split between a bar and an overflow sheet.
    ============================================================ */
-.bottomnav{display:none;}
-.moresheet{display:none;}
+.appbar{display:none;}
+.navdrawer{display:none;}
 
-@media (max-width:760px){
-  .bottomnav{
-    display:flex; position:fixed; left:0; right:0; bottom:0; z-index:60;
-    background:rgba(255,255,255,.985);
-    backdrop-filter:saturate(1.6) blur(18px); -webkit-backdrop-filter:saturate(1.6) blur(18px);
-    border-top:1px solid var(--line-soft);
-    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
-    box-shadow:0 -6px 22px -12px rgba(44,68,35,.35);
-  }
-  .bn-item{
-    flex:1; border:none; background:none; cursor:pointer;
-    display:flex; flex-direction:column; align-items:center; gap:3px;
-    padding:7px 2px; color:var(--muted); min-height:52px;
-    transition:color var(--dur-2) var(--ease-out);
-  }
-  .bn-icon{position:relative; display:flex;}
-  .bn-icon svg{width:23px; height:23px;}
-  .bn-label{font-size:10.5px; font-weight:600; letter-spacing:.01em;}
-  .bn-item.active{color:var(--tipfa-green);}
-  .bn-item.active .bn-icon svg{stroke-width:2.4;}
-  .bn-item:active{transform:scale(.94);}
-  .bn-dot{
-    position:absolute; top:-5px; right:-9px; min-width:16px; padding:0 4px;
-    border-radius:99px; background:var(--harvest-orange); color:var(--deep-green);
-    font-size:10px; font-weight:700; line-height:16px; text-align:center;
-  }
-
-  /* The sidebar is that bar now; it is not also drawn across the top. */
-  .sidebar{display:none;}
-  .layout{grid-template-columns:1fr;}
-  .cart-bar{bottom:calc(72px + env(safe-area-inset-bottom));}
-
-  /* Everything not in the bar, in a sheet that comes up from it.
-
-     :not([hidden]) is load-bearing: a class rule in a media query outranks
-     the browser's own [hidden]{display:none}, so without it the closed sheet
-     stays a full-screen invisible pane over the page and eats every tap. */
-  .moresheet:not([hidden]){display:block; position:fixed; inset:0; z-index:70;}
-  .ms-scrim{position:absolute; inset:0; background:rgba(35,40,31,.42);
-    animation:fadeIn var(--dur-2) var(--ease-out) both;}
-  .ms-panel{
-    position:absolute; left:0; right:0; bottom:0; max-height:78vh; overflow-y:auto;
-    background:var(--field-cream); border-radius:22px 22px 0 0;
-    padding:8px 14px calc(20px + env(safe-area-inset-bottom));
-    animation:sheetUp var(--dur-3) var(--ease-spring) both;
-  }
-  @keyframes sheetUp{ from{ transform:translateY(100%); } to{ transform:translateY(0); } }
-  .ms-grip{width:40px; height:4px; border-radius:99px; background:var(--line);
-    margin:6px auto 12px; cursor:pointer;}
-  .ms-head{font-family:'Poppins',sans-serif; font-size:15px; font-weight:600;
-    color:var(--deep-green); margin:0 4px 8px;}
-  .ms-group{font-size:9.5px; text-transform:uppercase; letter-spacing:.16em;
-    font-weight:700; color:var(--muted); padding:14px 4px 5px;}
-  .ms-item{
-    display:flex; align-items:center; justify-content:space-between; gap:10px;
-    width:100%; text-align:left; border:none; cursor:pointer;
-    background:var(--card); border-radius:var(--radius-sm);
-    padding:13px 14px; margin-bottom:6px; font-size:14px; color:var(--ink);
-    font-family:'Inter',sans-serif;
-  }
-  .ms-item.active{background:var(--tipfa-green); color:var(--field-cream); font-weight:600;}
-
-  /* Who you are, and the way out — the sign-in strip's job, done once. */
-  .ms-acct{display:flex; align-items:center; gap:11px; padding:2px 4px 12px;
-    border-bottom:1px solid var(--line-soft); margin-bottom:4px;}
-  .ms-acct-who{flex:1; min-width:0;}
-  .ms-acct-name{font-family:'Poppins',sans-serif; font-size:15px; font-weight:600;
-    color:var(--deep-green); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
-  .ms-acct-sub{font-size:12px; color:var(--muted); overflow:hidden;
-    text-overflow:ellipsis; white-space:nowrap;}
-  .ms-initials{width:38px; height:38px; flex:none; border-radius:11px;
-    background:var(--tipfa-green); color:var(--field-cream);
-    display:flex; align-items:center; justify-content:center;
-    font-family:'Poppins',sans-serif; font-size:14px; font-weight:600;}
-  .ms-out{border:1px solid var(--line); background:var(--card); cursor:pointer;
-    border-radius:99px; padding:8px 14px; font-size:12.5px; font-weight:600;
-    color:var(--deep-green); font-family:'Inter',sans-serif; flex:none;}
-  .ms-tools{display:flex; align-items:center; gap:8px; flex-wrap:wrap;
-    padding:10px 4px 0;}
-  .ms-tools .refresh-btn{margin-left:0;}
-  .ms-tools .cloud-badge{margin-left:0;}
-  .ms-panel .ms-head{margin-top:16px;}
-
-  /* The name, the role and the way out are in the sheet now. Repeating them
-     across the top bar and again in a strip below it spent the first third
-     of a phone screen saying the same thing three times. */
-  .subbar{display:none;}
-  .topbar{padding:10px 14px;}
-  .session{display:none;}
-  .brandtext .bt-name span{display:none;}   /* "TIPFA" alone at this width */
+:root[data-view="mobile"] .appbar{
+  display:flex; align-items:center; gap:10px;
+  position:sticky; top:0; z-index:60;
+  padding:8px 12px calc(8px) ; min-height:56px;
+  background:rgba(255,255,255,.985);
+  backdrop-filter:saturate(1.5) blur(18px); -webkit-backdrop-filter:saturate(1.5) blur(18px);
+  border-bottom:1px solid var(--line-soft);
 }
+.ab-burger{
+  position:relative; flex:none; width:44px; height:44px;    /* full touch target */
+  display:flex; align-items:center; justify-content:center;
+  border:none; background:none; cursor:pointer; border-radius:12px;
+  -webkit-tap-highlight-color:transparent;
+}
+.ab-burger:active{background:rgba(64,94,53,.09);}
+.ab-lines{display:flex; flex-direction:column; gap:4px; width:19px;}
+.ab-lines i{display:block; height:2px; border-radius:2px; background:var(--deep-green);}
+.ab-lines i:nth-child(2){width:76%;}   /* the middle line short, so it reads as a menu */
+/* The count rides the corner of the button with a ring of the bar's own
+   colour, so it reads as sitting on top of the lines rather than crossing
+   one of them. */
+.ab-dot{
+  position:absolute; top:2px; right:0; min-width:16px; padding:0 3px;
+  border-radius:99px; background:var(--harvest-orange); color:var(--deep-green);
+  border:2px solid #fff;
+  font-size:9.5px; font-weight:700; line-height:16px; text-align:center;
+}
+.ab-where{flex:1; min-width:0;}
+.ab-sec{
+  font-family:'Poppins',sans-serif; font-size:15px; font-weight:600;
+  color:var(--deep-green); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ab-mark{width:26px; height:26px; flex:none; opacity:.9;}
+
+/* ---- the drawer ---- */
+/* :not([hidden]) is load-bearing: an attribute-scoped class rule outranks
+   the browser's own [hidden]{display:none}, and without it the shut drawer
+   stays a full-screen invisible pane that eats every tap on the site. */
+:root[data-view="mobile"] .navdrawer:not([hidden]){
+  display:block; position:fixed; inset:0; z-index:80;
+}
+.nd-scrim{position:absolute; inset:0; background:rgba(35,40,31,.46);
+  animation:fadeIn var(--dur-2) var(--ease-out) both;}
+.nd-panel{
+  position:absolute; top:0; bottom:0; left:0;
+  width:min(86vw, 340px); display:flex; flex-direction:column;
+  background:var(--field-cream); box-shadow:2px 0 30px -8px rgba(35,40,31,.45);
+  padding:calc(10px + env(safe-area-inset-top)) 0 env(safe-area-inset-bottom);
+  animation:drawerIn var(--dur-3) var(--ease-spring) both;
+}
+@keyframes drawerIn{ from{ transform:translateX(-100%); } to{ transform:translateX(0); } }
+.nd-head{display:flex; align-items:center; justify-content:space-between;
+  padding:4px 8px 10px 18px;}
+.nd-title{font-family:'Poppins',sans-serif; font-size:13px; font-weight:700;
+  letter-spacing:.14em; text-transform:uppercase; color:var(--muted);}
+.nd-close{width:44px; height:44px; display:flex; align-items:center; justify-content:center;
+  border:none; background:none; cursor:pointer; color:var(--deep-green); border-radius:12px;}
+.nd-close:active{background:rgba(64,94,53,.09);}
+.nd-close svg{width:19px; height:19px;}
+
+.nd-list{flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:0 12px 14px;
+  overscroll-behavior:contain;}   /* scrolling the list does not drag the page */
+.nd-group{font-size:9.5px; text-transform:uppercase; letter-spacing:.16em;
+  font-weight:700; color:var(--muted); padding:15px 6px 6px;}
+.nd-item{
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  width:100%; min-height:46px; text-align:left; border:none; cursor:pointer;
+  background:transparent; border-radius:12px; padding:11px 12px; margin-bottom:2px;
+  font-size:14.5px; color:var(--ink); font-family:'Inter',sans-serif;
+  transition:background var(--dur-1) var(--ease-out);
+}
+.nd-item:active{background:rgba(64,94,53,.09);}
+.nd-item.active{background:var(--tipfa-green); color:var(--field-cream); font-weight:600;}
+.nd-label{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.nd-badge{flex:none; min-width:19px; padding:0 5px; border-radius:99px;
+  background:var(--harvest-orange); color:var(--deep-green);
+  font-size:11px; font-weight:700; line-height:19px; text-align:center;}
+.nd-item.active .nd-badge{background:var(--field-cream); color:var(--deep-green);}
+
+/* The way out sits below a rule, away from the section it would
+   otherwise be mistaken for. */
+.nd-foot{border-top:1px solid var(--line-soft); padding:12px 18px 16px; flex:none;}
+.nd-acct{display:flex; align-items:center; gap:10px;}
+.nd-who{flex:1; min-width:0;}
+.nd-name{font-family:'Poppins',sans-serif; font-size:14px; font-weight:600;
+  color:var(--deep-green); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.nd-sub{font-size:11.5px; color:var(--muted); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap;}
+.nd-initials{width:36px; height:36px; flex:none; border-radius:11px;
+  background:var(--tipfa-green); color:var(--field-cream);
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Poppins',sans-serif; font-size:13px; font-weight:600;}
+.nd-tools{display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:11px 0 0;}
+.nd-tools .refresh-btn{margin-left:0;}
+.nd-tools .cloud-badge{margin-left:0;}
+.nd-out{
+  width:100%; min-height:44px; margin-top:11px; cursor:pointer;
+  border:1px solid var(--line); background:var(--card); border-radius:12px;
+  font-family:'Inter',sans-serif; font-size:13.5px; font-weight:600; color:var(--deep-green);
+}
+.nd-out:active{background:#F3F1E6;}
+
+/* The page behind a drawer must not scroll under it. */
+:root[data-view="mobile"] body.nav-open{overflow:hidden;}
 
 @media (prefers-reduced-motion: reduce){
-  .ms-panel, .ms-scrim{animation:none;}
-  .bn-item:active{transform:none;}
+  .nd-panel, .nd-scrim{animation:none;}
 }
 
 /* ---------- Navigation groups ---------- */
@@ -1633,19 +1656,66 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
   .values, .lb-foot{display:none;}
   .loginpane{padding:32px 22px 44px;}
 }
+/* ============================================================
+   The mobile appearance
+
+   Not the desktop console at a smaller size. One column, one bar,
+   one navigation, one thing to read at a time. The desktop chrome —
+   the green masthead, the sign-in strip, the side rail — is not
+   shrunk here, it is replaced by the app bar and the drawer.
+
+   760px is the line, and it is the same 760 the head script and
+   MOBILE_MAX use. A test holds the three to each other.
+   ============================================================ */
 @media (max-width:760px){
+  /* the desktop chrome, replaced rather than squeezed */
+  .topbar{display:none;}
+  .subbar{display:none;}
+  .sidebar{display:none;}
   .layout{grid-template-columns:1fr;}
-  .grid2, .grid3, .grid4{grid-template-columns:1fr 1fr;}
-  /* The tail clears the bar at the bottom — bar, safe area and a gap. This
-     is the shorthand, so it is also where the bottom value has to live: set
-     it in the bar's own block and this later rule silently wins. */
-  .content{padding:20px 16px calc(96px + env(safe-area-inset-bottom));}
-  .topbar{padding:12px 16px;}
-  .brandlogo{width:28px;}
-  .brandblock .tagline{display:none;}
-}
-@media (max-width:520px){
+
+  /* one column. A phone reads down, not across. */
   .grid2, .grid3, .grid4{grid-template-columns:1fr;}
+  /* two-up is for numbers only, where a stack would be a long march */
+  .grid3.metrics, .grid4.metrics, .metric-row{grid-template-columns:1fr 1fr;}
+
+  .content{padding:16px 14px calc(28px + env(safe-area-inset-bottom));}
+  .app{padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
+
+  /* Nothing is allowed to set its own width past the screen. */
+  .content, .content *{max-width:100%;}
+  .card{border-radius:16px;}
+
+  /* The app bar already names the section in the same words. Printing it
+     again as a 25px heading spent three lines saying nothing new, so it is
+     kept for the heading outline and for a screen reader, and not drawn. */
+  h1.page-title{
+    position:absolute; width:1px; height:1px; margin:0; padding:0;
+    overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap;
+  }
+  .content > h1.page-title::before{display:none;}
+  p.page-sub{margin:0 0 16px; font-size:13px;}
+
+  /* Four stage cards side by side is four columns of broken words. */
+  .stage-rail{grid-template-columns:1fr;}
+  .quick-grid{grid-template-columns:1fr;}
+
+  /* A file input's native button plus its filename does not fit beside a
+     label on a phone; give it the whole line. */
+  input[type="file"]{width:100%;}
+
+  /* 44px is the floor for anything a thumb has to land on (HIG 44pt,
+     Material 48dp). Several fields and buttons were coming out at 38-42. */
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea,
+  .btn, button.tabbtn, .chip{min-height:44px;}
+  .btn{display:inline-flex; align-items:center; justify-content:center;}
+  .chip{display:inline-flex; align-items:center;}
+}
+
+/* Above the line the login screen keeps its masthead; below it the hero
+   carries the identity on its own and the bar would only repeat it. */
+@media (max-width:760px){
+  .appbar:empty{display:none;}
 }
 
 /* ---------- Reduced motion ---------- */
@@ -1686,13 +1756,13 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
   <div id="loginScreen"></div>
 
   <div id="appScreen" style="display:none;">
+    <header class="appbar" id="appbar"></header>
     <div class="subbar" id="subbar"></div>
     <div class="layout">
       <div class="sidebar" id="sidebar"></div>
       <div class="content" id="content"></div>
     </div>
-    <nav class="bottomnav" id="bottomnav" aria-label="Sections"></nav>
-    <div class="moresheet" id="moresheet" hidden></div>
+    <div class="navdrawer" id="navdrawer" hidden></div>
   </div>
 
 </div>
@@ -2431,7 +2501,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v65';
+const BUILD = 'v66';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -4848,7 +4918,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
   inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false,
-  todayRead:false, handOver:null, moreOpen:false };
+  todayRead:false, handOver:null, navOpen:false };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -5789,7 +5859,7 @@ function renderLogin(){
         ${state.forgotMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.forgotMsg)}</div>` : ''}
         <div class="card">
           <label class="f">Phone number or email</label>
-          <input id="login-id" placeholder="+255 7XX XXX XXX or you@example.com">
+          <input id="login-id" placeholder="+255 7XX XXX XXX">
           <label class="f">Password</label>
           ${pwdField('login-password','Your password')}
           <button class="btn" style="width:100%;margin-top:10px;" onclick="doMemberLogin(this)">Sign in to your farm</button>
@@ -5874,7 +5944,7 @@ function switchTab(tab){
   if(tab === 'advice' || tab === 'advisoryA') state.advRead = false;
   if(tab === 'store' || tab === 'inputsA') state.inputsRead = false;
   if(tab === 'today') state.todayRead = false;
-  state.moreOpen = false;
+  state.navOpen = false;      // choosing a section closes the drawer
   state.tab = tab;
   rememberSession();          // a refresh comes back to the screen you were on
   render();
@@ -5948,104 +6018,127 @@ function sidebarGroups(){
 }
 
 /* ============================================================
-   The bar at the bottom, on a phone
+   One navigation, behind three lines
 
-   The sidebar became a row of fifteen tabs that scrolled sideways,
-   with the group headings scrolling along inside it. Nothing about
-   that is reachable with a thumb and nothing about it says where you
-   are.
+   The sidebar first became a row of fifteen tabs that scrolled
+   sideways. Then it became four places at the bottom plus More,
+   which put the navigation in two places at once: some sections in
+   the bar, the rest behind a sheet, and no single list of where you
+   could go.
 
-   So on a phone the navigation moves to the bottom, where the thumb
-   is: four places somebody actually goes, and More for the rest. It
-   is the same tab keys and the same permission checks — only drawn
-   where a hand can reach it.
+   On a phone it is one thing now. A three-line button in the app
+   bar opens a drawer holding every section, grouped exactly as the
+   desktop rail groups them, with who you are and the way out at the
+   bottom of it. Same tab keys, same permission checks — one place.
    ============================================================ */
-const MEMBER_BOTTOM = [
-  ['today',  'Home',    '<path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/>'],
-  ['actual', 'Harvest', '<path d="M12 21V9"/><path d="M12 9C12 9 7 8 5 4c4-1 7 2 7 5z"/><path d="M12 12c0-3 3-6 7-5-2 4-7 5-7 5z"/>'],
-  ['store',  'Store',   '<path d="M4 8h16l-1.2 11.2a2 2 0 01-2 1.8H7.2a2 2 0 01-2-1.8z"/><path d="M9 8V6a3 3 0 016 0v2"/>'],
-  ['orders', 'Orders',  '<path d="M6 3h12l1 5H5z"/><path d="M6 8v12a1 1 0 001 1h10a1 1 0 001-1V8"/><path d="M10 12h4"/>']
-];
-const ADMIN_BOTTOM = [
-  ['dashboard','Overview', '<path d="M3 13h6V3H3z"/><path d="M15 21h6V11h-6z"/><path d="M3 21h6v-4H3z"/><path d="M15 7h6V3h-6z"/>'],
-  ['members',  'Members',  '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5"/><path d="M17 11a3 3 0 100-6"/><path d="M17.5 14.5c2 .6 3.5 2.4 3.5 5"/>'],
-  ['ordersA',  'Orders',   '<path d="M6 3h12l1 5H5z"/><path d="M6 8v12a1 1 0 001 1h10a1 1 0 001-1V8"/><path d="M10 12h4"/>'],
-  ['traceA',   'Trace',    '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>']
-];
 
-function bottomTabs(){
-  const list = state.role === 'member' ? MEMBER_BOTTOM : ADMIN_BOTTOM;
-  if(state.role !== 'member' && USER)
-    return list.filter(([k])=> ADMIN_TABS_ALL.some(t=> t[0] === k && can(t[2])));
-  return list;
+function toggleNav(){
+  state.navOpen = !state.navOpen;
+  render();
+  // A drawer that opens without taking focus leaves a keyboard behind on the
+  // page underneath, tabbing through what the scrim is covering.
+  if(state.navOpen){
+    const first = document.querySelector('.nd-item.active') || document.querySelector('.nd-item');
+    if(first) first.focus({preventScroll:true});
+  } else {
+    const burger = document.querySelector('.ab-burger');
+    if(burger) burger.focus({preventScroll:true});
+  }
+}
+function closeNav(){ if(state.navOpen){ state.navOpen = false; render();
+  const burger = document.querySelector('.ab-burger');
+  if(burger) burger.focus({preventScroll:true}); } }
+
+document.addEventListener('keydown', e=>{
+  if(e.key === 'Escape' && state.navOpen) closeNav();
+});
+
+/* Everything waiting on you, added up, so the closed drawer can say
+   there is something inside without being opened to find out. */
+function navBadgeTotal(){
+  return sidebarGroups()
+    .flatMap(([,tabs])=> tabs.map(([k])=> Number(tabBadge(k)) || 0))
+    .reduce((a,b)=> a+b, 0);
 }
 
-function renderBottomNav(){
-  const el = document.getElementById('bottomnav');
+/* The bar across the top of a phone: the way into the navigation, the
+   mark, and the name of the section you are actually on — which the
+   drawer cannot tell you while it is shut. */
+function renderAppBar(){
+  const el = document.getElementById('appbar');
   if(!el) return;
-  const tabs = bottomTabs();
-  const inBar = tabs.some(([k])=> k === state.tab);
-  el.innerHTML = tabs.map(([k,label,path])=>{
-    const badge = tabBadge(k);
-    return `<button class="bn-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')" aria-label="${esc(label)}">
-      <span class="bn-icon">${lineIcon(path)}${badge?`<b class="bn-dot">${badge}</b>`:''}</span>
-      <span class="bn-label">${esc(label)}</span>
-    </button>`;
-  }).join('') + `
-    <button class="bn-item ${(!inBar || state.moreOpen)?'active':''}" onclick="toggleMore()" aria-label="More">
-      <span class="bn-icon">${lineIcon('<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>')}</span>
-      <span class="bn-label">More</span>
-    </button>`;
-}
-
-function toggleMore(){ state.moreOpen = !state.moreOpen; render(); }
-function closeMore(){ state.moreOpen = false; render(); }
-
-/* Everything that is not in the bar, grouped as it is in the sidebar. */
-function renderMoreSheet(){
-  const el = document.getElementById('moresheet');
-  if(!el) return;
-  if(!state.moreOpen){ el.innerHTML = ''; el.hidden = true; return; }
-  el.hidden = false;
-  const inBar = bottomTabs().map(([k])=> k);
+  if(!state.loggedIn){ el.innerHTML = ''; return; }
+  const total = navBadgeTotal();
+  const here = sidebarGroups().flatMap(([,tabs])=> tabs).find(([k])=> k === state.tab);
   el.innerHTML = `
-    <div class="ms-scrim" onclick="closeMore()"></div>
-    <div class="ms-panel" role="dialog" aria-label="All sections">
-      <div class="ms-grip" onclick="closeMore()"></div>
-      ${moreAccount()}
-      <div class="ms-head">All sections</div>
-      ${sidebarGroups().map(([name, tabs])=>{
-        const rest = tabs.filter(([k])=> !inBar.includes(k));
-        if(!rest.length) return '';
-        return `${name ? `<div class="ms-group">${esc(name)}</div>` : ''}
-          ${rest.map(([k,label])=>{
-            const badge = tabBadge(k);
-            return `<button class="ms-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')">
-              ${esc(label)}${badge?`<b class="tab-badge">${badge}</b>`:''}</button>`;
-          }).join('')}`;
-      }).join('')}
-    </div>`;
+    <button class="ab-burger" onclick="toggleNav()" aria-label="Open the section list"
+            aria-expanded="${state.navOpen ? 'true' : 'false'}" aria-controls="navdrawer">
+      <span class="ab-lines" aria-hidden="true"><i></i><i></i><i></i></span>
+      ${total ? `<b class="ab-dot" aria-hidden="true">${total > 9 ? '9+' : total}</b>` : ''}
+    </button>
+    <div class="ab-where">
+      <div class="ab-sec">${esc(here ? here[1] : 'TIPFA')}</div>
+    </div>
+    <img class="ab-mark" src="assets/brand/tipfa-symbol.png" alt="TIPFA">`;
 }
 
-/* On a phone the top bar carries the mark alone and the sign-in strip is not
-   drawn, so who you are signed in as, the state of the connection and the way
-   out all live here — the one place a thumb goes looking for them. */
-function moreAccount(){
+/* Who you are, the connection, and the way out — at the foot of the
+   drawer, kept apart from the sections so Log out is never the thing
+   a thumb hits reaching for the last one (HIG: separate destructive
+   actions from navigation). */
+function navAccount(){
   const isMember = state.role === 'member';
   const m = isMember ? MEMBERS[state.member] : null;
   const who = isMember ? (m ? m.name : '') : (state.adminName || 'TIPFA Secretariat operator');
   const sub = isMember
     ? (m && m.location ? m.location : 'Farm member access')
     : (USER ? roleLabel(USER.role) : 'Administrator access');
-  return `<div class="ms-acct">
-      ${isMember && m ? farmLogo(m,'sm') : `<span class="ms-initials">${esc((who||'?').slice(0,2).toUpperCase())}</span>`}
-      <div class="ms-acct-who">
-        <div class="ms-acct-name">${esc(who)}</div>
-        <div class="ms-acct-sub">${esc(sub)}</div>
+  return `<div class="nd-foot">
+      <div class="nd-acct">
+        ${isMember && m ? farmLogo(m,'sm')
+          : `<span class="nd-initials">${esc((who||'?').slice(0,2).toUpperCase())}</span>`}
+        <div class="nd-who">
+          <div class="nd-name">${esc(who)}</div>
+          <div class="nd-sub">${esc(sub)}</div>
+        </div>
       </div>
-      <button class="ms-out" onclick="logout()">Log out</button>
-    </div>
-    <div class="ms-tools">${refreshButton()}${cloudBadge()}</div>`;
+      <div class="nd-tools">${refreshButton()}${cloudBadge()}</div>
+      <button class="nd-out" onclick="logout()">Log out</button>
+    </div>`;
+}
+
+function renderNavDrawer(){
+  const el = document.getElementById('navdrawer');
+  if(!el) return;
+  if(!state.navOpen || !state.loggedIn){
+    el.innerHTML = ''; el.hidden = true;
+    document.body.classList.remove('nav-open');
+    return;
+  }
+  el.hidden = false;
+  document.body.classList.add('nav-open');
+  el.innerHTML = `
+    <div class="nd-scrim" onclick="closeNav()"></div>
+    <nav class="nd-panel" role="dialog" aria-modal="true" aria-label="Sections">
+      <div class="nd-head">
+        <span class="nd-title">Sections</span>
+        <button class="nd-close" onclick="closeNav()" aria-label="Close">
+          ${lineIcon('<path d="M6 6l12 12"/><path d="M18 6L6 18"/>')}
+        </button>
+      </div>
+      <div class="nd-list">
+        ${sidebarGroups().map(([name, tabs])=>`
+          ${name ? `<div class="nd-group">${esc(name)}</div>` : ''}
+          ${tabs.map(([k,label])=>{
+            const badge = tabBadge(k);
+            return `<button class="nd-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')">
+              <span class="nd-label">${esc(label)}</span>
+              ${badge?`<b class="nd-badge">${badge}</b>`:''}
+            </button>`;
+          }).join('')}`).join('')}
+      </div>
+      ${navAccount()}
+    </nav>`;
 }
 
 function renderSidebar(){
@@ -6150,7 +6243,44 @@ function periodChips(){
   return `<div class="chips">${PERIODS.map(p=>`<span class="chip ${state.period===p?'active':''}" onclick="selectPeriod('${p}');switchTab('${state.tab}')">${p.charAt(0).toUpperCase()+p.slice(1)}</span>`).join('')}</div>`;
 }
 
+/* ============================================================
+   Two appearances, not one squeezed
+
+   A phone is not a narrow desktop. Below MOBILE_MAX the site is drawn as a
+   phone app — one column, one navigation, its own type and spacing scale;
+   above it, as a desktop console with a side rail and multi-column pages.
+   CSS handles what is only a matter of size. This switch handles the rest:
+   the parts where the two want different markup, not different padding.
+
+   data-view on the root element is what the stylesheet keys off, so a rule
+   can say "mobile" without restating the breakpoint and drifting from it.
+   ============================================================ */
+const MOBILE_MAX = 760;
+const MOBILE_Q = window.matchMedia(`(max-width:${MOBILE_MAX}px)`);
+function isMobile(){ return MOBILE_Q.matches; }
+
+function applyViewMode(){
+  const view = isMobile() ? 'mobile' : 'desktop';
+  if(document.documentElement.getAttribute('data-view') !== view){
+    document.documentElement.setAttribute('data-view', view);
+    return true;                       // changed
+  }
+  return false;
+}
+applyViewMode();
+
+/* Rotating a phone, or dragging a desktop window narrow, crosses the line.
+   The drawer belongs to one appearance and the side rail to the other, so
+   whatever was open on the way across is closed rather than left orphaned. */
+(MOBILE_Q.addEventListener ? MOBILE_Q.addEventListener.bind(MOBILE_Q,'change')
+                           : MOBILE_Q.addListener.bind(MOBILE_Q))(()=>{
+  applyViewMode();
+  state.navOpen = false;
+  if(state.loggedIn) render();
+});
+
 function render(){
+  applyViewMode();
   // A calendar lifted onto the page body would be orphaned by this redraw,
   // and its id would collide with the fresh field about to be written.
   document.querySelectorAll('body > .datepop').forEach(p=> p.remove());
@@ -6165,7 +6295,7 @@ function render(){
   }
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
-  renderSidebar(); renderSubbar(); renderBottomNav(); renderMoreSheet();
+  renderSidebar(); renderSubbar(); renderAppBar(); renderNavDrawer();
   const c = document.getElementById('content');
   renderTabContent(c);
   afterRender(c);
@@ -11761,7 +11891,7 @@ function backupPanel(){
       </div>
       <p class="helper" style="margin:2px 0 8px;">Then, on the other device, sign in as an operator and restore that file here:</p>
       <div class="import-opts">
-        <select id="restore-mode" style="width:auto;margin:0;">
+        <select id="restore-mode" style="max-width:100%;margin:0;">
           <option value="merge">Merge — add what is missing, keep what is here</option>
           <option value="replace">Replace — make this device match the file exactly</option>
         </select>
