@@ -2606,7 +2606,7 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v68';
+const BUILD = 'v69';
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -2823,7 +2823,7 @@ async function cloudPushInputCatalogue(){
     const { doc, setDoc } = CLOUD.fs;
     await setDoc(doc(CLOUD.db, 'settings', 'inputCatalogue'),
                  { items: INPUT_CATALOGUE, updatedAt: new Date().toISOString() });
-  }catch(e){ noteCloudRefusal(e, 'The input list'); }
+  }catch(e){ noteCloudRefusal(e, 'The input list', 'settings'); }
 }
 
 async function cloudPullInputCatalogue(){
@@ -2898,7 +2898,7 @@ async function cloudPushRequest(r){
       total:Number(r.total)||0, status:r.status || 'Sent', note:r.note || '',
       raisedOn:r.raisedOn, reply:r.reply || '', created:r.created
     }, {merge:true});
-  }catch(e){ noteCloudRefusal(e, 'Your input request'); }
+  }catch(e){ noteCloudRefusal(e, 'Your input request', 'inputRequests'); }
 }
 
 async function cloudPushSuggestion(x){
@@ -2910,7 +2910,7 @@ async function cloudPushSuggestion(x){
       why:x.why || '', backers:x.backers || [], status:x.status || 'Open',
       raisedOn:x.raisedOn, created:x.created
     }, {merge:true});
-  }catch(e){ noteCloudRefusal(e, 'Your suggestion'); }
+  }catch(e){ noteCloudRefusal(e, 'Your suggestion', 'inputSuggestions'); }
 }
 
 async function cloudPullInputs(){
@@ -3572,7 +3572,7 @@ async function cloudPushBatch(b){
       status:b.status || 'Recorded', region:b.region || '', created:b.created
     }, {merge:true});
     await cloudPushPublicTrace(b);
-  }catch(e){ noteCloudRefusal(e, 'The batch'); state.traceError = state.orderError; }
+  }catch(e){ noteCloudRefusal(e, 'The batch', 'harvestBatches'); state.traceError = state.orderError; }
 }
 
 /* The public mirror. A stranger with a lot code sees the crop, where it
@@ -3774,7 +3774,7 @@ async function cloudPushCase(x){
       question:x.question, status:x.status || 'Open', raisedOn:x.raisedOn,
       replies:x.replies || [], created:x.created
     }, {merge:true});
-  }catch(e){ noteCloudRefusal(e, 'The question'); state.advError = state.orderError; }
+  }catch(e){ noteCloudRefusal(e, 'The question', 'advisoryCases'); state.advError = state.orderError; }
 }
 
 async function cloudPushKnowledge(k){
@@ -3853,8 +3853,15 @@ function cloudIdentity(){
 
 /* Naming the wrong cause is worse than naming none: publishing rules that
    are already published, over and over, while the real fault sits
-   elsewhere. So work out which of the three it is before saying anything. */
-function noteCloudRefusal(e, what){
+   elsewhere. So work out which it is before saying anything.
+
+   The last branch used to assume unpublished rules for every refusal it
+   could not otherwise explain, which is how somebody who had just published
+   them was told to publish them. It no longer guesses: it asks the database
+   whether it can read the collection. A read that succeeds proves the rules
+   are published, which leaves the account's own role — an auditor may read
+   everything and change nothing — or something about the record itself. */
+function noteCloudRefusal(e, what, col){
   const denied = /permission|insufficient/i.test(String(e && (e.code || e.message)));
   const who = cloudIdentity();
   if(!denied){
@@ -3864,10 +3871,62 @@ function noteCloudRefusal(e, what){
   } else if(who.why === 'not-operator'){
     state.orderError = `${what} was saved on this device only. The database does not recognise this account as an operator, so it refuses what the console writes. Sign in again with the email address the operator account was created with.`;
   } else {
-    state.orderError = `${what} was saved on this device only — the shared database refused it. The rules in firestore.rules do not yet allow these records. Publish them: Firebase console → Build → Firestore Database → Rules → replace everything → Publish.`;
+    // Say only what is known so far, then go and find out the rest.
+    state.orderError = `${what} was saved on this device only — the shared database refused the write. Finding out why…`;
+    explainRefusal(what, col);
   }
   state.cloudRefused = true;
   try{ render(); }catch(_){ /* mid-render; the message is drawn by the next one */ }
+}
+
+/* Which of the three it actually is. Reading the collection is the test that
+   separates them: rules that are not published refuse the read too. */
+async function explainRefusal(what, col){
+  let published = null;
+  if(col && cloudOn()){
+    try{
+      const { collection, getDocs } = CLOUD.fs;
+      await getDocs(collection(CLOUD.db, col));
+      published = true;
+    }catch(err){
+      published = /permission|insufficient/i.test(String(err && (err.code || err.message)))
+        ? false : null;
+    }
+  }
+
+  if(published === false){
+    state.orderError = `${what} was saved on this device only. The shared database has not been told these records exist — firestore.rules is not published, or the copy that is published is older than this one. Open the admin Orders tab: the red banner there links straight to the file and to your own Rules page.`;
+  } else if(published === true && USER && USER.status && USER.status !== 'active'){
+    state.orderError = `${what} was saved on this device only. The rules are published and the database can read them, but this account's status is “${USER.status}”, and only an active account may write. The system owner can set it on the Governance screen.`;
+  } else if(published === true && USER && USER.role === 'auditor'){
+    state.orderError = `${what} was saved on this device only. The rules are published — this account holds the Auditor role, which may read everything and change nothing. Ask the system owner for a role that can write, or have somebody in the Secretariat make the change.`;
+  } else if(published === true && USER && USER.role){
+    state.orderError = `${what} was saved on this device only. The rules are published and this account is signed in as ${roleLabel(USER.role)}, so the refusal is about this particular record rather than about access in general. Nothing is lost — it is still on this device, and Refresh will send it once the cause is cleared.`;
+  } else if(published === true){
+    // No role record on this device. The database recognises an operator
+    // either by an operators document (an account made before roles) or by
+    // a users document carrying a role — an account with neither, or with a
+    // users document holding no role, falls between the two and is refused
+    // every write while still being able to read.
+    let hasOp = null, rec = null;
+    try{
+      const { doc, getDoc } = CLOUD.fs;
+      hasOp = (await getDoc(doc(CLOUD.db, 'operators', CLOUD_STATE.uid))).exists();
+      const u = await getDoc(doc(CLOUD.db, 'users', CLOUD_STATE.uid));
+      rec = u.exists() ? (u.data() || {}) : null;
+    }catch(_){ /* answered below as "could not establish" */ }
+
+    if(rec && !rec.role){
+      state.orderError = `${what} was saved on this device only. The rules are published, but this account has a role record with no role set on it — so the database no longer treats it as an operator, and refuses every write while still letting it read. The system owner can set a role on the Governance screen. Nothing is lost; it is still on this device.`;
+    } else if(hasOp === false && !rec){
+      state.orderError = `${what} was saved on this device only. The rules are published, but the database holds no operator record for this account, so it refuses what the console writes. Ask the system owner to add this account on the Governance screen.`;
+    } else {
+      state.orderError = `${what} was saved on this device only. The rules are published and the database can be read, so this is not about publishing them. Nothing is lost — it is still on this device.`;
+    }
+  } else {
+    state.orderError = `${what} was saved on this device only — the shared database refused the write and the reason could not be established from here. Nothing is lost; it is still on this device.`;
+  }
+  try{ render(); }catch(_){ }
 }
 
 async function cloudPushOrder(o){
@@ -3881,7 +3940,7 @@ async function cloudPushOrder(o){
       notes:o.notes || '', status:o.status || 'Open',
       created:o.created, createdBy:o.createdBy || ''
     }, {merge:true});
-  }catch(e){ noteCloudRefusal(e, 'The order'); }
+  }catch(e){ noteCloudRefusal(e, 'The order', 'orders'); }
 }
 
 /* An allocation carries its own copy of the crop, the amount, the price and
@@ -3897,7 +3956,7 @@ async function cloudPushAlloc(a){
       customer:a.customer || '', status:a.status || 'Offered',
       note:a.note || '', created:a.created, respondedAt:a.respondedAt || ''
     }, {merge:true});
-  }catch(e){ noteCloudRefusal(e, 'The share you placed'); }
+  }catch(e){ noteCloudRefusal(e, 'The share you placed', 'orderAllocations'); }
 }
 
 /* ---- Has the database been told about these records? -----------------
@@ -4027,7 +4086,7 @@ async function confirmPlaced(orderIdVal, n){
       : `${n} share${n===1?'':'s'} placed here, but only ${landed} reached the shared database. The rest are on this device alone — publish firestore.rules and place them again.`;
     if(landed < n) await checkLaterCollections();
   }catch(e){
-    noteCloudRefusal(e, `The ${n} share${n===1?'':'s'} you placed`);
+    noteCloudRefusal(e, `The ${n} share${n===1?'':'s'} you placed`, 'orderAllocations');
     await checkLaterCollections();
   }
   render();
@@ -4298,6 +4357,9 @@ const PERMS = {
 
 // Who this browser is signed in as, for drawing the page only.
 let USER = null;
+/* USER is a module-level binding, so a test cannot reach it through window.
+   This is the only way in, and it exists for that. */
+window.__setUser = u => { USER = u; };
 
 /* Everyone's role record, keyed by user id, read by staff for Governance.
    The signed-in person's own record is USER; this is the roll. */
@@ -10423,10 +10485,13 @@ function renderOrderDetail(c, id){
     <div class="section-label">Farms filling this order</div>
     <div class="card">
       ${mine.length ? `<table class="grid-table"><thead><tr>
-        <th>Farm</th><th>Share</th><th>Weeks to pick</th><th>Picked so far</th>
-        <th>Price</th><th>Status</th><th>Answered</th><th></th></tr></thead><tbody>
+        <th>Farm</th><th>Share</th><th>Expected a week</th><th>Weeks to pick</th>
+        <th>Picked so far</th><th>Price</th><th>Status</th><th>Answered</th><th></th>
+        </tr></thead><tbody>
         ${mine.map(a=>{
           const fm = MEMBERS[a.farmUid] || {};
+          const perWeek = farmWeeklyKg(fm, a.crop);
+          const hw = farmHarvestWeeks(fm, a.crop);
           const weeks = weeksToCover(fm, a.crop, Number(a.kg) || 0);
           // Picking counts from when the farm took the share on, or from
           // when it was offered if it has not answered yet.
@@ -10438,6 +10503,10 @@ function renderOrderDetail(c, id){
           return `<tr>
           <td>${esc(fm.name || a.farmUid)}</td>
           <td>${fmt(a.kg)} kg</td>
+          <td>${perWeek
+                ? `<strong>${fmt(Math.round(perWeek))} kg</strong>`
+                  + `<div class="helper">${fmt(Math.round(farmExpectedKg(fm, a.crop)))} kg over ${hw} harvest week${hw===1?'':'s'}</div>`
+                : '<span class="helper">not in their harvest plan</span>'}</td>
           <td>${weeks ? esc(weeksToCoverText(weeks))
                 : '<span class="helper">no weekly figure</span>'}</td>
           <td>${got > 0
@@ -10451,7 +10520,7 @@ function renderOrderDetail(c, id){
               <button class="btn small ghost" style="color:var(--red);border-color:var(--red);" onclick="withdrawAlloc('${esc(a.id)}')">Withdraw</button></td>
         </tr>`;}).join('')}
       </tbody></table>
-      <p class="helper" style="margin:10px 0 0;">Picked so far is read from each farm's own harvest records for this crop, counted from the day it took the share on — so a farm that has started picking shows here before anything is marked delivered.</p>`
+      <p class="helper" style="margin:10px 0 0;">Expected a week is this farm's own harvest plan for this crop — its expected total divided by the weeks the crop bears for. Picked so far is read from the farm's own harvest records, counted from the day it took the share on, so a farm that has started picking shows here before anything is marked delivered.</p>`
         : '<p class="helper">Nothing placed yet.</p>'}
     </div>
 
