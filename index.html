@@ -10,6 +10,12 @@
      MOBILE_MAX below, and a test holds the three to each other. -->
 <script>document.documentElement.setAttribute('data-view',
   window.matchMedia('(max-width:760px)').matches ? 'mobile' : 'desktop');</script>
+<!-- The build, at the top of the file on purpose. A phone holds on to this
+     page for a long time, and a stale copy showing different figures from the
+     console is worse than an old copy showing old ones. Keeping the stamp in
+     the head lets a device ask the server what it is serving by fetching the
+     first two kilobytes instead of all 649. Bump this and nothing else. -->
+<meta name="tipfa-build" content="v70">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Association Platform — member farm records, harvest planning and secretariat oversight for the Tanzania Indoor &amp; Professional Farmers Association.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -757,6 +763,24 @@ tr.crop-edit .grid2{margin-bottom:4px;}
 @media (prefers-reduced-motion: reduce){
   .nd-panel, .nd-scrim{animation:none;}
 }
+
+/* ---------- A copy of the platform that is behind the server ---------- */
+.stalebar:empty{display:none;}
+.stalebar > div:first-child{flex:1; min-width:0;}
+.stalebar{
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  background:#FBF4E3; border-bottom:1px solid #EBD9A8; color:#6E4E0C;
+  padding:11px 18px; font-size:13px; position:relative; z-index:65;
+}
+.stalebar strong{font-family:'Poppins',sans-serif; font-weight:600;}
+.sb-sub{margin-top:2px; opacity:.85; line-height:1.5;}
+.sb-go{
+  flex:none; min-height:38px; padding:0 16px; cursor:pointer;
+  border:1px solid #C89A2B; background:var(--harvest-orange); color:var(--deep-green);
+  border-radius:99px; font-family:'Inter',sans-serif; font-size:13px; font-weight:700;
+}
+.sb-go:active{transform:scale(.97);}
+@media (max-width:760px){ .stalebar{padding:10px 14px; font-size:12.5px;} }
 
 /* ---------- Navigation groups ---------- */
 .nav-group{
@@ -1756,6 +1780,7 @@ tr.entry-edit .ee-head{font-family:'Poppins',sans-serif;font-size:12.5px;color:v
   <div id="loginScreen"></div>
 
   <div id="appScreen" style="display:none;">
+    <div id="stalebar"></div>
     <header class="appbar" id="appbar"></header>
     <div class="subbar" id="subbar"></div>
     <div class="layout">
@@ -2606,7 +2631,56 @@ function setCloudStatus(status, detail){
 /* A phone can hold an old copy of this page for a long time, and a fault
    already fixed looks unfixed until it lets go of it. The build shows on
    screen so which copy is running can be said rather than guessed. */
-const BUILD = 'v69';
+const BUILD = (document.querySelector('meta[name="tipfa-build"]') || {}).content || 'v0';
+
+/* ============================================================
+   Is this device running the copy the server has?
+
+   The platform is one file on a static host, and a phone will hold on to it
+   for as long as it likes. That is how a farm came to read 117 kg a week off
+   its harvest plan while the console read 44 kg for the same crop: two
+   different versions of the same arithmetic, neither of them saying so.
+
+   Nothing here can push an update. What it can do is ask — a two-kilobyte
+   range request for the head of the file, where the build stamp now lives —
+   and say plainly that this copy is behind, rather than letting two devices
+   quietly disagree about a number somebody is going to deliver against.
+   ============================================================ */
+function buildNumber(v){ const n = parseInt(String(v||'').replace(/^v/,''), 10); return isNaN(n) ? 0 : n; }
+
+async function checkForNewerBuild(){
+  if(!navigator.onLine) return;
+  if(!/^https?:/.test(location.protocol)) return;   // file:// has no server to ask
+  try{
+    const res = await fetch(location.pathname + '?b=' + Date.now(), {
+      cache:'no-store', headers:{ 'Range':'bytes=0-3071' }
+    });
+    if(!res.ok && res.status !== 206) return;
+    const head = await res.text();
+    const m = head.match(/name="tipfa-build"\s+content="([^"]+)"/);
+    if(!m) return;                                   // range not honoured, or an old layout
+    const served = m[1];
+    if(buildNumber(served) > buildNumber(BUILD)){
+      state.staleBuild = served;
+      render();
+    }
+  }catch(_){ /* offline or blocked: say nothing rather than guess */ }
+}
+
+/* Drawn above everything, on both sides of the platform, because a figure
+   read off an old copy is the one thing here that can travel out of the
+   building and become a promise to a customer. */
+function staleBuildBar(){
+  if(!state.staleBuild) return '';
+  return `<div class="stalebar">
+    <div>
+      <strong>This device is running an older copy of the platform (${esc(BUILD)}).</strong>
+      <div class="sb-sub">The current one is ${esc(state.staleBuild)}. Figures can differ between
+        versions, so reload before relying on anything on this screen.</div>
+    </div>
+    <button class="sb-go" onclick="location.reload()">Reload</button>
+  </div>`;
+}
 
 function cloudBadge(){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -5190,6 +5264,10 @@ function logAction(text){
 }
 window.addEventListener('beforeunload', saveMembers);
 logAction('System initialised — TIPFA Association Platform ready.');
+// Asked once the page has settled, so it never delays the first paint.
+window.addEventListener('load', ()=> setTimeout(()=>{
+  try{ checkForNewerBuild(); }catch(_){ }
+}, 2500));
 
 const state = { role:null, tab:'profile', member:null, period:'weekly', selYear: CURRENT_YEAR, selMonth: CURRENT_MONTH, selMonths: [CURRENT_MONTH], selWeek: CURRENT_WEEK, priceCrop:null, priceYear:CURRENT_YEAR, priceMonth:CURRENT_MONTH, priceWeek:1, priceAdded:false, loggedIn:false, loginTab:'member', showRegister:false, showAdminRegister:false, regSuccess:false, memberPanel:null, adminName:null,
   diagnostics:false, diagLines:[], adminSignup:false, adminSignupMsg:'', adminSignupUser:'', regAvatar:'',
@@ -5200,7 +5278,7 @@ const state = { role:null, tab:'profile', member:null, period:'weekly', selYear:
   advError:'', advRead:false,
   inputsRead:false, storeTab:'store', storeCat:'All', storeSearch:'', storeMsg:'',
   inputsTab:'requests', inputEdit:null, inputSearch:'', identityGap:'', storeCatsOpen:false,
-  todayRead:false, handOver:null, navOpen:false };
+  todayRead:false, handOver:null, navOpen:false, staleBuild:'' };
 
 function fmt(n){ return Number(n).toLocaleString(); }
 
@@ -6472,6 +6550,10 @@ async function refreshNow(btn){
     }
     state.lastRefresh = Date.now();
   }catch(e){ /* whatever failed reports itself */ }
+  // Pressing Refresh is somebody asking whether they are looking at the
+  // latest of everything. The copy of the platform they are running is part
+  // of that.
+  checkForNewerBuild();
   state.refreshing = false;
   render();
 }
@@ -6578,6 +6660,8 @@ function render(){
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appScreen').style.display = 'block';
   renderSidebar(); renderSubbar(); renderAppBar(); renderNavDrawer();
+  const sb = document.getElementById('stalebar');
+  if(sb) sb.innerHTML = staleBuildBar();
   const c = document.getElementById('content');
   renderTabContent(c);
   afterRender(c);
