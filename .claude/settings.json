@@ -1,0 +1,13 @@
+{
+  "extraKnownMarketplaces": {
+    "instagram-agent-skill": {
+      "source": {
+        "source": "github",
+        "repo": "Jakeschincariol/instagram-agent-skill"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "instagram-agent@instagram-agent-skill": true
+  }
+}
