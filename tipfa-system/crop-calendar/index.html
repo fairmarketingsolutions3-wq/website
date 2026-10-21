@@ -1344,6 +1344,7 @@ table.cc-grid{border-collapse:separate;border-spacing:0;font-size:12px;width:max
 .cc-grid .stk{position:sticky;z-index:2;background:#fff;}
 .cc-grid thead .stk{z-index:4;text-align:left;padding:0 10px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;}
 .cc-grid thead tr.mh .stk{background:var(--deep-green);}
+.cc-grid thead .cc-corner{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .cc-grid thead tr.wh .stk{background:#E4EBD8;}
 .cc-grid .stk.edge{box-shadow:6px 0 8px -6px rgba(35,40,31,.22);}
 .cc-grid tbody td.stk{padding:0 10px;height:32px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -2954,7 +2955,7 @@ function gridHTML(f, months, opts){
   const nCols = cols.length;
 
   const head = `<thead>
-    <tr class="mh">${cols.map((cl, i)=> stickTH(cl, i === 0 ? esc(f.name) : '')).join('')}
+    <tr class="mh"><th colspan="${nCols}" class="stk edge cc-corner" style="left:0;min-width:${x}px;max-width:${x}px;" title="${esc(f.name)}">${esc(f.name)}</th>
       ${months.map(mo=> `<th colspan="4" class="${mo.m===1?'ystart':''}">${MONTH_ABBR[mo.m-1]} ${mo.y}</th>`).join('')}</tr>
     <tr class="wh">${cols.map(cl=> stickTH(cl, esc(cl.label))).join('')}
       ${months.map(mo=> mo.keys.map((k, w)=> `<th class="${w===0?'mstart':''}${k===now?' now':''}"${k===now?' title="This week"':''}>${w+1}</th>`).join('')).join('')}</tr>
