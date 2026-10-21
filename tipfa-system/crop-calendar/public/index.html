@@ -1326,10 +1326,14 @@ input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
 
 /* ---- The grid ---- */
 .cc-card{padding:0 !important;overflow:hidden;}
+/* The grid is fenced off from the page: with a height of its own (set from
+   script to fit its rows, up to the screen) and strict containment, nothing
+   that changes above it makes the browser lay out its thousands of cells
+   again, and nothing inside it spills out. */
 .cc-scroll{overflow:auto;max-height:calc(100vh - 190px);min-height:220px;position:relative;
-  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;}
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;contain:strict;}
 .cc-scroll.painting{cursor:crosshair;}
-table.cc-grid{border-collapse:separate;border-spacing:0;font-size:12px;width:max-content;}
+table.cc-grid{border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed;}
 .cc-grid th, .cc-grid td{border-bottom:1px solid #ECEBE2;padding:0;}
 .cc-grid thead th{position:sticky;z-index:3;font-family:'Poppins',sans-serif;font-weight:600;}
 .cc-grid thead tr.mh th{top:0;height:30px;background:var(--deep-green);color:var(--field-cream);
@@ -1493,6 +1497,25 @@ html[data-view="mobile"] .cc-fill-grid{grid-template-columns:1fr;}
   .cc-scroll{max-height:none;overflow:visible;}
 }
 @media (prefers-reduced-motion: reduce){ .cc-pop{animation:none;} .cc-tool{transition:none;} }
+
+/* ---- Approval ---- */
+.status-card{max-width:620px;}
+.status-card .es-mark{margin:0;}
+.status-card h2{font-family:'Poppins',sans-serif;color:var(--deep-green);font-size:20px;margin:0 0 8px;}
+.status-card p{color:var(--ink);font-size:14px;line-height:1.6;margin:0 0 14px;}
+.status-facts{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:0 0 14px;font-size:13px;}
+.status-facts dt{color:var(--muted);font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-family:'Poppins',sans-serif;padding-top:2px;}
+.status-facts dd{margin:0;color:var(--ink);word-break:break-word;}
+.status-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.wait-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:6px;}
+.wait-card{border-left:3px solid var(--harvest-orange);margin:0 !important;}
+.wait-card.is-admin{border-left-color:var(--deep-green);}
+.wc-head{display:flex;align-items:center;gap:10px;margin-bottom:10px;}
+.wc-head strong{font-family:'Poppins',sans-serif;color:var(--deep-green);font-size:14px;}
+.wc-actions, .row-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;}
+.btn.danger{color:var(--red) !important;border-color:#E8C4BD !important;}
+.owner-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--deep-green);background:#E4EBD8;border-radius:99px;padding:2px 8px;margin-left:4px;vertical-align:middle;}
 </style>
 </head>
 <body>
@@ -1728,10 +1751,15 @@ function blankUnit(n, type){
   type = type || 'Greenhouse';
   return {id: uid('u'), name: `${type} ${n}`, type, blocks: []};
 }
+/* Every account begins as pending. An administrator approves it, rejects it,
+   or later suspends it; until it is approved a farm can see where it stands
+   but cannot plan. */
+const STATUSES = ['pending', 'approved', 'rejected', 'suspended'];
 function blankFarm(vals){
   return {
     name: vals.name || '', contact: vals.contact || '', phone: vals.phone || '',
     email: vals.email || '', location: vals.location || '', registered: todayStr(),
+    status: 'pending',
     units: [blankUnit(1)],
     rows: [],
     startYear: DEFAULT_START_YEAR,
@@ -1742,6 +1770,7 @@ function blankFarm(vals){
    document written by hand in the console — still opens. */
 function normaliseFarm(f){
   if(!f || typeof f !== 'object') return f;
+  if(!STATUSES.includes(f.status)) f.status = 'pending';
   if(!Array.isArray(f.units) || !f.units.length) f.units = [blankUnit(1)];
   f.units.forEach((u, i)=>{
     if(!u.id) u.id = uid('u');
@@ -1770,14 +1799,16 @@ function normaliseFarm(f){
    Storage
    Everything is kept in this browser first, under its own key so a browser
    that also runs the full platform never mixes the two. With a Firebase
-   project configured, farms live in the database instead and this holds
-   only the accounts made while it was out of reach.
+   project configured, farms and administrators live in the database and
+   this holds nothing of theirs.
    ============================================================ */
 const STORE_KEY = 'tipfa.cropcal.v1';
 const SESSION_KEY = 'tipfa.cropcal.session.v1';
 
 let FARMS = {};        // id -> farm record
-let ACCOUNTS = {};     // lower-cased email or phone -> {id, role, name, salt, hash}
+let ACCOUNTS = {};     // lower-cased email or phone -> {id, role, name, salt, hash, status, owner}
+let OPERATORS = {};    // id -> {name, email, since, status, statusBy, statusAt}   (the database's)
+let OWNER_ID = null;   // the administrator who owns the system
 let storeReady = false;
 
 function saveLocal(){
@@ -1797,26 +1828,43 @@ function loadLocal(){
       FARMS = d.farms && typeof d.farms === 'object' ? d.farms : {};
       ACCOUNTS = d.accounts && typeof d.accounts === 'object' ? d.accounts : {};
       Object.values(FARMS).forEach(normaliseFarm);
+      Object.values(ACCOUNTS).forEach(a=>{ if(a.role === 'operator' && !STATUSES.includes(a.status)) a.status = a.owner ? 'approved' : 'pending'; });
     }
   }catch(e){ /* unreadable store — start empty rather than fail to load */ }
   finally{ storeReady = true; }
 }
 window.addEventListener('beforeunload', ()=>{ saveLocal(); flushCloud(); });
 
+/* The administrators, the same shape whichever side they live on. On this
+   device they are accounts (keyed twice when a phone and an email both sign
+   in, so they are folded back to one per id); in the database, documents. */
+function operatorList(){
+  if(cloudOn()) return Object.keys(OPERATORS).map(id=> Object.assign({id, owner: id === OWNER_ID}, OPERATORS[id]));
+  const seen = {};
+  Object.values(ACCOUNTS).forEach(a=>{ if(a.role === 'operator' && !seen[a.id]) seen[a.id] = {id:a.id, name:a.name, email:a.email||'',
+    since:a.since||'', status:a.status, statusBy:a.statusBy||'', statusAt:a.statusAt||'', owner:!!a.owner}; });
+  return Object.values(seen);
+}
+function operatorName(id){
+  const o = operatorList().find(x=> x.id === id);
+  return o ? o.name : '';
+}
+
 /* ============================================================
    Cloud connection
-   Exactly as the platform does it: the page works entirely offline, and a
-   configured, reachable Firebase project additionally shares farms between
-   devices and with the Secretariat. Nothing here may break the offline path.
+   As on the platform: with no Firebase project set, the page works entirely
+   in this browser. Once a project is set it is the system — accounts,
+   approval and calendars all live there, and if it cannot be reached the
+   page says so rather than quietly making accounts nobody else can see.
 
-   The copy never touches the platform's own collections. Its farms are in
-   calendarFarms, not farms — a record shaped like this one, written over a
-   platform farm document, would empty that farm's crops.
+   The crop calendar never touches the platform's own collections. Its farms
+   are in calendarFarms, not farms.
    ============================================================ */
 const COL = { farms:'calendarFarms', operators:'calendarOperators', settings:'calendarSettings' };
 const CLOUD = { status:'connecting', detail:'', app:null, db:null, auth:null, fs:null, authApi:null, ready:false };
 const CLOUD_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
-const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null, pendingId:null, cloudIds:new Set() };
+const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null, pendingId:null, cloudIds:new Set(), unsubs:[] };
+const CLOUD_CONFIGURED = !!(window.TIPFA_CC_FIREBASE_CONFIG && window.TIPFA_CC_FIREBASE_CONFIG.projectId);
 
 function cloudOn(){ return CLOUD.ready && CLOUD.db && CLOUD.auth; }
 function isCloudFarm(id){ return CLOUD_STATE.cloudIds.has(id); }
@@ -1826,8 +1874,8 @@ function cloudStatusText(){
     case 'ready': return 'Connected — calendars are shared with every device';
     case 'connecting': return 'Connecting…';
     case 'unconfigured': return 'No database set up — calendars stay on this device';
-    case 'offline': return 'Offline — calendars stay on this device until the connection returns';
-    default: return 'Unavailable — calendars stay on this device';
+    case 'offline': return 'The system cannot be reached right now';
+    default: return 'Unavailable';
   }
 }
 function setCloudStatus(status, detail){
@@ -1838,7 +1886,8 @@ const BUILD = (document.querySelector('meta[name="tipfa-build"]') || {}).content
 
 function cloudBadge(onlyStatus){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
-  const label = CLOUD.status === 'ready' ? 'Cloud sync on' : (CLOUD.status === 'connecting' ? 'Connecting' : 'On this device only');
+  const label = CLOUD.status === 'ready' ? 'Connected' : CLOUD.status === 'connecting' ? 'Connecting'
+              : CLOUD.status === 'unconfigured' ? 'On this device only' : 'Offline';
   const status = `<span class="cloud-badge ${cls}" title="${esc(CLOUD.detail || cloudStatusText())}"><span class="cloud-dot"></span>${label}</span>`;
   return onlyStatus ? status
     : status + `<span class="cloud-badge build" title="The version of the calendar this device has loaded. Reload the page if it is behind.">${esc(BUILD)}</span>`;
@@ -1846,30 +1895,35 @@ function cloudBadge(onlyStatus){
 
 async function initCloud(){
   const cfg = window.TIPFA_CC_FIREBASE_CONFIG;
-  if(!cfg || !cfg.projectId){
+  if(!CLOUD_CONFIGURED){
     setCloudStatus('unconfigured', 'No Firebase project is configured for the crop calendar.');
     return;
   }
+  setCloudStatus('connecting');
   try{
-    const [{ initializeApp }, firestore, auth] = await Promise.all([
+    const [{ initializeApp, getApps }, firestore, auth] = await Promise.all([
       import(CLOUD_SDK + 'firebase-app.js'),
       import(CLOUD_SDK + 'firebase-firestore.js'),
       import(CLOUD_SDK + 'firebase-auth.js')
     ]);
-    CLOUD.app = initializeApp(cfg, 'tipfa-crop-calendar');
-    CLOUD.db = firestore.getFirestore(CLOUD.app);
-    CLOUD.auth = auth.getAuth(CLOUD.app);
-    CLOUD.fs = firestore; CLOUD.authApi = auth;
-    // Pointing at a local emulator, for testing, is a setting in the config file.
-    if(cfg.emulator){
-      firestore.connectFirestoreEmulator(CLOUD.db, cfg.emulator.host, cfg.emulator.firestorePort);
-      auth.connectAuthEmulator(CLOUD.auth, `http://${cfg.emulator.host}:${cfg.emulator.authPort}`, {disableWarnings:true});
-    } else {
-      try{ await firestore.enableIndexedDbPersistence(CLOUD.db); }catch(e){ /* several tabs open, or unsupported */ }
+    if(!CLOUD.app){
+      CLOUD.app = getApps().find(a=> a.name === 'tipfa-crop-calendar') || initializeApp(cfg, 'tipfa-crop-calendar');
+      CLOUD.auth = auth.getAuth(CLOUD.app);
+      CLOUD.fs = firestore; CLOUD.authApi = auth;
+      // Pointing at a local emulator, for testing, is a setting in the config file.
+      if(cfg.emulator){
+        CLOUD.db = firestore.getFirestore(CLOUD.app);
+        firestore.connectFirestoreEmulator(CLOUD.db, cfg.emulator.host, cfg.emulator.firestorePort);
+        auth.connectAuthEmulator(CLOUD.auth, `http://${cfg.emulator.host}:${cfg.emulator.authPort}`, {disableWarnings:true});
+      } else {
+        // Keeps a farm's edits through a dropped connection and sends them when it returns.
+        CLOUD.db = firestore.initializeFirestore(CLOUD.app,
+          {localCache: firestore.persistentLocalCache({tabManager: firestore.persistentMultipleTabManager()})});
+      }
     }
     setCloudStatus('ready', `Connected to ${cfg.projectId}.`);
   }catch(e){
-    setCloudStatus('offline', 'Could not reach the shared database: ' + ((e && e.message) || 'unknown error'));
+    setCloudStatus('offline', 'Could not reach the system: ' + ((e && e.message) || 'unknown error'));
   }
 }
 
@@ -1895,14 +1949,23 @@ function withTimeout(promise, ms, what){
     reject(new Error(`${what} timed out after ${ms/1000} seconds — the connection may have dropped.`)), ms))]);
 }
 
-// What a farm's database document holds: the record, and nothing else.
-function farmDoc(f){
+// A new farm's document: the record, waiting to be approved.
+function farmCreateDoc(f){
   return JSON.parse(JSON.stringify({
     name:f.name||'', contact:f.contact||'', phone:f.phone||'', email:f.email||'',
-    location:f.location||'', registered:f.registered||todayStr(),
+    location:f.location||'', registered:f.registered||todayStr(), status:'pending',
     units:f.units, rows:f.rows, startYear:f.startYear||DEFAULT_START_YEAR,
     updatedAt:new Date().toISOString()
   }));
+}
+// What an approved farm sends when it changes its calendar. Its status, email
+// and registration date are never in it — those are not the farm's to change.
+const FARM_OWN_FIELDS = ['name', 'contact', 'phone', 'location', 'units', 'rows', 'startYear', 'updatedAt'];
+function farmOwnDoc(f){
+  const out = {};
+  FARM_OWN_FIELDS.forEach(k=> out[k] = f[k] === undefined ? '' : f[k]);
+  out.updatedAt = new Date().toISOString();
+  return JSON.parse(JSON.stringify(out));
 }
 
 /* On a project shared with the platform, a farm's email may already have an
@@ -1939,37 +2002,52 @@ async function cloudRegisterFarm(vals, password, code){
       const e = new Error('This farm already has a crop calendar. Sign in instead.'); e.code = 'calendar-exists'; throw e;
     }
     const farm = blankFarm(vals);
-    await setDoc(doc(CLOUD.db, COL.farms, id), Object.assign(farmDoc(farm), {signupCode: code}));
+    await setDoc(doc(CLOUD.db, COL.farms, id), Object.assign(farmCreateDoc(farm), {signupCode: code}));
     await updateDoc(doc(CLOUD.db, COL.farms, id), {signupCode: deleteField()});   // not kept
     FARMS[id] = normaliseFarm(farm);
     CLOUD_STATE.cloudIds.add(id);
     return id;
   });
 }
+
+/* An administrator joins as pending like everyone else — except the first,
+   who claims ownership of the system (a document only the first can create)
+   and approves themselves. Somebody has to be able to approve the rest. */
 async function cloudRegisterOperator(name, email, password, code){
   const { doc, setDoc, updateDoc, deleteField } = CLOUD.fs;
   const acct = await createOrAdopt(email, password);
   const id = acct.cred.user.uid;
-  return await withRollback(acct, async ()=>{
-    await setDoc(doc(CLOUD.db, COL.operators, id), {name, email, signupCode: code, since: todayStr()});
+  await withRollback(acct, async ()=>{
+    await setDoc(doc(CLOUD.db, COL.operators, id), {name, email, signupCode: code, since: todayStr(), status:'pending'});
     await updateDoc(doc(CLOUD.db, COL.operators, id), {signupCode: deleteField()});
-    return id;
   });
+  let owner = false;
+  try{
+    await setDoc(doc(CLOUD.db, COL.settings, 'owner'), {uid: id, at: new Date().toISOString()});
+    await updateDoc(doc(CLOUD.db, COL.operators, id), {status:'approved', statusBy:id, statusAt:new Date().toISOString()});
+    owner = true;
+  }catch(e){ /* someone already owns it — this account waits for approval */ }
+  return {id, owner};
 }
 
-/* The farm record first, and only then the operator one: anyone may read
-   their own farm document, but only operators may read the operator
-   collection — so asking that first would refuse every farm at sign-in. */
+/* The farm record first, and only then the administrator one: anyone may read
+   their own farm document, but a farm cannot read the administrator list. */
 async function cloudWhoIs(id){
   const { doc, getDoc } = CLOUD.fs;
   const farm = await getDoc(doc(CLOUD.db, COL.farms, id));
   if(farm.exists()){
     FARMS[id] = normaliseFarm(farm.data());
     CLOUD_STATE.cloudIds.add(id);
-    return {role:'farm'};
+    return {role:'farm', status: FARMS[id].status};
   }
   const op = await getDoc(doc(CLOUD.db, COL.operators, id));
-  if(op.exists()) return {role:'operator', name:(op.data()||{}).name || ''};
+  if(op.exists()){
+    const d = op.data() || {};
+    OPERATORS[id] = d;
+    let owner = false;
+    try{ const o = await getDoc(doc(CLOUD.db, COL.settings, 'owner')); owner = o.exists() && o.data().uid === id; if(owner) OWNER_ID = id; }catch(_){ }
+    return {role:'operator', name: d.name || '', status: STATUSES.includes(d.status) ? d.status : 'pending', owner};
+  }
   return {role:'orphan'};
 }
 async function cloudSignIn(email, password){
@@ -1979,17 +2057,78 @@ async function cloudSignIn(email, password){
   CLOUD_STATE.role = who.role;
   return Object.assign({id: cred.user.uid}, who);
 }
+
+/* Live, while signed in. An administrator sees registrations arrive and
+   calendars change without pressing anything; a waiting farm is let in the
+   moment it is approved. A farm takes only its status from the stream — its
+   calendar is the one it is editing, and this screen is the newest copy. */
+function cloudStopListening(){
+  CLOUD_STATE.unsubs.forEach(u=>{ try{ u(); }catch(_){ } });
+  CLOUD_STATE.unsubs = [];
+}
+function cloudListen(){
+  cloudStopListening();
+  if(!cloudOn() || !CLOUD_STATE.uid) return;
+  const { doc, collection, onSnapshot } = CLOUD.fs;
+  const quiet = ()=>{};
+  if(CLOUD_STATE.role === 'farm'){
+    CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.farms, CLOUD_STATE.uid), snap=>{
+      if(!snap.exists() || !FARMS[CLOUD_STATE.uid]) return;
+      const d = snap.data(), f = FARMS[CLOUD_STATE.uid];
+      if(d.status !== f.status){
+        Object.assign(f, {status:d.status, statusBy:d.statusBy||'', statusAt:d.statusAt||''});
+        // An approved farm's calendar is pulled once, as it is let in.
+        if(d.status === 'approved') Object.assign(f, normaliseFarm(Object.assign({}, d)));
+        onStatusChanged();
+      }
+    }, quiet));
+    return;
+  }
+  if(CLOUD_STATE.role === 'operator'){
+    CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.operators, CLOUD_STATE.uid), snap=>{
+      if(!snap.exists()) return;
+      const d = snap.data(); const was = (OPERATORS[CLOUD_STATE.uid] || {}).status;
+      OPERATORS[CLOUD_STATE.uid] = d;
+      if(d.status !== was){ state.myStatus = d.status; if(d.status === 'approved') cloudListen(); onStatusChanged(); }
+    }, quiet));
+    // Only an approved administrator may read the rest; a waiting one is refused.
+    if(state.myStatus !== 'approved') return;
+    CLOUD_STATE.unsubs.push(onSnapshot(collection(CLOUD.db, COL.farms), snap=>{
+      snap.docChanges().forEach(ch=>{
+        if(ch.type === 'removed'){ delete FARMS[ch.doc.id]; return; }
+        FARMS[ch.doc.id] = normaliseFarm(ch.doc.data()); CLOUD_STATE.cloudIds.add(ch.doc.id);
+      });
+      onLiveData();
+    }, quiet));
+    CLOUD_STATE.unsubs.push(onSnapshot(collection(CLOUD.db, COL.operators), snap=>{
+      snap.docChanges().forEach(ch=>{ if(ch.type === 'removed') delete OPERATORS[ch.doc.id]; else OPERATORS[ch.doc.id] = ch.doc.data(); });
+      onLiveData();
+    }, quiet));
+    CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.settings, 'owner'), snap=>{
+      OWNER_ID = snap.exists() ? snap.data().uid : null; onLiveData();
+    }, quiet));
+  }
+}
 async function cloudPullAllFarms(){
-  if(!cloudOn() || CLOUD_STATE.role !== 'operator') return;
-  const { collection, getDocs } = CLOUD.fs;
-  const snap = await getDocs(collection(CLOUD.db, COL.farms));
-  snap.forEach(d=>{ FARMS[d.id] = normaliseFarm(d.data()); CLOUD_STATE.cloudIds.add(d.id); });
+  if(!cloudOn() || CLOUD_STATE.role !== 'operator' || state.myStatus !== 'approved') return;
+  const { collection, getDocs, doc, getDoc } = CLOUD.fs;
+  (await getDocs(collection(CLOUD.db, COL.farms))).forEach(d=>{ FARMS[d.id] = normaliseFarm(d.data()); CLOUD_STATE.cloudIds.add(d.id); });
+  (await getDocs(collection(CLOUD.db, COL.operators))).forEach(d=>{ OPERATORS[d.id] = d.data(); });
+  const o = await getDoc(doc(CLOUD.db, COL.settings, 'owner'));
+  OWNER_ID = o.exists() ? o.data().uid : null;
 }
 async function cloudPullOwnFarm(){
   if(!cloudOn() || CLOUD_STATE.role !== 'farm' || !CLOUD_STATE.uid) return;
   const { doc, getDoc } = CLOUD.fs;
   const d = await getDoc(doc(CLOUD.db, COL.farms, CLOUD_STATE.uid));
   if(d.exists()) FARMS[CLOUD_STATE.uid] = normaliseFarm(d.data());
+}
+
+// An administrator's decision on a farm or another administrator.
+async function cloudDecide(kind, id, status){
+  const { doc, updateDoc } = CLOUD.fs;
+  await updateDoc(doc(CLOUD.db, kind === 'farm' ? COL.farms : COL.operators, id),
+    {status, statusBy: CLOUD_STATE.uid, statusAt: new Date().toISOString()});
 }
 
 /* A farm's own edits go up batched, so painting forty weeks in one drag is
@@ -2004,15 +2143,21 @@ async function cloudPushFarm(id){
   if(!cloudOn() || !FARMS[id] || !isCloudFarm(id)) return;
   CLOUD_STATE.pendingId = null;
   try{
-    const { doc, setDoc } = CLOUD.fs;
-    await setDoc(doc(CLOUD.db, COL.farms, id), farmDoc(FARMS[id]));
-  }catch(e){ setCloudStatus('offline', 'Could not save to the shared database: ' + (e.message || e)); }
+    const { doc, updateDoc } = CLOUD.fs;
+    await updateDoc(doc(CLOUD.db, COL.farms, id), farmOwnDoc(FARMS[id]));
+    if(CLOUD.status !== 'ready') setCloudStatus('ready', 'Connected again.');
+  }catch(e){
+    const denied = String((e && e.code) || '').includes('permission-denied');
+    setCloudStatus(denied ? 'ready' : 'offline', 'Could not save to the system: ' + (e.message || e));
+    if(denied) showFatal('Your change was not saved: this account can no longer edit its calendar. Refresh to see why.');
+  }
 }
 function flushCloud(){
   if(CLOUD_STATE.pendingId){ clearTimeout(CLOUD_STATE.pushTimer); cloudPushFarm(CLOUD_STATE.pendingId); }
 }
 
 async function cloudSignOut(){
+  cloudStopListening();
   if(!cloudOn()) return;
   // A write still waiting when the session ends would go with nobody signed
   // in, and the rules refuse it. Send it first.
@@ -2020,12 +2165,14 @@ async function cloudSignOut(){
   if(CLOUD_STATE.pendingId) await cloudPushFarm(CLOUD_STATE.pendingId);
   try{ await CLOUD.authApi.signOut(CLOUD.auth); }catch(e){ }
   CLOUD_STATE.uid = null; CLOUD_STATE.role = null; CLOUD_STATE.email = null;
+  // Nothing one account was shown stays in memory for the next.
+  FARMS = {}; OPERATORS = {}; OWNER_ID = null; CLOUD_STATE.cloudIds = new Set();
 }
 
 // Firebase's own wording is not written for farmers; say what went wrong.
 function cloudErrorText(e){
   const code = (e && e.code) || '';
-  if(code.includes('adopt-wrong-password')) return 'An account already uses that email address — perhaps your farm\u2019s TIPFA platform account. Enter that account\u2019s password to add a crop calendar to it, or sign in if you already have one.';
+  if(code.includes('adopt-wrong-password')) return 'An account already uses that email address — perhaps your farm’s TIPFA platform account. Enter that account’s password to add a crop calendar to it, or sign in if you already have one.';
   if(code.includes('calendar-exists')) return 'This account already has a crop calendar. Sign in instead.';
   if(code.includes('email-already-in-use')) return 'An account already uses that email address. Try signing in instead.';
   if(code.includes('invalid-email')) return 'That email address does not look right.';
@@ -2033,15 +2180,15 @@ function cloudErrorText(e){
   if(code.includes('wrong-password') || code.includes('invalid-credential')) return 'That email and password do not match an account.';
   if(code.includes('user-not-found')) return 'No account uses that email address.';
   if(code.includes('too-many-requests')) return 'Too many attempts. Wait a few minutes and try again.';
-  if(code.includes('network')) return 'No connection to the database. Check the network and try again.';
+  if(code.includes('network') || code.includes('unavailable')) return 'No connection to the system. Check the network and try again.';
   if(code.includes('permission-denied') || /insufficient permissions/i.test(String(e && e.message)))
-    return 'The database refused that. The most likely cause is a sign-up code that does not match the one the Secretariat set — check it, including capital letters.';
+    return 'The system refused that. The most likely cause is a sign-up code that does not match the one the Secretariat set — check it, including capital letters.';
   return (e && e.message) ? e.message : 'Something went wrong. Try again.';
 }
 
 /* ---- Every change goes through here --------------------------------
    Save to this browser, and to the database when the farm lives there.
-   The farm's updatedAt is what the Secretariat's list sorts by. */
+   The farm's updatedAt is what the administrators' list shows. */
 function touch(id){
   if(FARMS[id]) FARMS[id].updatedAt = new Date().toISOString();
   saveLocal();
@@ -2052,13 +2199,13 @@ function touch(id){
    State
    ============================================================ */
 const state = {
-  loggedIn:false, role:null, member:null, adminName:null, tab:'calendar',
+  loggedIn:false, role:null, member:null, adminName:null, adminId:null, myStatus:null, isOwner:false, tab:'calendar',
   loginTab:'member', showRegister:false, adminSignup:false, forgot:null,
   restoring:false, restoreError:'', regMsg:'', loginMsg:'',
   navOpen:false, refreshing:false, lastRefresh:0, staleBuild:'',
   // calendar
   tool:null, toolKg:'', editRow:null, fillRow:null, pop:null, layoutOpen:{}, calMsg:'',
-  importMsg:'', importBad:false, scroll:null, viewFarm:null,
+  importMsg:'', importBad:false, scroll:null, viewFarm:null, memberSearch:'', memberMsg:'',
 };
 
 // The association's four values, Brand Profile 2026 p07
@@ -2166,9 +2313,9 @@ function renderLogin(){
   const box = document.getElementById('loginScreen');
   const isMember = state.loginTab === 'member';
   const cloud = cloudOn();
-  const deviceNote = cloud ? '' : `<div class="demo-note" style="background:#FBEECC;color:#8A6412;">
-      No shared database is set up for the crop calendar, so accounts and calendars are kept in this browser on this device.
-      Export your calendar to Excel to share it with the Secretariat.</div>`;
+  const deviceNote = CLOUD_CONFIGURED ? '' : `<div class="demo-note" style="background:#FBEECC;color:#8A6412;">
+      No shared database is set up for the crop calendar, so accounts and calendars are kept in this browser on this device,
+      and an administrator on another device will not see them. To run it for the association, fill in firebase-config.js — see DEPLOY.md.</div>`;
   box.innerHTML = `
     <div class="loginwrap">
       <div class="loginbrand">
@@ -2200,11 +2347,30 @@ function renderLogin(){
             <button class="${isMember?'active':''}" onclick="showLoginTab('member')">Farm member</button>
             <button class="${!isMember?'active':''}" onclick="showLoginTab('admin')">Administrator</button>
           </div>
-          ${isMember ? memberDoor(cloud) : adminDoor(cloud)}
+          ${CLOUD_CONFIGURED && !cloud ? connectionPane() : isMember ? memberDoor(cloud) : adminDoor(cloud)}
           ${deviceNote}
         </div>
       </div>
     </div>`;
+}
+
+/* The system is set up but cannot be reached. Rather than make an account on
+   this phone that no administrator could ever see or approve, say so plainly. */
+function connectionPane(){
+  const waiting = CLOUD.status === 'connecting';
+  return `<div class="card restoring-card" style="text-align:left;">
+    <h2 style="margin-top:0;">${waiting ? 'Connecting to the crop calendar…' : 'The crop calendar cannot be reached'}</h2>
+    <p class="helper">${waiting ? 'One moment.'
+      : 'Check that this phone or computer is online, then try again. Nothing has been lost — calendars are kept in the system, not on this device.'}</p>
+    ${waiting ? '' : `<button class="btn" style="width:100%;margin-top:6px;" onclick="retryConnection(this)">Try again</button>
+      <p class="helper" style="margin-top:8px;overflow-wrap:anywhere;">${esc(CLOUD.detail || '')}</p>`}
+  </div>`;
+}
+async function retryConnection(btn){
+  if(btn) btn.classList.add('is-busy');
+  await initCloud();
+  if(cloudOn() && !(await restoreSession())) render();
+  else render();
 }
 
 function forgotPane(which, cloud){
@@ -2237,6 +2403,7 @@ function memberDoor(cloud){
       <p class="helper" id="reg-error" style="color:var(--red);margin-top:8px;"></p>
     </div>
     <p class="login-note"><a href="#" onclick="toggleRegister(false);return false;">&larr; Back to sign-in</a></p>
+    <p class="login-note">Every new farm is checked by the Secretariat before it can plan. You will be let in as soon as you are approved.</p>
     <p class="login-note">You start with one greenhouse. If your farm has more, or one large house divided into blocks,
       you can set that up afterwards — it is optional.</p>`;
   return `
@@ -2307,6 +2474,7 @@ async function submitRegistration(btn){
   if(!cloud && !vals.email && !vals.phone) return flagError(err, 'Enter a phone number or an email address to sign in with.');
   if(pw.length < (cloud ? 6 : 4)) return flagError(err, `Choose a password of at least ${cloud ? 'six' : 'four'} characters.`);
   if(pw !== pw2) return flagError(err, 'The two passwords do not match.');
+  if(CLOUD_CONFIGURED && !cloud) return flagError(err, 'The crop calendar cannot be reached. Check the connection and try again.');
   if(btn) btn.classList.add('is-busy');
 
   if(cloud){
@@ -2336,6 +2504,7 @@ async function doMemberLogin(btn){
   const err = document.getElementById('login-error');
   const id = val('login-id'), pw = (document.getElementById('login-password')||{}).value || '';
   if(!id || !pw) return flagError(err, 'Enter your phone or email, and your password.');
+  if(CLOUD_CONFIGURED && !cloudOn()) return flagError(err, 'The crop calendar cannot be reached. Check the connection and try again.');
   if(btn) btn.classList.add('is-busy');
   if(cloudOn()){
     try{
@@ -2369,27 +2538,34 @@ async function submitAdminSignup(btn){
   if(!email || !email.includes('@')) return flagError(err, 'Enter your email address.');
   if(pw.length < (cloud ? 6 : 4)) return flagError(err, `Choose a password of at least ${cloud ? 'six' : 'four'} characters.`);
   if(pw !== pw2) return flagError(err, 'The two passwords do not match.');
+  if(CLOUD_CONFIGURED && !cloud) return flagError(err, 'The crop calendar cannot be reached. Check the connection and try again.');
   if(btn) btn.classList.add('is-busy');
   if(cloud){
     try{
-      const id = await withTimeout(cloudRegisterOperator(name, email, pw, val('asignup-code')), 20000, 'Creating the account');
-      CLOUD_STATE.uid = id; CLOUD_STATE.role = 'operator'; CLOUD_STATE.email = email;
-      await cloudPullAllFarms();
-      curtainTransition(()=>{ enterSession('admin', {adminName:name}); render(); });
+      const r = await withTimeout(cloudRegisterOperator(name, email, pw, val('asignup-code')), 20000, 'Creating the account');
+      CLOUD_STATE.uid = r.id; CLOUD_STATE.role = 'operator'; CLOUD_STATE.email = email;
+      OPERATORS[r.id] = {name, email, status: r.owner ? 'approved' : 'pending'};
+      if(r.owner) OWNER_ID = r.id;
+      curtainTransition(()=>{ enterSession('admin', {adminName:name, adminId:r.id, status: r.owner ? 'approved' : 'pending', owner:r.owner}); render(); });
     }catch(e){ if(btn) btn.classList.remove('is-busy'); flagError(err, cloudErrorText(e)); }
     return;
   }
   if(ACCOUNTS[email]){ if(btn) btn.classList.remove('is-busy'); return flagError(err, 'An account on this device already uses that email.'); }
   const salt = uid('s');
-  ACCOUNTS[email] = {id: uid('op_'), role:'operator', name, salt, hash: await hashPassword(pw, salt)};
+  // The first administrator on this device owns it; every later one waits.
+  const first = !operatorList().length;
+  const acct = {id: uid('op_'), role:'operator', name, email, since: todayStr(), salt, hash: await hashPassword(pw, salt),
+                status: first ? 'approved' : 'pending', owner: first};
+  ACCOUNTS[email] = acct;
   saveLocal();
-  curtainTransition(()=>{ enterSession('admin', {adminName:name}); render(); });
+  curtainTransition(()=>{ enterSession('admin', {adminName:name, adminId:acct.id, status:acct.status, owner:first}); render(); });
 }
 
 async function doAdminLogin(btn){
   const err = document.getElementById('login-error-admin');
   const email = val('login-user').toLowerCase(), pw = (document.getElementById('login-pass')||{}).value || '';
   if(!email || !pw) return flagError(err, 'Enter your email and password.');
+  if(CLOUD_CONFIGURED && !cloudOn()) return flagError(err, 'The crop calendar cannot be reached. Check the connection and try again.');
   if(btn) btn.classList.add('is-busy');
   if(cloudOn()){
     try{
@@ -2400,8 +2576,7 @@ async function doAdminLogin(btn){
         return flagError(err, who.role === 'farm' ? 'That is a farm account. Use the Farm member tab.'
                                                   : 'That account is not an administrator.');
       }
-      await cloudPullAllFarms();
-      curtainTransition(()=>{ enterSession('admin', {adminName: who.name || email}); render(); });
+      curtainTransition(()=>{ enterSession('admin', {adminName: who.name || email, adminId: who.id, status: who.status, owner: who.owner}); render(); });
     }catch(e){ if(btn) btn.classList.remove('is-busy'); flagError(err, cloudErrorText(e)); }
     return;
   }
@@ -2411,7 +2586,7 @@ async function doAdminLogin(btn){
     return flagError(err, acct && acct.role === 'farm' ? 'That is a farm account. Use the Farm member tab.'
                                                       : 'That email and password do not match an administrator on this device.');
   }
-  curtainTransition(()=>{ enterSession('admin', {adminName:acct.name}); render(); });
+  curtainTransition(()=>{ enterSession('admin', {adminName:acct.name, adminId:acct.id, status:acct.status, owner:!!acct.owner}); render(); });
 }
 
 async function sendReset(btn){
@@ -2441,16 +2616,26 @@ async function adminResetFarmPassword(farmId){
    Staying signed in
    ============================================================ */
 const MEMBER_GROUPS = [['Crop calendar', [['calendar','Calendar'], ['layout','Greenhouses & blocks']]]];
-const ADMIN_GROUPS = [['', [['calendarsA','Crop calendars']]]];
-function sidebarGroups(){ return state.role === 'member' ? MEMBER_GROUPS : ADMIN_GROUPS; }
+const ADMIN_GROUPS = [['', [['calendarsA','Crop calendars'], ['members','Members & approvals']]]];
+const WAITING_GROUPS = [['', [['status','Account status']]]];
+function sidebarGroups(){
+  if(!isApproved()) return WAITING_GROUPS;
+  return state.role === 'member' ? MEMBER_GROUPS : ADMIN_GROUPS;
+}
 function tabExists(role, key){
   return (role === 'member' ? MEMBER_GROUPS : ADMIN_GROUPS).some(([,tabs])=> tabs.some(t=> t[0] === key));
 }
+// A count on Members & approvals: accounts waiting for a decision.
+function pendingCount(){
+  return Object.values(FARMS).filter(f=> f.status === 'pending').length
+       + operatorList().filter(o=> o.status === 'pending').length;
+}
+function tabBadge(key){ return key === 'members' && state.role === 'admin' && isApproved() ? (pendingCount() || '') : ''; }
 function rememberSession(){
   try{
     if(!state.loggedIn){ localStorage.removeItem(SESSION_KEY); return; }
     localStorage.setItem(SESSION_KEY, JSON.stringify({role:state.role, member:state.member,
-      adminName:state.adminName, tab:state.tab, cloud:!!cloudOn(), at:Date.now()}));
+      adminName:state.adminName, adminId:state.adminId, tab:state.tab, cloud:!!cloudOn(), at:Date.now()}));
   }catch(e){ }
 }
 function forgetSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
@@ -2458,8 +2643,13 @@ function enterSession(role, opts){
   opts = opts || {};
   state.loggedIn = true; state.role = role;
   if(role === 'member') state.member = opts.member;
-  else state.adminName = opts.adminName || 'TIPFA Secretariat operator';
-  state.tab = opts.resume && tabExists(role, opts.resume) ? opts.resume : (role === 'member' ? 'calendar' : 'calendarsA');
+  else {
+    state.adminName = opts.adminName || 'TIPFA Secretariat operator';
+    state.adminId = opts.adminId || null;
+    state.myStatus = opts.status || 'pending';
+    state.isOwner = !!opts.owner;
+  }
+  state.tab = landingTab(role, opts.resume);
   state.viewFarm = null; state.tool = null; state.editRow = null; state.fillRow = null; state.pop = null;
   // Whoever signs out next should meet the sign-in form, not the form this
   // session happened to arrive through.
@@ -2467,6 +2657,38 @@ function enterSession(role, opts){
   state.loginTab = role === 'member' ? 'member' : 'admin';
   document.body.setAttribute('data-role', role);
   rememberSession();
+  cloudListen();
+}
+// Where an account lands: its own status screen until it is approved.
+function landingTab(role, resume){
+  if(!isApproved(role)) return 'status';
+  if(resume && tabExists(role, resume)) return resume;
+  return role === 'member' ? 'calendar' : 'calendarsA';
+}
+function isApproved(role){
+  role = role || state.role;
+  if(role === 'member'){ const f = FARMS[state.member]; return !!f && f.status === 'approved'; }
+  return state.myStatus === 'approved';
+}
+/* An administrator's decision has reached this account — on this device, or
+   from the database while it was open. */
+function onStatusChanged(){
+  if(!state.loggedIn) return;
+  const ok = isApproved();
+  if(ok && state.tab === 'status'){
+    state.tab = state.role === 'member' ? 'calendar' : 'calendarsA';
+    if(state.role === 'member') state.calMsg = `${CHECK_ICON} Your farm has been approved. Welcome — your crop calendar is ready.`;
+  }
+  if(!ok) state.tab = 'status';
+  rememberSession();
+  render();
+}
+// Something changed in the database while an administrator was looking.
+function onLiveData(){
+  if(!state.loggedIn || state.role !== 'admin') return;
+  const a = document.activeElement, keep = a && a.id ? {id:a.id, start:a.selectionStart, end:a.selectionEnd} : null;
+  renderKeepingPlace();
+  if(keep){ const el = document.getElementById(keep.id); if(el){ el.focus({preventScroll:true}); try{ el.setSelectionRange(keep.start, keep.end); }catch(_){ } } }
 }
 async function restoreSession(){
   let saved = null;
@@ -2484,7 +2706,11 @@ async function restoreSession(){
       const who = await cloudWhoIs(user.uid);
       CLOUD_STATE.role = who.role;
       if(who.role === 'farm') enterSession('member', {member:user.uid, resume:saved.tab});
-      else if(who.role === 'operator'){ await cloudPullAllFarms(); enterSession('admin', {adminName: who.name || user.email, resume:saved.tab}); }
+      else if(who.role === 'operator'){
+        state.myStatus = who.status;
+        if(who.status === 'approved') await cloudPullAllFarms();
+        enterSession('admin', {adminName: who.name || user.email, adminId:user.uid, status:who.status, owner:who.owner, resume:saved.tab});
+      }
       else { forgetSession(); state.restoring = false; return false; }
       state.restoring = false; state.lastRefresh = Date.now(); render();
       return true;
@@ -2497,8 +2723,9 @@ async function restoreSession(){
   }
   if(saved.cloud) return false;            // it was a database session; do not fake one
   if(saved.role === 'member' && FARMS[saved.member]){ enterSession('member', {member:saved.member, resume:saved.tab}); render(); return true; }
-  if(saved.role === 'admin' && Object.values(ACCOUNTS).some(a=> a.role === 'operator')){
-    enterSession('admin', {adminName:saved.adminName, resume:saved.tab}); render(); return true;
+  const me = saved.role === 'admin' && operatorList().find(o=> o.id === saved.adminId);
+  if(me){
+    enterSession('admin', {adminName:me.name, adminId:me.id, status:me.status, owner:me.owner, resume:saved.tab}); render(); return true;
   }
   forgetSession();
   return false;
@@ -2550,7 +2777,7 @@ function renderTopbarRight(){
   el.innerHTML = `<div class="session">
       ${isMember ? farmLogo(f) : ''}
       <div><div class="who">${esc(isMember ? f.name : (state.adminName || 'Secretariat operator'))}</div>
-        <div class="role-tag" style="font-size:11px;">${isMember ? 'Farm member' : 'Administrator'} access</div></div>
+        <div class="role-tag" style="font-size:11px;">${isMember ? 'Farm member' : (state.isOwner ? 'System owner' : 'Administrator')} access</div></div>
       <button onclick="logout()">Log out</button>
     </div>`;
 }
@@ -2558,18 +2785,20 @@ function renderSidebar(){
   let i = 0;
   document.getElementById('sidebar').innerHTML = sidebarGroups().map(([name, tabs])=>`
     ${name ? `<div class="nav-group">${esc(name)}</div>` : ''}
-    ${tabs.map(([k,label])=>`<button class="tabbtn ${state.tab===k?'active':''}" style="animation-delay:${(i++)*28}ms"
-        onclick="switchTab('${k}')">${esc(label)}</button>`).join('')}`).join('');
+    ${tabs.map(([k,label])=>{ const b = tabBadge(k); return `<button class="tabbtn ${state.tab===k?'active':''}" style="animation-delay:${(i++)*28}ms"
+        onclick="switchTab('${k}')">${esc(label)}${b ? `<b class="tab-badge">${b}</b>` : ''}</button>`; }).join('')}`).join('');
 }
 function renderAppBar(){
   const el = document.getElementById('appbar');
   if(!el) return;
   if(!state.loggedIn){ el.innerHTML = ''; return; }
   const here = sidebarGroups().flatMap(([,tabs])=> tabs).find(([k])=> k === state.tab);
+  const total = tabBadge('members');
   el.innerHTML = `
     <button class="ab-burger" onclick="toggleNav()" aria-label="Open the section list"
             aria-expanded="${state.navOpen ? 'true' : 'false'}" aria-controls="navdrawer">
       <span class="ab-lines" aria-hidden="true"><i></i><i></i><i></i></span>
+      ${total ? `<b class="ab-dot" aria-hidden="true">${total > 9 ? '9+' : total}</b>` : ''}
     </button>
     <div class="ab-where"><div class="ab-sec">${esc(here ? here[1] : 'TIPFA')}</div></div>
     <img class="ab-mark" src="assets/brand/tipfa-symbol.png" alt="TIPFA">`;
@@ -2577,7 +2806,7 @@ function renderAppBar(){
 function navAccount(){
   const isMember = state.role === 'member', f = currentFarm();
   const who = isMember ? (f ? f.name : '') : (state.adminName || 'TIPFA Secretariat operator');
-  const sub = isMember ? (f && f.location ? f.location : 'Farm member access') : 'Administrator access';
+  const sub = isMember ? (f && f.location ? f.location : 'Farm member access') : (state.isOwner ? 'System owner' : 'Administrator access');
   return `<div class="nd-foot">
       <div class="nd-acct">
         ${isMember && f ? farmLogo(f,'sm') : `<span class="nd-initials">${esc((who||'?').slice(0,2).toUpperCase())}</span>`}
@@ -2600,8 +2829,8 @@ function renderNavDrawer(){
       <div class="nd-list">
         ${sidebarGroups().map(([name, tabs])=>`
           ${name ? `<div class="nd-group">${esc(name)}</div>` : ''}
-          ${tabs.map(([k,label])=>`<button class="nd-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')">
-              <span class="nd-label">${esc(label)}</span></button>`).join('')}`).join('')}
+          ${tabs.map(([k,label])=>{ const b = tabBadge(k); return `<button class="nd-item ${state.tab===k?'active':''}" onclick="switchTab('${k}')">
+              <span class="nd-label">${esc(label)}</span>${b ? `<b class="nd-badge">${b}</b>` : ''}</button>`; }).join('')}`).join('')}
       </div>
       ${navAccount()}
     </nav>`;
@@ -2615,7 +2844,7 @@ function renderSubbar(){
       ${refreshButton()}${cloudBadge()}`;
   } else {
     bar.innerHTML = `<label>Signed in as</label><span class="who-name">${esc(state.adminName||'TIPFA Secretariat operator')}</span>
-      <span class="helper" style="margin-left:8px;">Every member farm's crop calendar, read only.</span>
+      <span class="helper" style="margin-left:8px;">${isApproved() ? `${state.isOwner ? 'System owner · ' : ''}every member farm's crop calendar, read only.` : 'waiting for approval.'}</span>
       ${refreshButton()}${cloudBadge()}`;
   }
 }
@@ -2627,8 +2856,26 @@ async function refreshNow(btn){
   state.refreshing = true;
   if(btn) btn.classList.add('is-busy');
   try{
-    if(CLOUD_STATE.role === 'operator') await cloudPullAllFarms();
-    else if(CLOUD_STATE.role === 'farm'){ flushCloud(); await cloudPullOwnFarm(); }
+    if(CLOUD_STATE.role === 'operator'){
+      const who = await cloudWhoIs(CLOUD_STATE.uid);
+      const was = state.myStatus; state.myStatus = who.status; state.isOwner = who.owner;
+      if(who.status === 'approved') await cloudPullAllFarms();
+      if(was !== who.status){ cloudListen(); state.refreshing = false; return onStatusChanged(); }
+    }
+    else if(CLOUD_STATE.role === 'farm'){
+      flushCloud();
+      const was = (FARMS[CLOUD_STATE.uid] || {}).status;
+      await cloudPullOwnFarm();
+      if(was !== (FARMS[CLOUD_STATE.uid] || {}).status){ state.refreshing = false; return onStatusChanged(); }
+    }
+    else if(state.role === 'admin'){            // this device: pick up a decision made in another tab
+      loadLocal(); const me = operatorList().find(o=> o.id === state.adminId);
+      if(me && me.status !== state.myStatus){ state.myStatus = me.status; state.refreshing = false; return onStatusChanged(); }
+    }
+    else if(state.role === 'member'){
+      const was = (FARMS[state.member] || {}).status; loadLocal();
+      if(was !== (FARMS[state.member] || {}).status){ state.refreshing = false; return onStatusChanged(); }
+    }
     state.lastRefresh = Date.now();
   }catch(e){ setCloudStatus('offline', 'Could not refresh: ' + (e.message || e)); }
   checkForNewerBuild();
@@ -2727,10 +2974,12 @@ function afterRender(c){
   restoreGridScroll(c);
 }
 function renderTabContent(c){
+  if(!isApproved()) return renderAccountStatus(c);
   if(state.role === 'member'){
     if(state.tab === 'layout') return renderLayout(c);
     return renderCalendar(c);
   }
+  if(state.tab === 'members') return renderMembers(c);
   return renderCalendarsAdmin(c);
 }
 
@@ -2886,10 +3135,10 @@ function renderCalendar(c){
     <p class="page-sub">${esc(f.name)} · ${MONTH_ABBR[0]} ${ys} – ${MONTH_ABBR[11]} ${ys+2} · one row for every planting, one column for every week</p>
     ${layoutLine(f)}
     <div class="grid4">
-      <div class="metric"><div class="lbl">Plantings</div><div class="val" data-count="${fig.plantings}">0</div></div>
-      <div class="metric"><div class="lbl">Area planted</div><div class="val"><span data-count="${Math.round(fig.area)}">0</span><span style="font-size:14px;color:var(--muted);"> m²</span></div></div>
-      <div class="metric"><div class="lbl">Planned harvest</div><div class="val" style="color:var(--leaf-green);"><span data-count="${Math.round(fig.total)}">0</span><span style="font-size:14px;color:var(--muted);"> kg</span></div></div>
-      <div class="metric"><div class="lbl">Busiest month</div><div class="val" style="font-size:20px;">${esc(fig.peak)}</div></div>
+      <div class="metric"><div class="lbl">Plantings</div><div class="val" id="m-plantings" data-count="${fig.plantings}">0</div></div>
+      <div class="metric"><div class="lbl">Area planted</div><div class="val"><span id="m-area" data-count="${Math.round(fig.area)}">0</span><span style="font-size:14px;color:var(--muted);"> m²</span></div></div>
+      <div class="metric"><div class="lbl">Planned harvest</div><div class="val" style="color:var(--leaf-green);"><span id="m-harvest" data-count="${Math.round(fig.total)}">0</span><span style="font-size:14px;color:var(--muted);"> kg</span></div></div>
+      <div class="metric"><div class="lbl">Busiest month</div><div class="val" id="m-peak" style="font-size:20px;">${esc(fig.peak)}</div></div>
     </div>
     ${msg ? `<div class="msg-banner">${msg}</div>` : ''}
     ${state.editRow ? editorPanel(f) : ''}
@@ -2897,6 +3146,7 @@ function renderCalendar(c){
     ${toolbar}
     <div class="card cc-card">${gridHTML(f, months, {readOnly:false})}</div>`;
   bindGrid(c.querySelector('.cc-grid'), f);
+  bindTooltips(c.querySelector('.cc-grid'), f);
 }
 
 function toolsRow(){
@@ -2916,10 +3166,21 @@ function toolsRow(){
       : (isMobile() ? 'Tap any week to set its stage, or pick a stage above and tap the weeks it covers.'
                     : 'Pick a stage above, then drag across the weeks it covers. Or click any single week to set it.')}</div>`;
 }
+// Only the tools row and its hint change, in place: a full redraw would replay
+// every card's entrance and move the grid under a pointer about to drag.
 function armTool(code){
   state.tool = state.tool === code ? null : code;
-  state.pop = null;
-  renderKeepingPlace();
+  closePop();
+  const tools = document.querySelector('.cc-toolbar .cc-tools');
+  const hint = tools && tools.nextElementSibling;
+  if(!hint){ renderKeepingPlace(); return; }
+  const btns = Array.from(tools.querySelectorAll('.cc-tool'));
+  const focused = btns.indexOf(document.activeElement);
+  const tmp = document.createElement('div');
+  tmp.innerHTML = toolsRow();
+  const [nt, nh] = [tmp.firstElementChild, tmp.lastElementChild];
+  tools.replaceWith(nt); hint.replaceWith(nh);
+  if(focused >= 0) nt.querySelectorAll('.cc-tool')[focused].focus();
 }
 function shiftWindow(d){
   const f = currentFarm();
@@ -2936,19 +3197,29 @@ function goToToday(){
 }
 
 /* ---- The grid, shared by the farm's page and the Secretariat's ------ */
-function gridHTML(f, months, opts){
-  const mobile = isMobile();
-  const blocks = showBlocks(f), units = showUnits(f);
-  const now = todayKey();
-  const ro = opts.readOnly;
-
-  // The sticky columns, left to right, with their widths, so each knows its offset.
-  const cols = mobile
+// The pinned columns, left to right, with their widths, so each knows its offset.
+function gridCols(f){
+  const cols = isMobile()
     ? [{k:'crop', label:'Planting', w:132}]
-    : [ ...(blocks ? [{k:'block', label:'Block', w:96}] : []),
+    : [ ...(showBlocks(f) ? [{k:'block', label:'Block', w:96}] : []),
         {k:'crop', label:'Crop', w:150}, {k:'area', label:'m²', w:64}, {k:'notes', label:'Notes', w:150} ];
   let x = 0;
   cols.forEach(cl=>{ cl.left = x; x += cl.w; });
+  return {cols, x, n: cols.length};
+}
+const WEEK_W = ()=> isMobile() ? 30 : 26;
+
+/* A big farm is a big table — 150 plantings is 21,600 weeks — so the grid is
+   built to stay quick: every column's width is declared up front (fixed table
+   layout, so the browser never has to measure 21,600 cells to place them), a
+   week cell carries nothing but its class and contents, and its tooltip is
+   written only when a pointer reaches it. */
+function gridHTML(f, months, opts){
+  const mobile = isMobile();
+  const units = showUnits(f);
+  const now = todayKey();
+  const ro = opts.readOnly;
+  const {cols, x} = gridCols(f);
   const lastK = cols[cols.length-1].k;
   const stickTH = (cl, label, cls)=> `<th class="stk${cl.k===lastK?' edge':''} ${cls||''}" style="left:${cl.left}px;min-width:${cl.w}px;max-width:${cl.w}px;">${label}</th>`;
   const stickTD = (cl, inner, cls, title)=> `<td class="stk c-${cl.k}${cl.k===lastK?' edge':''}" style="left:${cl.left}px;min-width:${cl.w}px;max-width:${cl.w}px;"${title?` title="${esc(title)}"`:''}>${inner}</td>`;
@@ -2961,6 +3232,10 @@ function gridHTML(f, months, opts){
       ${months.map(mo=> mo.keys.map((k, w)=> `<th class="${w===0?'mstart':''}${k===now?' now':''}"${k===now?' title="This week"':''}>${w+1}</th>`).join('')).join('')}</tr>
   </thead>`;
 
+  const keys = months.flatMap(mo=> mo.keys);
+  // Each week column's own classes, worked out once rather than per cell.
+  const base = keys.map(k=>{ const {m, w} = parseWeekKey(k);
+    return 'wk' + (w === 1 ? ' mstart' : '') + (w === 1 && m === 1 ? ' ystart' : '') + (k === now ? ' now' : ''); });
   const rows = orderedRows(f);
   let body = '', ri = 0;
   const order = [];
@@ -2993,23 +3268,29 @@ function gridHTML(f, months, opts){
       if(cl.k === 'area') return stickTD(cl, r.area ? fmt(r.area) : '');
       return stickTD(cl, esc(r.notes), '', r.notes);
     }).join('');
-    let ci = 0;
-    const weeks = months.map(mo=> mo.keys.map((k, w)=>{
-      const cell = readCell(r.cells[k]);
-      const cls = ['wk', w===0?'mstart':'', w===0&&mo.m===1?'ystart':'', k===now?'now':'', cell?'s-'+cell.s:''].filter(Boolean).join(' ');
-      const tip = `${MONTHS[mo.m-1]} ${mo.y}, week ${w+1}` + (cell ? ` — ${STAGE[cell.s].name}${cell.s==='H' && cell.kg ? `, ${fmt(cell.kg)} kg` : ''}` : '');
-      return `<td class="${cls}" data-ri="${ri}" data-ci="${ci++}" data-k="${k}" title="${esc(tip)}">${cell && cell.s==='H' ? kgShort(cell.kg) : ''}</td>`;
-    }).join('')).join('');
+    let weeks = '';
+    for(let ci = 0; ci < keys.length; ci++){
+      const cell = readCell(r.cells[keys[ci]]);
+      weeks += `<td class="${base[ci]}${cell ? ' s-' + cell.s : ''}" data-ri="${ri}" data-ci="${ci}">${cell && cell.s === 'H' ? kgShort(cell.kg) : ''}</td>`;
+    }
     body += `<tr data-row="${r.id}">${tds}${weeks}</tr>`;
     order.push(r.id);
     ri++;
   });
 
-  // The template's two blocks of totals, under the plantings.
+  gridOrder = order; gridKeys = keys;
+  const cw = WEEK_W();
+  const colgroup = `<colgroup>${cols.map(cl=> `<col style="width:${cl.w}px">`).join('')}${`<col style="width:${cw}px">`.repeat(keys.length)}</colgroup>`;
+  return `<div class="cc-scroll" data-key="${esc(opts.key || (state.member + ':' + f.startYear))}">
+    <table class="cc-grid${ro ? ' readonly' : ''}" style="width:${x + cw * keys.length}px">${colgroup}${head}<tbody>${body}</tbody>${footHTML(f, months)}</table></div>`;
+}
+// The template's two blocks of totals, under the plantings.
+function footHTML(f, months){
+  const {n: nCols, x} = gridCols(f);
   const per = monthTotals(f.rows, months);
   const crops = cropTotals(f.rows, months);
   const span = `colspan="${nCols}" class="stk edge" style="left:0;min-width:${x}px;max-width:${x}px;"`;
-  const foot = `<tfoot>
+  return `<tfoot>
     <tr class="tot"><th ${span}>TOTAL HARVEST (kg / month)</th>
       ${per.map(v=> `<td colspan="4" class="${v?'':'zero'}">${v ? fmt(v) : '0'}</td>`).join('')}</tr>
     <tr class="bych"><th ${span}>Harvest by crop (kg / month)</th><td colspan="${months.length*4}"></td></tr>
@@ -3017,18 +3298,78 @@ function gridHTML(f, months, opts){
       ${g.per.map(v=> `<td colspan="4" class="${v?'':'zero'}">${v ? fmt(v) : '0'}</td>`).join('')}</tr>`).join('')
       : `<tr class="crop"><th ${span} style="font-weight:400;color:var(--muted);">No harvest kilograms entered yet</th><td colspan="${months.length*4}"></td></tr>`}
   </tfoot>`;
-
-  gridOrder = order;
-  return `<div class="cc-scroll" data-key="${esc(opts.key || (state.member + ':' + f.startYear))}">
-    <table class="cc-grid${ro ? ' readonly' : ''}">${head}<tbody>${body}</tbody>${foot}</table></div>`;
 }
 let gridOrder = [];      // planting ids in the order the grid drew them, for painting by index
+let gridKeys = [];       // the week each column stands for
+
+/* A week's tooltip, written when the pointer first reaches it. */
+function bindTooltips(table, f){
+  if(!table) return;
+  table.addEventListener('mouseover', e=>{
+    const td = e.target.closest && e.target.closest('td.wk');
+    if(!td || td.title) return;
+    const r = f.rows.find(x=> x.id === gridOrder[+td.dataset.ri]), k = gridKeys[+td.dataset.ci];
+    if(!r || !k) return;
+    const {y, m, w} = parseWeekKey(k), cell = readCell(r.cells[k]);
+    td.title = `${r.crop ? r.crop + ' · ' : ''}${MONTHS[m-1]} ${y}, week ${w}` +
+      (cell ? ` — ${STAGE[cell.s].name}${cell.s === 'H' && cell.kg ? `, ${fmt(cell.kg)} kg` : ''}` : '');
+  });
+}
+
+/* After a week or a run of weeks changes: redraw just those plantings' weeks,
+   the totals under them and the figures above — not the page. On a big farm
+   that is the difference between an instant change and a pause. */
+function refreshAfterEdit(f, rowIds){
+  const table = document.querySelector('.cc-grid:not(.readonly)');
+  if(!table){ render(); return; }
+  const months = farmWindow(f);
+  rowIds.forEach(id=>{
+    const r = f.rows.find(x=> x.id === id), ri = gridOrder.indexOf(id);
+    if(!r || ri < 0) return;
+    table.querySelectorAll(`td.wk[data-ri="${ri}"]`).forEach(td=>{
+      const cell = readCell(r.cells[gridKeys[+td.dataset.ci]]);
+      const cls = td.className.replace(/ s-\w/, '') + (cell ? ' s-' + cell.s : '');
+      if(td.className !== cls) td.className = cls;
+      const txt = cell && cell.s === 'H' ? kgShort(cell.kg) : '';
+      if(td.textContent !== txt) td.textContent = txt;
+      td.removeAttribute('title'); td.style.background = ''; td.style.color = '';
+      td.classList.remove('pv', 'pv-clear');
+    });
+  });
+  const foot = table.querySelector('tfoot');
+  if(foot){
+    const fresh = document.createElement('table');
+    fresh.innerHTML = footHTML(f, months);
+    const nf = fresh.querySelector('tfoot');
+    const oldCells = foot.querySelectorAll('th, td'), newCells = nf.querySelectorAll('th, td');
+    if(oldCells.length === newCells.length){
+      newCells.forEach((n, i)=>{ const o = oldCells[i];
+        if(o.textContent !== n.textContent) o.textContent = n.textContent;
+        if(o.className !== n.className) o.className = n.className; });
+    } else { foot.replaceWith(nf); sizeGrid(table.closest('.cc-scroll')); }
+  }
+  const fig = farmFigures(f, months);
+  const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.textContent = v; };
+  set('m-plantings', fmt(fig.plantings)); set('m-area', fmt(Math.round(fig.area)));
+  set('m-harvest', fmt(Math.round(fig.total))); set('m-peak', fig.peak);
+}
 
 /* Keep the timeline where it was across a redraw; the first time a farm's
    calendar opens, start a couple of months before this week. */
+// A contained box cannot size itself to its contents, so it is told: as tall
+// as the table, but never taller than the screen allows.
+function sizeGrid(sc){
+  if(!sc) return;
+  const t = sc.querySelector('table');
+  if(!t) return;
+  const cap = parseFloat(getComputedStyle(sc).maxHeight) || 600;
+  sc.style.height = Math.max(220, Math.min(cap, t.offsetHeight + (sc.offsetHeight - sc.clientHeight) + 2)) + 'px';
+}
+window.addEventListener('resize', ()=> document.querySelectorAll('.cc-scroll').forEach(sizeGrid));
 function restoreGridScroll(c){
   const sc = c.querySelector('.cc-scroll');
   if(!sc) return;
+  sizeGrid(sc);
   if(state.scroll && state.scroll.key === sc.dataset.key){
     sc.scrollLeft = state.scroll.left; sc.scrollTop = state.scroll.top;
     return;
@@ -3100,7 +3441,7 @@ function bindGrid(table, f){
         paintRect(f, {r0:+td.dataset.ri, c0:+td.dataset.ci, r1:+td.dataset.ri, c1:+td.dataset.ci});
       return;
     }
-    openPop(gridOrder[+td.dataset.ri], td.dataset.k, td);
+    openPop(gridOrder[+td.dataset.ri], gridKeys[+td.dataset.ci], td);
   });
 }
 function previewDrag(table){
@@ -3124,13 +3465,14 @@ function previewDrag(table){
 function paintRect(f, d){
   const [ra, rb] = [Math.min(d.r0, d.r1), Math.max(d.r0, d.r1)];
   const [ca, cb] = [Math.min(d.c0, d.c1), Math.max(d.c0, d.c1)];
-  const months = farmWindow(f);
-  const keys = months.flatMap(mo=> mo.keys);
+  const keys = gridKeys;
   const kg = state.toolKg === '' ? null : Number(state.toolKg);
   let n = 0;
+  const changed = [];
   for(let i = ra; i <= rb; i++){
     const r = f.rows.find(x=> x.id === gridOrder[i]);
     if(!r) continue;
+    changed.push(r.id);
     for(let c = ca; c <= cb; c++){
       const k = keys[c];
       if(!k) continue;
@@ -3145,7 +3487,7 @@ function paintRect(f, d){
     }
   }
   if(n){ touch(state.member); }
-  render();
+  refreshAfterEdit(f, changed);
 }
 
 /* ---- One week's chooser ----------------------------------------------- */
@@ -3204,7 +3546,7 @@ function setCellFromPop(code){
   } else r.cells[k] = writeCell(code);
   touch(state.member);
   closePop();
-  render();
+  refreshAfterEdit(f, [r.id]);
 }
 // A click anywhere else puts the chooser away.
 document.addEventListener('pointerdown', e=>{
@@ -3342,7 +3684,9 @@ function fillPanel(f){
   if(!r){ state.fillRow = null; return ''; }
   const keys = farmWindow(f).flatMap(mo=> mo.keys);
   const n = Math.abs(s.to - s.from) + 1;
-  return `<div class="card cc-panel">
+  const fmsg = state.fillMsg; state.fillMsg = '';
+  return `<div class="card cc-panel cc-fill">
+    ${fmsg ? `<div class="import-result" style="margin:0 0 10px;">${fmsg}</div>` : ''}
     <h3>Fill weeks · ${esc(r.crop)}${locationText(f, r) ? ` <span style="font-weight:400;color:var(--muted);font-size:13px;">${esc(locationText(f, r))}</span>` : ''}</h3>
     <p class="helper" style="margin:0 0 12px;">Choose a stage and the first and last week it covers. Do it once for each stage.</p>
     <div class="cc-fill-grid">
@@ -3378,9 +3722,17 @@ function applyFill(){
     const nextFrom = Math.min(keys.length - 1, b + 1);
     state.fillRow = {id:r.id, stage: STAGES[Math.min(STAGES.length-1, idx+1)].code, from: nextFrom,
                      to: Math.min(keys.length-1, nextFrom + 3), kg: ''};
-    state.calMsg = `${CHECK_ICON} ${esc(STAGE[s.stage].name)} set for ${b-a+1} week${b===a?'':'s'}. Next stage is ready below.`;
+    state.fillMsg = `${CHECK_ICON} ${esc(STAGE[s.stage].name)} set for ${b-a+1} week${b===a?'':'s'}. The next stage is ready.`;
   }
-  render();
+  const panel = document.querySelector('.cc-panel.cc-fill');
+  if(!panel || !document.querySelector('.cc-grid:not(.readonly)')){ render(); return; }
+  refreshAfterEdit(f, [r.id]);
+  // The panel itself stays; only what is inside it changes. Swapping the card
+  // would replay its entrance and make the browser restyle every card after
+  // it — the grid's thousands of cells among them.
+  const tmp = document.createElement('div');
+  tmp.innerHTML = fillPanel(f);
+  panel.innerHTML = tmp.firstElementChild.innerHTML;
 }
 
 /* ============================================================
@@ -3910,10 +4262,15 @@ function applyImport(f, parsed, replace){
    ============================================================ */
 function adminYear(){ return state.admYear || DEFAULT_START_YEAR; }
 function shiftAdminYear(d){ state.admYear = adminYear() + d; state.scroll = null; renderKeepingPlace(); }
+/* The members whose calendars are overseen: approved farms, and suspended
+   ones, whose calendars are kept. A registration still waiting, or turned
+   down, has no calendar yet and lives under Members & approvals. */
 function farmIds(){
-  return Object.keys(FARMS).filter(id=> FARMS[id] && FARMS[id].name !== undefined)
+  return Object.keys(FARMS).filter(id=> FARMS[id] && (FARMS[id].status === 'approved' || FARMS[id].status === 'suspended'))
     .sort((a, b)=> (FARMS[a].name||'').localeCompare(FARMS[b].name||''));
 }
+// The association's figures count approved farms only.
+function countedIds(){ return farmIds().filter(id=> FARMS[id].status === 'approved'); }
 function openAdminFarm(id){ state.viewFarm = id; state.scroll = null; render(); window.scrollTo(0, 0); }
 function updatedText(iso){
   if(!iso) return '—';
@@ -3924,7 +4281,7 @@ function updatedText(iso){
 // Harvest by crop and month, every farm together.
 function associationByCrop(months){
   const by = new Map();
-  farmIds().forEach(id=> cropTotals(FARMS[id].rows, months).forEach(g=>{
+  countedIds().forEach(id=> cropTotals(FARMS[id].rows, months).forEach(g=>{
     const k = cropKey(g.crop);
     if(!by.has(k)) by.set(k, {crop:g.crop, per: months.map(()=> 0), farms:new Set()});
     const e = by.get(k);
@@ -3964,7 +4321,7 @@ function renderCalendarsAdmin(c){
         <div class="fh-meta">
           <h2>${esc(f.name)}</h2>
           <div class="fh-sub">${[f.location, f.contact, f.phone].filter(Boolean).map(esc).join(' &middot; ') || 'No contact details given'}</div>
-          <div style="margin-top:8px;"><span class="status-pill status-active">${esc(layoutSummary(f))}</span>
+          <div style="margin-top:8px;">${f.status !== 'approved' ? statusPill(f.status) + ' ' : ''}<span class="status-pill status-active">${esc(layoutSummary(f))}</span>
             <span class="helper" style="margin-left:8px;">updated ${esc(updatedText(f.updatedAt))}</span></div>
         </div>
       </div>
@@ -3976,35 +4333,43 @@ function renderCalendarsAdmin(c){
       </div>
       ${f.rows.length ? `<div class="card cc-card">${gridHTML(f, months, {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
         : emptyState('Nothing planned yet', `${esc(f.name)} has not added a planting to its calendar.`)}`;
+    bindTooltips(c.querySelector('.cc-grid'), f);
     return;
   }
 
   if(!ids.length){
+    const waiting = pendingCount();
     c.innerHTML = `<h1 class="page-title">Crop calendars</h1>
       <p class="page-sub">Every member farm's crop calendar, and the association's harvest added up by crop</p>
-      ${emptyState('No farms yet', cloudOn()
-        ? 'As soon as a farm registers and adds a planting, its calendar appears here.'
-        : 'Farms that register on this device appear here. With no shared database set up, a farm on another device is not seen — ask it to export its calendar to Excel and send it.')}`;
+      ${emptyState('No approved farms yet', (waiting ? `${waiting} registration${waiting===1?' is':'s are'} waiting for approval. ` : '') +
+        (cloudOn() ? 'A farm\u2019s calendar appears here once you approve it under Members &amp; approvals.'
+                   : 'Farms that register on this device appear here once approved. With no shared database set up, a farm on another device is not seen — ask it to export its calendar to Excel and send it.'),
+        waiting ? `<button class="btn" onclick="switchTab('members')">Review ${waiting} waiting</button>` : '')}`;
     return;
   }
 
   const ass = associationByCrop(months);
   const perMonth = months.map((_, i)=> ass.reduce((t, e)=> t + e.per[i], 0));
   const total = perMonth.reduce((a, b)=> a + b, 0);
-  const plantings = ids.reduce((n, id)=> n + FARMS[id].rows.length, 0);
-  const area = ids.reduce((n, id)=> n + FARMS[id].rows.reduce((t, r)=> t + (Number(r.area)||0), 0), 0);
-  const local = !cloudOn();
+  const counted = countedIds();
+  const plantings = counted.reduce((n, id)=> n + FARMS[id].rows.length, 0);
+  const area = counted.reduce((n, id)=> n + FARMS[id].rows.reduce((t, r)=> t + (Number(r.area)||0), 0), 0);
+  const q = norm(state.calSearch);
+  const shown = ids.filter(id=> !q || [FARMS[id].name, FARMS[id].location, FARMS[id].contact].some(v=> norm(v).includes(q)));
+  const waiting = pendingCount();
 
   c.innerHTML = `
     <h1 class="page-title">Crop calendars</h1>
     <p class="page-sub">Every member farm's crop calendar, and the association's harvest added up by crop</p>
     <div class="grid4">
-      <div class="metric"><div class="lbl">Farms</div><div class="val" data-count="${ids.length}">0</div></div>
+      <div class="metric"><div class="lbl">Approved farms</div><div class="val" data-count="${counted.length}">0</div></div>
       <div class="metric"><div class="lbl">Plantings</div><div class="val" data-count="${plantings}">0</div></div>
       <div class="metric"><div class="lbl">Area planted</div><div class="val"><span data-count="${Math.round(area)}">0</span><span style="font-size:14px;color:var(--muted);"> m²</span></div></div>
       <div class="metric"><div class="lbl">Planned harvest</div><div class="val" style="color:var(--leaf-green);"><span data-count="${Math.round(total)}">0</span><span style="font-size:14px;color:var(--muted);"> kg</span></div></div>
     </div>
 
+    ${waiting ? `<div class="msg-banner" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">${waiting} registration${waiting===1?' is':'s are'} waiting for approval.
+      <button class="btn small" onclick="switchTab('members')">Review</button></div>` : ''}
     <div class="section-label">The association's harvest, by crop</div>
     <div class="card">
       <div class="cc-row" style="margin-bottom:12px;">
@@ -4024,20 +4389,24 @@ function renderCalendarsAdmin(c){
 
     <div class="section-label">Member farms</div>
     <div class="card" style="overflow-x:auto;">
+      <div class="cc-row" style="margin-bottom:10px;">
+        <input id="cal-search" type="search" value="${esc(state.calSearch || '')}" placeholder="Search by farm, location or contact"
+          oninput="state.calSearch=this.value; onLiveData();" style="margin:0;max-width:420px;">
+        <span class="helper" style="margin:0;">${shown.length} of ${ids.length}</span>
+      </div>
       <table class="grid-table">
         <thead><tr><th>Farm</th><th>Location</th><th>How it is divided</th><th>Plantings</th><th>Planned harvest</th><th>Updated</th><th></th></tr></thead>
-        <tbody>${ids.map(id=>{
+        <tbody>${shown.map(id=>{
           const f = FARMS[id], fig = farmFigures(f, months);
           return `<tr>
-            <td><span class="farm-cell">${farmLogo(f,'sm')}<span class="fname">${esc(f.name)}</span></span></td>
+            <td><span class="farm-cell">${farmLogo(f,'sm')}<span class="fname">${esc(f.name)}</span></span>${f.status !== 'approved' ? `<div style="margin-top:4px;">${statusPill(f.status)}</div>` : ''}</td>
             <td>${esc(f.location || '—')}</td>
             <td>${esc(layoutSummary(f))}</td>
             <td>${fig.plantings}</td>
             <td>${fig.total ? fmt(fig.total) + ' kg' : '<span style="color:var(--muted);">none yet</span>'}</td>
             <td>${esc(updatedText(f.updatedAt))}</td>
             <td style="white-space:nowrap;"><button class="btn small ghost" onclick="openAdminFarm('${esc(id)}')">View calendar</button>
-              <button class="btn small ghost" onclick="exportFarmExcelWindow('${esc(id)}')" title="Download this farm's calendar as the template">Excel</button>
-              ${local ? `<button class="btn small ghost" onclick="adminResetFarmPassword('${esc(id)}')" title="Set a new password for this farm on this device">New password</button>` : ''}</td>
+              <button class="btn small ghost" onclick="exportFarmExcelWindow('${esc(id)}')" title="Download this farm's calendar as the template">Excel</button></td>
           </tr>`;
         }).join('')}</tbody>
       </table>
@@ -4116,6 +4485,187 @@ async function exportAllExcel(){
     });
     await downloadWorkbook(wb, `TIPFA_CROP_CALENDARS_ALL_FARMS_${months[0].y}-${months[months.length-1].y}.xlsx`);
   }catch(e){ showFatal(e.message || e); }
+}
+
+/* ============================================================
+   Approval
+   Every account waits for an administrator. A farm is not let into its
+   calendar, and an administrator into the console, until one approves it;
+   either can later be suspended, which closes the door again without
+   losing anything behind it.
+   ============================================================ */
+const STATUS_LABEL = {pending:'Waiting for approval', approved:'Approved', rejected:'Not approved', suspended:'Suspended'};
+const STATUS_PILL = {pending:'status-pending', approved:'status-active', rejected:'status-rejected', suspended:'status-open'};
+function statusPill(s){ return `<span class="status-pill ${STATUS_PILL[s] || 'status-pending'}">${esc(STATUS_LABEL[s] || s)}</span>`; }
+function whenText(iso){
+  if(!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'});
+}
+function decidedText(x){
+  if(!x.statusBy || x.status === 'pending') return '';
+  const by = operatorName(x.statusBy);
+  return `${by ? 'by ' + esc(by) : ''}${x.statusAt ? ` on ${esc(whenText(x.statusAt))}` : ''}`;
+}
+const SECRETARIAT_CONTACT = '0744 443 247 &middot; tipfatz@gmail.com';
+
+// What an account sees until it is approved — and after, if it is suspended.
+function renderAccountStatus(c){
+  const member = state.role === 'member';
+  const f = member ? currentFarm() : null;
+  const s = member ? f.status : state.myStatus;
+  const who = member ? f.name : state.adminName;
+  const live = cloudOn();
+  const copy = {
+    pending: member
+      ? ['Your registration is waiting for approval',
+         `The Secretariat checks every new farm before it can plan on the crop calendar. You will be let in as soon as an administrator approves ${esc(who)}${live ? ' — this page opens your calendar by itself the moment they do' : ' — press Check again after you hear from them'}.`]
+      : ['Your administrator account is waiting for approval',
+         `An existing administrator has to approve every new one before it can see members' calendars. ${live ? 'This page opens the console by itself the moment they do.' : 'Press Check again after you hear from them.'}`],
+    rejected: member
+      ? ['Your registration was not approved', 'The Secretariat did not approve this farm for the crop calendar. If you think this is a mistake, contact them.']
+      : ['Your administrator account was not approved', 'If you think this is a mistake, contact the Secretariat.'],
+    suspended: member
+      ? ['Your access to the crop calendar is paused', 'An administrator has suspended this farm. Your calendar is kept exactly as you left it and returns when access is restored.']
+      : ['Your administrator access is paused', 'Another administrator has suspended this account. Nothing has been deleted.'],
+  }[s] || ['Account status', ''];
+  c.innerHTML = `
+    <h1 class="page-title">Account status</h1>
+    <p class="page-sub">${esc(who)}</p>
+    <div class="card status-card">
+      <div class="es-mark" aria-hidden="true">${icon(s === 'pending' ? 'today' : 'leaf')}</div>
+      <div style="margin:4px 0 12px;">${statusPill(s)}</div>
+      <h2>${copy[0]}</h2>
+      <p>${copy[1]}</p>
+      ${member ? `<dl class="status-facts">
+          <dt>Farm</dt><dd>${esc(f.name)}</dd>
+          ${f.contact ? `<dt>Contact</dt><dd>${esc(f.contact)}</dd>` : ''}
+          ${f.phone ? `<dt>Phone</dt><dd>${esc(f.phone)}</dd>` : ''}
+          ${f.email ? `<dt>Email</dt><dd>${esc(f.email)}</dd>` : ''}
+          ${f.location ? `<dt>Location</dt><dd>${esc(f.location)}</dd>` : ''}
+          <dt>Registered</dt><dd>${esc(whenText(f.registered) || f.registered || '')}</dd>
+        </dl>` : ''}
+      <div class="status-actions">
+        <button class="btn" onclick="refreshNow(this)">${icon('refresh')} Check again</button>
+        <button class="btn small ghost" onclick="logout()">Log out</button>
+      </div>
+      <p class="helper" style="margin-top:14px;">The Secretariat: ${SECRETARIAT_CONTACT}</p>
+    </div>`;
+}
+
+/* ---- Deciding --------------------------------------------------------- */
+async function decide(kind, id, status, btn){
+  const subject = kind === 'farm' ? (FARMS[id] || {}).name : operatorName(id);
+  const ask = {rejected:`Turn down ${subject}? They will not be able to use the crop calendar.`,
+               suspended: kind === 'farm' ? `Suspend ${subject}? The farm will not be able to open or change its calendar until it is reinstated. Nothing is deleted.`
+                                          : `Suspend ${subject}? They will not be able to open the console until reinstated.`}[status];
+  if(ask && !confirm(ask)) return;
+  if(btn) btn.classList.add('is-busy');
+  const stamp = {status, statusBy: cloudOn() ? CLOUD_STATE.uid : state.adminId, statusAt: new Date().toISOString()};
+  try{
+    if(cloudOn()) await withTimeout(cloudDecide(kind, id, status), 15000, 'Saving the decision');
+    if(kind === 'farm'){ if(FARMS[id]) Object.assign(FARMS[id], stamp); }
+    else if(cloudOn()) OPERATORS[id] = Object.assign({}, OPERATORS[id], stamp);
+    else Object.values(ACCOUNTS).forEach(a=>{ if(a.id === id) Object.assign(a, stamp); });
+    saveLocal();
+    const verb = {approved:'approved', rejected:'turned down', suspended:'suspended'}[status];
+    state.memberMsg = `${CHECK_ICON} ${esc(subject)} ${verb}.`;
+    renderKeepingPlace();
+  }catch(e){
+    if(btn) btn.classList.remove('is-busy');
+    showFatal('The decision was not saved: ' + cloudErrorText(e));
+  }
+}
+function decisionButtons(kind, x){
+  if(kind === 'operator' && (x.id === state.adminId || x.owner)) return `<span class="helper" style="margin:0;">${x.owner ? 'System owner' : 'You'}</span>`;
+  const b = (status, label, cls)=> `<button class="btn small ${cls||''}" onclick="decide('${kind}','${esc(x.id)}','${status}', this)">${label}</button>`;
+  switch(x.status){
+    case 'pending':  return b('approved', 'Approve') + b('rejected', 'Turn down', 'ghost danger');
+    case 'approved': return b('suspended', 'Suspend', 'ghost danger');
+    case 'suspended':return b('approved', 'Reinstate', 'ghost');
+    case 'rejected': return b('approved', 'Approve after all', 'ghost');
+  }
+  return '';
+}
+
+/* ---- Members & approvals ------------------------------------------------ */
+function renderMembers(c){
+  const farms = Object.keys(FARMS).map(id=> Object.assign({id}, FARMS[id]));
+  const ops = operatorList();
+  const waitingFarms = farms.filter(f=> f.status === 'pending');
+  const waitingOps = ops.filter(o=> o.status === 'pending');
+  const q = norm(state.memberSearch);
+  const match = f=> !q || [f.name, f.contact, f.location, f.email, f.phone].some(v=> norm(v).includes(q));
+  const order = {pending:0, approved:1, suspended:2, rejected:3};
+  const listed = farms.filter(match).sort((a, b)=> (order[a.status]-order[b.status]) || (a.name||'').localeCompare(b.name||''));
+  const msg = state.memberMsg; state.memberMsg = '';
+  const local = !cloudOn();
+
+  c.innerHTML = `
+    <h1 class="page-title">Members &amp; approvals</h1>
+    <p class="page-sub">Every new farm and administrator waits here until an administrator lets them in</p>
+    <div class="grid4">
+      <div class="metric"><div class="lbl">Waiting</div><div class="val" style="color:${waitingFarms.length + waitingOps.length ? 'var(--harvest-orange)' : 'inherit'};" data-count="${waitingFarms.length + waitingOps.length}">0</div></div>
+      <div class="metric"><div class="lbl">Approved farms</div><div class="val" data-count="${farms.filter(f=> f.status === 'approved').length}">0</div></div>
+      <div class="metric"><div class="lbl">Administrators</div><div class="val" data-count="${ops.filter(o=> o.status === 'approved').length}">0</div></div>
+      <div class="metric"><div class="lbl">Suspended or turned down</div><div class="val" data-count="${farms.concat(ops).filter(x=> x.status === 'suspended' || x.status === 'rejected').length}">0</div></div>
+    </div>
+    ${msg ? `<div class="msg-banner">${msg}</div>` : ''}
+
+    <div class="section-label">Waiting for approval</div>
+    ${waitingFarms.length + waitingOps.length ? `<div class="wait-grid">
+      ${waitingFarms.map(f=> `<div class="card wait-card">
+        <div class="wc-head">${farmLogo(f,'sm')}<div><strong>${esc(f.name)}</strong><div class="helper" style="margin:0;">Farm · registered ${esc(whenText(f.registered) || f.registered || '')}</div></div></div>
+        <dl class="status-facts">
+          ${f.contact ? `<dt>Contact</dt><dd>${esc(f.contact)}</dd>` : ''}
+          ${f.phone ? `<dt>Phone</dt><dd>${esc(f.phone)}</dd>` : ''}
+          ${f.email ? `<dt>Email</dt><dd>${esc(f.email)}</dd>` : ''}
+          ${f.location ? `<dt>Location</dt><dd>${esc(f.location)}</dd>` : ''}
+        </dl>
+        <div class="wc-actions">${decisionButtons('farm', f)}</div>
+      </div>`).join('')}
+      ${waitingOps.map(o=> `<div class="card wait-card is-admin">
+        <div class="wc-head"><span class="nd-initials">${esc((o.name||'?').slice(0,2).toUpperCase())}</span><div><strong>${esc(o.name)}</strong><div class="helper" style="margin:0;">Administrator · since ${esc(whenText(o.since) || o.since || '')}</div></div></div>
+        <dl class="status-facts">${o.email ? `<dt>Email</dt><dd>${esc(o.email)}</dd>` : ''}</dl>
+        <p class="helper" style="margin:0 0 10px;">Approving gives them every member's calendar and the power to approve others.</p>
+        <div class="wc-actions">${decisionButtons('operator', o)}</div>
+      </div>`).join('')}
+    </div>` : `<div class="card"><p class="helper" style="margin:0;">Nobody is waiting. New registrations appear here${cloudOn() ? ' as soon as they arrive' : ''}.</p></div>`}
+
+    <div class="section-label">Farms</div>
+    <div class="card">
+      <div class="cc-row" style="margin-bottom:10px;">
+        <input id="member-search" type="search" value="${esc(state.memberSearch)}" placeholder="Search by farm, contact, location, email or phone"
+          oninput="state.memberSearch=this.value; onLiveData();" style="margin:0;max-width:420px;">
+        <span class="helper" style="margin:0;">${listed.length} of ${farms.length}</span>
+      </div>
+      ${listed.length ? `<table class="grid-table">
+        <thead><tr><th>Farm</th><th>Contact</th><th>Location</th><th>Status</th><th></th></tr></thead>
+        <tbody>${listed.map(f=> `<tr>
+          <td><span class="farm-cell">${farmLogo(f,'sm')}<span class="fname">${esc(f.name)}</span></span></td>
+          <td>${[f.contact, f.phone, f.email].filter(Boolean).map(esc).join('<br>') || '—'}</td>
+          <td>${esc(f.location || '—')}</td>
+          <td>${statusPill(f.status)}${decidedText(f) ? `<div class="helper" style="margin:4px 0 0;">${decidedText(f)}</div>` : ''}</td>
+          <td class="row-actions">${f.status === 'approved' || f.status === 'suspended' ? `<button class="btn small ghost" onclick="state.tab='calendarsA';openAdminFarm('${esc(f.id)}')">View calendar</button>` : ''}
+            ${decisionButtons('farm', f)}
+            ${local ? `<button class="btn small ghost" onclick="adminResetFarmPassword('${esc(f.id)}')" title="Set a new password for this farm on this device">New password</button>` : ''}</td>
+        </tr>`).join('')}</tbody></table>`
+      : `<p class="helper" style="margin:0;">${farms.length ? 'No farm matches that search.' : 'No farm has registered yet.'}</p>`}
+    </div>
+
+    <div class="section-label">Administrators</div>
+    <div class="card">
+      <table class="grid-table">
+        <thead><tr><th>Name</th><th>Email</th><th>Since</th><th>Status</th><th></th></tr></thead>
+        <tbody>${ops.sort((a, b)=> (b.owner - a.owner) || (order[a.status]-order[b.status]) || (a.name||'').localeCompare(b.name||'')).map(o=> `<tr>
+          <td><strong>${esc(o.name)}</strong>${o.owner ? ' <span class="owner-tag">System owner</span>' : ''}${o.id === state.adminId ? ' <span class="helper" style="margin:0;">(you)</span>' : ''}</td>
+          <td>${esc(o.email || '—')}</td>
+          <td>${esc(whenText(o.since) || o.since || '—')}</td>
+          <td>${statusPill(o.status)}${decidedText(o) && !o.owner ? `<div class="helper" style="margin:4px 0 0;">${decidedText(o)}</div>` : ''}</td>
+          <td class="row-actions">${decisionButtons('operator', o)}</td>
+        </tr>`).join('')}</tbody></table>
+      <p class="helper" style="margin:10px 0 0;">The system owner is the first administrator who registered. Nobody can suspend the owner, and nobody can change their own status.</p>
+    </div>`;
 }
 
 /* ============================================================

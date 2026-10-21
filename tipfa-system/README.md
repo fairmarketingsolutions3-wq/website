@@ -8,7 +8,7 @@ Two copies of the TIPFA Association Platform, side by side.
 | [`crop-calendar/`](crop-calendar/) | A copy of the platform with every feature removed except the crop calendar, which is rebuilt on the association's master crop calendar template. |
 
 Both open in a browser as they are: `original/index.html` and
-`crop-calendar/index.html`. Neither needs a build step.
+`crop-calendar/public/index.html`. Neither needs a build step.
 
 ## The crop calendar copy
 
@@ -70,13 +70,25 @@ crop and month, and every export has the same columns.
 - The Secretariat exports every farm in one workbook: the association's harvest
   by crop on the first sheet, then each farm's calendar on its own sheet.
 
-The Excel library (ExcelJS 4.4.0, MIT — licence in `vendor/`) is kept beside the
+The Excel library (ExcelJS 4.4.0, MIT — licence in `public/vendor/`) is kept beside the
 page, so exporting works without reaching a CDN.
 
-### Sharing between devices
+### Accounts and approval
 
-Out of the box the copy keeps everything in the browser of each device, and
-calendars travel as Excel. To share live between devices and with the
-Secretariat, see [`crop-calendar/FIREBASE.md`](crop-calendar/FIREBASE.md). The copy
-uses its own Firestore collections and never touches the platform's records; the
-guide explains why its rules must not be published over the platform's.
+Every account that registers, farm or administrator, waits until an
+administrator approves it. The first administrator to register becomes the
+system owner and is let in straight away, since somebody has to approve
+everyone else. Administrators approve, turn down, suspend and reinstate members
+under **Members & approvals**, and oversee every approved farm's calendar, read
+only and live, under **Crop calendars**. The Firestore rules enforce all of it.
+
+### Hosting it
+
+`crop-calendar/` is a self-contained package for a developer to host on its own
+domain: the site is in `public/`, and Firebase Hosting, Authentication and
+Firestore are configured beside it. [`crop-calendar/DEPLOY.md`](crop-calendar/DEPLOY.md)
+walks through it step by step. The copy needs a Firebase project of its own;
+the guide explains why its rules must not be published over the platform's.
+
+Until `public/firebase-config.js` is filled in, the page runs as a
+demonstration: each device keeps its own accounts and calendars.
