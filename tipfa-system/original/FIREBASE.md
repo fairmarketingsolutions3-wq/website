@@ -1,0 +1,163 @@
+# Connecting the platform to Firebase
+
+The platform runs from browser storage on its own. Firebase is what makes a
+farm registered on one phone appear in the Secretariat's console on another,
+and what replaces browser-held passwords with properly hashed ones.
+
+Project: **tipfa-28e23**
+
+## What has to be switched on
+
+In the [Firebase console](https://console.firebase.google.com):
+
+1. **Build → Authentication → Get started → Sign-in method → Email/Password → Enable.**
+2. **Build → Firestore Database → Create database → Start in production mode**,
+   then choose a location. The location is permanent; `europe-west1` or
+   `asia-south1` are the sensible choices from Tanzania.
+3. **Build → Firestore Database → Rules** → replace everything with
+   [`firestore.rules`](firestore.rules) → **Publish**.
+
+Stay on the free **Spark** plan. It allows 50,000 reads and 20,000 writes a
+day, far beyond what an association of this size will use, and needs no card.
+
+## Creating the sign-up codes document
+
+The rules check every registration against a codes document that no browser can
+read. It has to exist before anyone can register, and it is created by hand
+once, in the console:
+
+1. **Build → Firestore Database → Data → Start collection**
+2. Collection ID: `settings` → **Next**
+3. Document ID: `signup` (type it — do not use the auto-ID button)
+4. Add two fields, both of type **string**:
+   - `farmCode` — the code you give to farms
+   - `operatorCode` — the code you give to Secretariat staff
+5. **Save**
+
+Choose your own values. Anyone holding a code can create that kind of account,
+so keep the two different and treat the operator one as a staff password.
+
+No client can read this document — only the security rules can, which is how a
+code is checked without ever being sent to a browser.
+
+## Operators
+
+Operators register themselves from the platform's Administrator tab using the
+operator code. The rules allow it only when the code matches and only against
+the operator's own user id, so operator status still cannot be self-granted
+without the code. No manual step is needed.
+
+## Roles
+
+Roles are the administrator console's. They say which tabs an operator may
+open and what they may change there. **Farms have no role** — a farm signs in
+as a farm, holds its own records, and its rights come from owning them, not
+from a role. Only operators get a record in `users/{uid}`, and the platform
+writes it at sign-up; nothing has to be created by hand.
+
+| Role | What it is for |
+|---|---|
+| `superAdmin` | the system owner — the only account that may change anyone's role |
+| `secretariat` | the association's staff: members, codes, catalogue, orders, reports |
+| `qualityOfficer` | harvest batches and complaints |
+| `agronomist` | advisory work and the knowledge library |
+| `logistics` | consignments |
+| `auditor` | reads everything, writes nothing |
+
+**The system owner is the first operator to arrive.** Rules cannot count a
+collection, so being first is not something the platform can prove by looking:
+it is claimed instead. The first operator to sign up — or, on an association
+already running, the first existing operator to sign in after this version is
+deployed — writes their user id into `settings/ownership`. Because a create
+rule applies only to a document that does not yet exist, every later claim is
+refused. Nobody can take ownership afterwards, and nobody can grant it to
+themselves.
+
+Everyone else who registers with the operator code is `secretariat`. The system
+owner changes that on the **Governance** tab: each account on the roll has a
+role control and a **Suspend** button. Both are refused by the database for
+anyone else, so hiding the control is a courtesy, not the protection.
+
+### Handing ownership to somebody else
+
+`settings/ownership` decides who becomes the owner at the start, and nothing
+after that: from then on the role in `users/{uid}` is what counts. So the owner
+hands over from inside the platform — **Governance**, set that operator's role
+to **System owner**. There can be two owners for as long as you want; the new
+one can then set the old one back to Secretariat, since nobody may change their
+own row.
+
+If the owner's account is lost altogether, nobody is left who can promote
+anyone, and the Firebase console is the way back in: **Firestore Database →
+Data → `users` →** the account's document **→** set `role` to `superAdmin`.
+Writes made in the console are not subject to the rules, which is exactly why
+that route always works.
+
+Nothing on the member side reads a role, so there is no farm-facing effect to
+any of this.
+
+## The data
+
+| Collection | Holds | Who can read | Who can write |
+|---|---|---|---|
+| `settings/signup` | the two sign-up codes | nobody | operators |
+| `operators/{uid}` | one document per operator | operators | the operator, or another operator |
+| `farms/{uid}` | profile, crops, crop calendar, prices, archives | that farm, and operators | that farm, and operators |
+| `harvest/{uid}` | that farm's harvest figures | that farm, and operators | that farm, and operators |
+| `submissions/{id}` | requests and complaints | the farm that raised it, and operators | the farm creates; operators resolve |
+| `users/{uid}` | an operator's role, active or suspended | that operator, and staff | that operator may correct their name and phone; only the system owner may change a role or a status |
+| `settings/ownership` | which account owns the settings | anyone signed in | written once, by the first operator; only the owner after that |
+| `orders/{id}` | what a customer asked the association for | staff | the Secretariat |
+| `orderAllocations/{id}` | one farm's share of one order | that farm, and staff | the Secretariat places it; the farm may only accept or decline |
+| `harvestBatches/{id}` | one farm's pick of one crop on one day, under its lot code | that farm, and staff | that farm, and staff |
+| `inputApplications/{id}` | what was applied, and the days before picking is safe | that farm, and staff | that farm |
+| `consignments/{id}` | which batches went to which customer | that farm, and staff | staff |
+| `lotComplaints/{id}` | what came back, against which lot | that farm, and staff | staff |
+| `publicTrace/{lotCode}` | crop, farm name, region, harvest date | **anyone, signed in or not** | that farm, and staff |
+| `advisoryCases/{id}` | a question from a farm, and its answers | that farm, and staff | the farm asks; only staff may add an answer |
+| `knowledge/{id}` | answers worth keeping | every signed-in member | staff |
+
+Harvest is kept apart from the farm document because a season of weekly entries
+grows steadily, and a Firestore document is capped at 1 MiB.
+
+### Why some of these are split in two
+
+**An order and a farm's share of it are separate documents.** The order names
+the customer, the price, and every farm that was offered part of it. A farm
+must be able to answer for its own share without seeing what its neighbours
+were offered or paid, so its allocation carries its own copy of the crop,
+quantity, price and date. That duplication is the point: it is what lets the
+rules close the order to farms entirely.
+
+**The public trace is a mirror, not an opening.** A lot code printed on a box
+has to be readable by a stranger, and `harvestBatches` carries farm contacts
+and weights beside the crop. So a second document holds only what is safe to
+show — crop, farm name, region, harvest date — and that is the only one the
+public route can read. Nothing else exists on that route to leak.
+
+The sign-up codes are never sent to a browser. Security rules can read
+documents a client cannot, so a code is *checked* against the stored value
+without ever being *revealed* to the page — which is what the current
+browser-only version cannot do.
+
+### If a farm's tab comes up empty
+
+Firestore needs an index for a query that filters on a field. Single-field
+filters are normally served automatically, so most of these need nothing at
+all — but if a farm opens Orders, Batches or Ask an agronomist and sees
+nothing when it should see something, open the browser console. A
+`failed-precondition` error there carries a link that creates the missing
+index in one click. The queries that could ask for one are:
+
+- `orderAllocations`, `harvestBatches`, `inputApplications`, `consignments`,
+  `lotComplaints` and `advisoryCases`, each filtered on `farmUid`
+
+## The config file
+
+`firebase-config.js` holds the project's public web configuration. Those values
+identify the project; they do not authorise anything, which is why Firebase
+ships them in public HTML. The rules above are what protects the data.
+
+**Never** add a service account key (Project settings → Service accounts →
+Generate new private key) to this repository. That file is a real secret. It is
+not needed here.

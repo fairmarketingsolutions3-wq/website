@@ -1,0 +1,493 @@
+rules_version = '2';
+
+/*
+ * TIPFA Association Platform — Firestore security rules
+ *
+ * Paste these into the Firebase console:
+ *   Build → Firestore Database → Rules → replace everything → Publish
+ *
+ * The shape they enforce:
+ *
+ *   settings/signup      the two sign-up codes. No client can read this
+ *                        document. Rules read it on the client's behalf to
+ *                        check a code, so a code is never exposed to the
+ *                        browser, only checked against it.
+ *
+ *   users/{uid}          one document per operator, keyed by their Firebase
+ *                        Auth user id: which role they hold in the console,
+ *                        and whether the account is still active. Roles
+ *                        belong to the association's own staff — a farm
+ *                        signs in as a farm and never has one. Only the
+ *                        system owner may change a role or a status;
+ *                        everyone else may correct their own name and phone
+ *                        and nothing more.
+ *
+ *   operators/{uid}      one document per Secretariat operator, keyed by
+ *                        their Firebase Auth user id. The presence of the
+ *                        document is what makes someone an operator.
+ *
+ *   farms/{uid}          one document per member farm, keyed by that farm's
+ *                        Firebase Auth user id: profile, crops, the crop
+ *                        calendar programme, market prices and archives.
+ *
+ *   harvest/{uid}        that farm's harvest figures, kept separate so a
+ *                        season of weekly entries never pushes the farm
+ *                        document toward the 1 MiB limit.
+ *
+ *   submissions/{id}     requests and complaints raised by farms.
+ *
+ *   orders/{id}          what a customer asked the association for. Staff
+ *                        only — it names the price and every farm offered a
+ *                        share, which is not one farm's business.
+ *
+ *   orderAllocations/{id} one farm's share of one order, carrying its own
+ *                        copy of the crop, quantity, price and date so the
+ *                        farm can answer without reading the order.
+ *
+ *   harvestBatches/{id}  one farm's pick of one crop on one day, under the
+ *                        lot code printed on the box.
+ *
+ *   inputApplications/{id}  what was applied to a crop, and the days that
+ *                        must pass before picking is safe.
+ *
+ *   consignments/{id}    which batches went to which customer.
+ *   lotComplaints/{id}   what came back, against which lot.
+ *
+ *   publicTrace/{lotCode}  the little a stranger with a box may see. A
+ *                        mirror, so that opening it opens nothing else.
+ *
+ *   advisoryCases/{id}   a question from one farm, and the answers to it.
+ *   knowledge/{id}       an answer worth keeping, read by every member.
+ *
+ *   settings/inputCatalogue  what a member may buy, and at what price. The
+ *                        Secretariat's to keep; every member reads it.
+ *   inputRequests/{id}   a basket a member has sent, and the reply to it.
+ *   inputSuggestions/{id}  something not stocked that a member wants, and
+ *                        the other farms backing them.
+ *
+ * The rule throughout: a farm reads and writes only its own records; staff
+ * read everything and may correct anything their role covers; nobody may
+ * create an account without the matching code from the Secretariat; and no
+ * one may hand themselves a role.
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function owns(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    // ---- Roles ----------------------------------------------------------
+    // A role lives in users/{uid} and only the system owner may write it, so
+    // it cannot be self-granted. Firestore caches the result of a get() on
+    // the same path for the whole of one rule evaluation, so the helpers
+    // below cost one read no matter how many of them a rule calls.
+    function userRec() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function hasUserRec() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    // .get(key, default) rather than a bare field, so a record written before
+    // a field existed is treated as not holding it rather than erroring the
+    // whole evaluation — which would read as a refusal with no cause.
+    function hasRole(roles) {
+      return hasUserRec()
+        && userRec().get('status', '') == 'active'
+        && userRec().get('role', '') in roles;
+    }
+
+    // Accounts made before roles existed are still operators: the presence of
+    // an operators/{uid} document is the older proof, and it keeps working.
+    //
+    // But only until a role is recorded. Written as a plain `or`, this clause
+    // defeated the whole role system: every operator holds one of these
+    // documents, so an auditor — whose point is to write nothing — passed
+    // every write check in the file. A role that cannot take anything away is
+    // not a role. So the old proof now applies only where there is no role to
+    // read, and once there is, the role is the answer.
+    function hasOperatorDoc() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/operators/$(request.auth.uid));
+    }
+    function legacyOperator() {
+      return hasOperatorDoc() && !hasUserRec();
+    }
+
+    // Anyone on the association's side of the platform. Reading only.
+    function isStaff() {
+      return legacyOperator()
+        || hasRole(['superAdmin','secretariat','qualityOfficer','agronomist',
+                    'logistics','auditor']);
+    }
+
+    // Staff who may change association records generally. An auditor is
+    // deliberately not here: an auditor sees everything and touches nothing.
+    function isOperator() {
+      return legacyOperator()
+        || hasRole(['superAdmin','secretariat','qualityOfficer','agronomist',
+                    'logistics']);
+    }
+
+    // A member's own record is the association's register, and keeping it is
+    // the Secretariat's job. A quality officer inspects batches and an
+    // agronomist gives advice; neither has business rewriting a farm's
+    // profile, its crops or its harvest, so neither may.
+    function keepsTheRegister() {
+      return legacyOperator() || hasRole(['superAdmin','secretariat']);
+    }
+
+    // The Secretariat's own settings — the catalogue and the sign-up codes.
+    function isSecretariat() {
+      return legacyOperator() || hasRole(['superAdmin','secretariat']);
+    }
+
+    function isOwner() {
+      return hasRole(['superAdmin']);
+    }
+
+    // Who claimed the association's settings. Written once, by the first
+    // operator to arrive, and never again — which is what makes 'superAdmin'
+    // something that cannot be handed to yourself.
+    function ownerIsClaimed() {
+      return exists(/databases/$(database)/documents/settings/ownership);
+    }
+    function ownerUid() {
+      return get(/databases/$(database)/documents/settings/ownership).data.get('owner', '');
+    }
+
+    // Rules may read documents the client cannot, which is what keeps the
+    // sign-up codes secret while still letting them be checked.
+    function codes() {
+      return get(/databases/$(database)/documents/settings/signup).data;
+    }
+    function hasFarmCode() {
+      return request.resource.data.signupCode == codes().farmCode;
+    }
+    function hasOperatorCode() {
+      return request.resource.data.signupCode == codes().operatorCode;
+    }
+
+    // ---- Sign-up codes -------------------------------------------------
+    // Never readable by a client. The Secretariat changes them through the
+    // platform.
+    match /settings/signup {
+      allow read: if false;
+      allow write: if isSecretariat();
+    }
+
+    // ---- Ownership -------------------------------------------------------
+    // Rules cannot count a collection, so being the first operator is not
+    // something the platform can prove by looking. It is claimed instead: an
+    // operator writes their own user id here, and because create applies only
+    // to a document that does not exist, the second claim is refused. Reading
+    // it tells a signed-in person only which account owns the settings.
+    match /settings/ownership {
+      allow read:   if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.get('owner', '') == request.auth.uid
+                    && exists(/databases/$(database)/documents/operators/$(request.auth.uid));
+      // Only the owner hands it on, and only to somebody who is already an
+      // operator. Deleting it is not a way to start the race again.
+      allow update: if isOwner()
+                    && exists(/databases/$(database)/documents/operators/$(request.resource.data.get('owner', '')));
+      allow delete: if false;
+    }
+
+    // ---- Crop catalogue --------------------------------------------------
+    // The crops and varieties every farm chooses from, with the plant spacing
+    // and per-plant yield their harvest plans are built from. The Secretariat
+    // keeps it; every signed-in farm reads it. It holds no secrets — a farm is
+    // meant to see all of it.
+    match /settings/catalogue {
+      allow read: if signedIn();
+      allow write: if isSecretariat();      // the catalogue is the Secretariat's
+    }
+
+    // ---- Roles ------------------------------------------------------------
+    // One document per operator. Farms are not in here: a role is what an
+    // operator holds in the console, and a farm's rights come from owning
+    // its own farms/{uid} record, not from a role.
+    match /users/{uid} {
+      // Your own record, or anyone's if you are staff.
+      allow read: if owns(uid) || isStaff();
+
+      // A record is written by the operator it belongs to, straight after
+      // sign-up — but only the role that sign-up actually earned. An
+      // operators document exists only if the operator code was given, so
+      // the code check that guarded that create guards this one too, and a
+      // farm — which has no operators document — cannot write one at all.
+      // Everything above Secretariat is the system owner's to grant, and
+      // ownership itself is claimed in settings/ownership first.
+      allow create: if isOwner()
+                    || (owns(uid)
+                        && exists(/databases/$(database)/documents/operators/$(uid))
+                        && request.resource.data.get('status', '') == 'active'
+                        && (
+                          request.resource.data.get('role', '') == 'secretariat'
+                          // Ownership is not a role you may write for
+                          // yourself: it is a role you may write only once
+                          // you already hold the claim.
+                          || (request.resource.data.get('role', '') == 'superAdmin'
+                              && ownerIsClaimed() && ownerUid() == uid)
+                        ));
+
+      // The two fields that decide what an operator may do are the system
+      // owner's to set. Everyone else may correct their own name, phone and
+      // regions, and nothing else — including their own role.
+      // The owner sets anyone's role — except that 'superAdmin' is only ever
+      // accepted for whoever settings/ownership names, and that document can
+      // only be moved by the owner who currently holds it. Between them
+      // those two rules mean there is exactly one system owner at all times
+      // and no way to make a second, from this screen or from a console.
+      allow update: if (isOwner()
+                        && (request.resource.data.get('role', '') != 'superAdmin'
+                            || (ownerIsClaimed() && ownerUid() == uid)))
+                    || (owns(uid)
+                        && request.resource.data.get('role', '') == resource.data.get('role', '')
+                        && request.resource.data.get('status', '') == resource.data.get('status', ''));
+
+      // Suspend by setting status, rather than deleting. Removing the record
+      // outright is the owner's, and never their own.
+      allow delete: if isOwner() && request.auth.uid != uid;
+    }
+
+    // ---- Operators -----------------------------------------------------
+    match /operators/{uid} {
+      // Everyone may read their own operator document — a farm signing in asks
+      // whether it has one, and must be told no rather than refused. Reading
+      // anyone else's is for staff.
+      allow read: if owns(uid) || isStaff();
+      // A new operator registers themselves, but only with the operator code
+      // and only against their own user id.
+      allow create: if owns(uid) && hasOperatorCode();
+      allow update: if owns(uid) || isOperator();
+      allow delete: if isOperator() && request.auth.uid != uid;   // never the last one out
+    }
+
+    // ---- Member farms --------------------------------------------------
+    match /farms/{uid} {
+      allow read:   if owns(uid) || isStaff();
+      allow create: if owns(uid) && hasFarmCode()
+                    && request.resource.data.name is string
+                    && request.resource.data.name.size() > 0
+                    && request.resource.data.email is string;
+      allow update: if owns(uid) || keepsTheRegister();
+      allow delete: if keepsTheRegister();
+    }
+
+    // ---- Harvest figures ------------------------------------------------
+    match /harvest/{uid} {
+      allow read:   if owns(uid) || isStaff();
+      allow write:  if owns(uid) || keepsTheRegister();
+    }
+
+    // ---- Orders and allocation -------------------------------------------
+    // The order and a farm's share of it are two documents on purpose. The
+    // order names the customer, the price, and every farm that was offered
+    // part of it — so a farm never reads one. Its own allocation carries a
+    // copy of everything it needs to answer, and that is all it may see.
+    match /orders/{id} {
+      allow read:  if isStaff();
+      allow write: if isOperator();
+    }
+
+    match /orderAllocations/{id} {
+      // Staff see them all. A farm sees only the ones addressed to it, and a
+      // listing has to say so — where('farmUid','==',uid) — or the rules
+      // refuse the whole query rather than filtering it.
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if isOperator();
+      // A farm answers its own share and changes nothing else about it: not
+      // the quantity it was offered, not the price, not which farm it is
+      // for. Anything beyond an answer is the Secretariat's.
+      allow update: if isOperator()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.orderId == resource.data.orderId
+                        && request.resource.data.kg == resource.data.kg
+                        && request.resource.data.pricePerKg == resource.data.pricePerKg
+                        && request.resource.data.crop == resource.data.crop
+                        && request.resource.data.status in ['Accepted','Declined']);
+      allow delete: if isOperator();
+    }
+
+    // ---- The input store ---------------------------------------------------
+    // The list a member buys from. The Secretariat keeps it; every signed-in
+    // member reads it, and a price is not something a member may set.
+    match /settings/inputCatalogue {
+      allow read:  if signedIn();
+      allow write: if isOperator();
+    }
+
+    // A basket a member has sent. Their own business and the Secretariat's,
+    // and nobody else's — what one farm spends is not the roll's to read.
+    match /inputRequests/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      // A member may withdraw or amend their own request, but the reply and
+      // the status belong to the Secretariat answering it.
+      allow update: if isOperator()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.get('reply','') == resource.data.get('reply','')
+                        && request.resource.data.get('status','') == resource.data.get('status',''));
+      allow delete: if isOperator();
+    }
+
+    // Something the association does not stock. Every member reads these and
+    // may back one — that is the whole point — so the list is open to members
+    // in a way requests are not.
+    match /inputSuggestions/{id} {
+      allow read:   if signedIn();
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      // Anyone signed in may add or remove themselves from the backers, and
+      // whoever raised it may edit it. Only the Secretariat decides whether
+      // it gets stocked, so the status stays theirs.
+      allow update: if isOperator()
+                    || (signedIn()
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.get('name','') == resource.data.get('name','')
+                        && request.resource.data.get('status','') == resource.data.get('status',''))
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow delete: if isOperator();
+    }
+
+    // ---- Advisory ---------------------------------------------------------
+    // A farm asks; whoever holds an advisory role answers. The farm may
+    // raise and describe its own case, and an adviser may answer any of
+    // them — but a farm cannot answer its own question into the record, and
+    // an adviser cannot rewrite the question it was asked.
+    match /advisoryCases/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      allow update: if isOperator()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid
+                        && request.resource.data.replies == resource.data.replies);
+      allow delete: if isOperator();
+    }
+
+    // The library. Every signed-in member reads it — an answer nobody can
+    // find is an answer given twice — and staff write it.
+    match /knowledge/{id} {
+      allow read:  if signedIn();
+      allow write: if isOperator();
+    }
+
+    // ---- Batches and traceability ----------------------------------------
+    // A batch is one farm's pick of one crop on one day, and its lot code is
+    // what is printed on the box. A farm writes its own; staff read them all,
+    // because tracing a bad box back to a farm is the whole point.
+    match /harvestBatches/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if isStaff()
+                    || (signedIn() && request.resource.data.farmUid == request.auth.uid);
+      // A farm may correct its own record but never move it to another farm:
+      // a batch that could change hands is a batch that traces to nobody.
+      allow update: if isStaff()
+                    || (signedIn()
+                        && resource.data.farmUid == request.auth.uid
+                        && request.resource.data.farmUid == resource.data.farmUid);
+      allow delete: if isStaff();
+    }
+
+    // What was applied, and the days that must pass before picking is safe.
+    // The farm's own record; staff read it because they answer for it.
+    match /inputApplications/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      allow update, delete: if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+    }
+
+    // Which batches went to which customer. The Secretariat dispatches; a
+    // farm may see the consignments carrying its own produce and no others.
+    match /consignments/{id} {
+      allow read:  if isStaff()
+                   || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow write: if isOperator();
+    }
+
+    // What came back. Recorded by staff against a lot code — a farm reads
+    // the complaints raised against its own produce, and cannot quietly
+    // close one.
+    match /lotComplaints/{id} {
+      allow read:  if isStaff()
+                   || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow write: if isOperator();
+    }
+
+    // ---- The public trace ------------------------------------------------
+    // Anyone holding a box may type its lot code and see what is in this
+    // document — and nothing else exists on this route to leak. It is a
+    // deliberate mirror rather than an opening onto harvestBatches, which
+    // carries farm contacts, weights and order history beside it.
+    //
+    // Read by strangers, so keep it to the crop, the farm's business name,
+    // the region and the date. Never a phone number, never a price.
+    match /publicTrace/{lotCode} {
+      allow read: if true;
+      allow write: if isStaff()
+                   || (signedIn()
+                       && exists(/databases/$(database)/documents/farms/$(request.auth.uid)));
+    }
+
+    // ---- Requests and complaints ----------------------------------------
+    match /submissions/{id} {
+      allow read:   if isStaff()
+                    || (signedIn() && resource.data.farmUid == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.farmUid == request.auth.uid;
+      // A farm may not reopen or reassign what the Secretariat has handled.
+      allow update, delete: if isOperator();
+    }
+
+    // A farm listing its own submissions asks for exactly those, and the read
+    // rule above is what permits it. Staff list the collection whole.
+    match /submissions/{document=**} {
+      allow read: if isStaff();
+    }
+
+    // ---- Diagnostics ----------------------------------------------------
+    // Two documents that are never created. They exist only so the platform
+    // can read them and learn why a sign-up was refused, without a code ever
+    // reaching the browser:
+    //
+    //   rules-published  readable always. If reading it is refused, these
+    //                    rules were never published — the console is still
+    //                    running its own default rules.
+    //   codes-present    readable only when settings/signup exists. If
+    //                    reading it is refused, the codes document has not
+    //                    been created.
+    //
+    // Both are safe: a read of a document that does not exist returns
+    // nothing, so neither can leak a code or anyone's records.
+    match /diagnostics/rules-published {
+      allow read: if true;
+      allow write: if false;
+    }
+    match /diagnostics/codes-present {
+      allow read: if exists(/databases/$(database)/documents/settings/signup);
+      allow write: if false;
+    }
+
+    // Anything not named above is closed.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
