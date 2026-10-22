@@ -35,10 +35,27 @@ It follows the master template (`FAIR FARM CROP CALENDAR MASTER TEMPLATE`):
 - **TOTAL HARVEST** by month and **HARVEST BY CROP** by month, computed exactly
   as the template's `SUM` and `SUMPRODUCT` formulas compute them.
 
-Weeks are entered three ways: pick a stage and drag across the weeks (across
-several plantings at once if they share a stage); click or tap a single week and
-choose from its own small menu; or **Fill weeks** on a planting — one stage,
-from one week to another — which is the quick way on a phone.
+The whole calendar fits the screen, with no scrolling sideways: the weeks share
+the width beside the planting column. **3 years**, **1 year** or **6 months** can
+be shown at once (3 years by default); labels that no longer fit step down — a
+month's name to its initial, a week's kilograms to its colour, the totals from
+months to quarters or half years.
+
+### Planned from the sowing date
+
+For the crops in the TIPFA Harvest Ledger — cherry tomato, capsicum, paprika,
+habanero (Loleza), sweet melon, broccoli, cauliflower and avocado — adding a
+planting asks for the sowing date and the number of plants, and fills in every
+week: land preparation, nursery, transplanting, growth, flowering and each
+harvest week with its kilograms (per-plant yield × plants). The ledger counts
+its 24 weeks from transplanting; the transplanting date can be given, or is
+taken as the crop's usual nursery time after sowing (the `CROP_GUIDE` list in
+`crop-calendar/public/index.html`). Any planned week can still be changed by hand.
+
+Weeks can also be entered by hand, three ways: pick a stage and drag across the
+weeks (across several plantings at once if they share a stage); click or tap a
+single week and choose from its own small menu, whose arrows step a week at a
+time; or **Fill weeks** on a planting — one stage, from one week to another.
 
 ### However a farm divides its ground
 

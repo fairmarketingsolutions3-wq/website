@@ -176,8 +176,9 @@ sizes; Safari and Firefox were not available in the test environment.
 - [ ] Register a test farm with the farm code. It lands on "waiting for approval".
 - [ ] As the owner, **Members & approvals** shows it waiting, with a count on the
       menu. Approve it. The farm's open page switches to its calendar by itself.
-- [ ] As the farm, add a planting, colour some weeks, add harvest kg. As the owner,
-      **Crop calendars** shows it.
+- [ ] As the farm, add a cherry tomato planting with a sowing date and a number of
+      plants; its weeks and harvest kg fill in. Change a week by hand. As the
+      owner, **Crop calendars** shows it.
 - [ ] **Export to Excel** downloads a file that opens in Excel in the template layout.
 - [ ] Register a second administrator. It waits; approve it from the owner.
 - [ ] Suspend the test farm. Its page shows "access paused".
@@ -216,6 +217,17 @@ sender name and wording can be changed under **Authentication → Templates**.
    the page compares its own number with the server's and asks the user to reload
    when it is behind.
 3. `firebase deploy --only hosting`.
+
+### Changing the crop guide's figures
+
+The per-plant figures behind **planned from the sowing date** are the `CROP_GUIDE`
+list in `public/index.html` (search for `const CROP_GUIDE`). For each crop:
+`nursery` (weeks from sowing to transplanting, used when no transplanting date is
+given), `flower` (weeks of flowering before the first harvest), `first` (the
+harvest week, counted from transplanting as in the Harvest Ledger), and the
+kilograms a plant gives (`kg`, and for broccoli `sideKg`; sweet melon picks every
+`every` weeks). Changing a figure affects plantings planned from then on, not
+ones already on a calendar. Raise the build number after editing.
 
 `firebase.json` serves `index.html` and `firebase-config.js` with `no-cache`, so
 browsers always check for a newer copy. Logos and the Excel library are cached

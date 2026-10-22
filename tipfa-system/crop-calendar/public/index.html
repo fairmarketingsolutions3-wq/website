@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v1">
+<meta name="tipfa-build" content="v2">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -1330,7 +1330,7 @@ input:focus, select:focus, textarea:focus{transform:translateY(-1px);}
    script to fit its rows, up to the screen) and strict containment, nothing
    that changes above it makes the browser lay out its thousands of cells
    again, and nothing inside it spills out. */
-.cc-scroll{overflow:auto;max-height:calc(100vh - 190px);min-height:220px;position:relative;
+.cc-scroll{overflow-x:hidden;overflow-y:auto;scrollbar-gutter:stable;max-height:calc(100vh - 190px);min-height:220px;position:relative;
   overscroll-behavior:contain;-webkit-overflow-scrolling:touch;contain:strict;}
 .cc-scroll.painting{cursor:crosshair;}
 table.cc-grid{border-collapse:separate;border-spacing:0;font-size:12px;table-layout:fixed;}
@@ -1365,7 +1365,7 @@ table.cc-grid{border-collapse:separate;border-spacing:0;font-size:12px;table-lay
 .cc-rowbtn svg{width:15px;height:15px;}
 .cc-rowbtn:hover{color:var(--deep-green);background:#E9EEDF;}
 
-.cc-grid td.wk{width:26px;min-width:26px;max-width:26px;height:32px;text-align:center;cursor:pointer;
+.cc-grid td.wk{height:32px;text-align:center;cursor:pointer;overflow:hidden;white-space:nowrap;
   font-size:9px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.02em;
   border-left:1px solid #F1F0E8;user-select:none;-webkit-user-select:none;touch-action:pan-x pan-y;}
 .cc-grid td.wk.mstart{border-left:1px solid #D9D8CC;}
@@ -1480,8 +1480,8 @@ table.ass-table{border-collapse:separate;border-spacing:0;font-size:11.5px;width
 
 /* ---- On a phone ---- */
 html[data-view="mobile"] .cc-scroll{max-height:calc(100vh - 150px);}
-html[data-view="mobile"] .cc-grid td.wk{width:30px;min-width:30px;max-width:30px;height:38px;}
-html[data-view="mobile"] .cc-grid tbody td.stk{height:38px;max-width:132px;}
+html[data-view="mobile"] .cc-grid td.wk{height:38px;}
+html[data-view="mobile"] .cc-grid tbody td.stk{height:38px;padding:0 6px 0 8px;}
 html[data-view="mobile"] .cc-pop{left:0 !important;right:0;bottom:0;top:auto !important;width:auto;
   border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));}
 html[data-view="mobile"] .cc-pop .pp-stage{padding:10px 9px;font-size:12.5px;}
@@ -1516,6 +1516,79 @@ html[data-view="mobile"] .cc-fill-grid{grid-template-columns:1fr;}
 .btn.danger{color:var(--red) !important;border-color:#E8C4BD !important;}
 .owner-tag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
   color:var(--deep-green);background:#E4EBD8;border-radius:99px;padding:2px 8px;margin-left:4px;vertical-align:middle;}
+
+/* ---- The grid fitted to the page ----
+   Heading rows are placed from script (their top offsets depend on which of
+   them there is room for); here they get their heights and their look. */
+.cc-grid.fit thead th{white-space:nowrap;overflow:hidden;text-overflow:clip;padding:0;}
+.cc-grid.fit thead tr.yr th{height:20px;background:var(--deep-green);color:var(--field-cream);font-size:10px;
+  letter-spacing:.12em;text-align:center;border-left:2px solid var(--harvest-orange);}
+.cc-grid.fit thead tr.mh th{height:24px;font-size:9.5px;letter-spacing:.06em;}
+.cc-grid.fit thead tr.wh th{height:18px;font-size:9px;}
+.cc-grid.fit thead th.cc-corner{left:0;z-index:5;background:var(--deep-green);color:var(--field-cream);text-align:left;
+  padding:0 10px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;vertical-align:middle;}
+.cc-grid.fit tbody td.stk{white-space:normal;}
+.cc-grid.fit .cc-crop-cell .cn{white-space:nowrap;}
+.cc-grid.fit tr.cc-unit th{position:static;}
+.cc-grid.fit tfoot th.stk{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.cc-grid.fit tfoot tr.tot th .per{font-family:'Inter',sans-serif;font-weight:400;font-size:10px;letter-spacing:0;opacity:.8;margin-left:4px;}
+.cc-grid.fit tfoot td{overflow:hidden;white-space:nowrap;font-size:10.5px;}
+.cc-grid.fit tfoot tr.bych td.per-note{text-align:left;padding:0 8px;font-size:10.5px;color:var(--muted);letter-spacing:.02em;}
+/* Narrow weeks: the lines between them go, the months' stay. */
+.cc-grid.dense td.wk{border-left:none;}
+.cc-grid.dense td.wk.mstart{border-left:1px solid #DDDCD0;}
+.cc-grid.dense td.wk.ystart{border-left:2px solid rgba(232,167,52,.7);}
+.cc-grid.dense td.wk:hover{box-shadow:inset 0 0 0 1px rgba(35,40,31,.6);}
+.cc-grid.tiny td.wk.mstart{border-left:none;}
+.cc-grid.tiny td.wk.ystart{border-left:2px solid rgba(232,167,52,.7);}
+.cc-grid.dense thead tr.mh th{border-left-color:rgba(255,255,255,.12);}
+
+/* How much to show at once. */
+.cc-span{display:inline-flex;background:#F4F3EA;border-radius:99px;padding:3px;gap:2px;}
+.cc-span button{border:none;background:none;cursor:pointer;border-radius:99px;padding:5px 11px;font-size:12px;
+  font-family:'Inter',sans-serif;color:var(--deep-green);white-space:nowrap;}
+.cc-span button:hover{background:#fff;}
+.cc-span button.on{background:var(--deep-green);color:#fff;font-weight:600;}
+
+/* The association's table, fitted the same way. */
+table.ass-table.fit{width:100%;table-layout:fixed;}
+.ass-table.fit th, .ass-table.fit td{overflow:hidden;text-overflow:ellipsis;padding:6px 5px;}
+.ass-table.fit .stk{position:static;}
+
+/* ---- Planned from the crop guide ---- */
+#ed-guide{margin-top:4px;}
+.gb{border:1px solid #DCE5CC;background:#F7FAF1;border-radius:12px;padding:12px 14px;}
+.gb-head{display:flex;gap:8px;align-items:flex-start;font-size:12.5px;color:var(--ink);line-height:1.45;margin-bottom:10px;}
+.gb-head svg{flex:none;color:var(--leaf-green);margin-top:1px;}
+.gb-head strong{color:var(--deep-green);}
+.gb-fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;}
+.gb-fields input{margin:0;}
+.gb-fields .opt{font-weight:400;color:var(--muted);text-transform:none;letter-spacing:0;font-size:11px;}
+.gb-hint{margin:10px 0 0;}
+.gb-plan{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:5px;}
+.gb-plan li{display:grid;grid-template-columns:14px minmax(120px,170px) 1fr;gap:8px;align-items:center;font-size:12.5px;}
+.gb-plan .sw{width:14px;height:14px;border-radius:4px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);}
+.gb-plan .gp-n{font-weight:600;color:var(--deep-green);}
+.gb-plan .gp-w{color:var(--ink);}
+.gb-total{margin:10px 0 0;padding-top:9px;border-top:1px dashed #D3DDC1;font-size:13px;color:var(--ink);}
+.gb-total strong{color:var(--leaf-green);font-size:14px;}
+.gb-pick{display:flex;flex-wrap:wrap;gap:6px;align-items:center;}
+.gb-chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:5px 11px;font-size:12px;cursor:pointer;
+  color:var(--deep-green);font-family:'Inter',sans-serif;}
+.gb-chip:hover{border-color:var(--deep-green);}
+.gb-none{margin:2px 0 0;}
+html[data-view="mobile"] .gb-fields{grid-template-columns:1fr;}
+html[data-view="mobile"] .gb-plan li{grid-template-columns:14px 1fr;}
+html[data-view="mobile"] .gb-plan .gp-w{grid-column:2;font-size:12px;color:var(--muted);}
+
+/* The chooser's week, and the arrows that move it. */
+.cc-pop .pp-week{display:flex;align-items:center;gap:6px;margin:-2px 0 10px;padding:6px;background:#F4F3EA;border-radius:10px;}
+.cc-pop .pp-week span{flex:1;text-align:center;font-size:12.5px;font-weight:600;color:var(--deep-green);line-height:1.3;}
+.cc-pop .pp-week em{font-style:normal;font-weight:400;color:var(--muted);}
+.cc-pop .pp-week button{border:none;background:#fff;border-radius:8px;width:34px;height:30px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--deep-green);flex:none;box-shadow:0 0 0 1px var(--line);}
+.cc-pop .pp-week button:disabled{opacity:.35;cursor:default;}
+.cc-grid td.wk.pp-target{box-shadow:inset 0 0 0 2px var(--harvest-orange), 0 0 0 2px var(--harvest-orange);position:relative;z-index:1;}
 </style>
 </head>
 <body>
@@ -2722,6 +2795,9 @@ async function restoreSession(){
     }
   }
   if(saved.cloud) return false;            // it was a database session; do not fake one
+  // A site set up with a database never opens device-only accounts, even when
+  // the database cannot be reached and a session from before is still here.
+  if(CLOUD_CONFIGURED) return false;
   if(saved.role === 'member' && FARMS[saved.member]){ enterSession('member', {member:saved.member, resume:saved.tab}); render(); return true; }
   const me = saved.role === 'admin' && operatorList().find(o=> o.id === saved.adminId);
   if(me){
@@ -3097,11 +3173,7 @@ function renderCalendar(c){
   const toolbar = `
     <div class="card cc-toolbar">
       <div class="cc-row">
-        <div class="cc-window" role="group" aria-label="Calendar years">
-          <button onclick="shiftWindow(-1)" aria-label="One year earlier" title="One year earlier">${icon('chevL')}</button>
-          <span class="cw-label">${MONTH_ABBR[0]} ${ys} – ${MONTH_ABBR[11]} ${ys + 2}</span>
-          <button onclick="shiftWindow(1)" aria-label="One year later" title="One year later">${icon('chevR')}</button>
-        </div>
+        ${viewNavHTML(spanMonths(months), 'shiftWindow')}
         <button class="btn small ghost" onclick="goToToday()">${icon('today')} This week</button>
         <span class="grow"></span>
         <button class="btn small" onclick="openEditor(null)">${icon('plus')} Add a planting</button>
@@ -3144,7 +3216,7 @@ function renderCalendar(c){
     ${state.editRow ? editorPanel(f) : ''}
     ${state.fillRow ? fillPanel(f) : ''}
     ${toolbar}
-    <div class="card cc-card">${gridHTML(f, months, {readOnly:false})}</div>`;
+    <div class="card cc-card">${gridHTML(f, spanMonths(months), {readOnly:false})}</div>`;
   bindGrid(c.querySelector('.cc-grid'), f);
   bindTooltips(c.querySelector('.cc-grid'), f);
 }
@@ -3192,45 +3264,137 @@ function shiftWindow(d){
 function goToToday(){
   const f = currentFarm(), now = new Date(), y = now.getFullYear();
   if(y < f.startYear || y > f.startYear + 2){ f.startYear = y; touch(state.member); }
-  state.scroll = null;
+  state.scroll = null; state.spanAt = null;
   render();
 }
 
 /* ---- The grid, shared by the farm's page and the Secretariat's ------ */
-// The pinned columns, left to right, with their widths, so each knows its offset.
-function gridCols(f){
-  const cols = isMobile()
-    ? [{k:'crop', label:'Planting', w:132}]
-    : [ ...(showBlocks(f) ? [{k:'block', label:'Block', w:96}] : []),
-        {k:'crop', label:'Crop', w:150}, {k:'area', label:'m²', w:64}, {k:'notes', label:'Notes', w:150} ];
-  let x = 0;
-  cols.forEach(cl=>{ cl.left = x; x += cl.w; });
-  return {cols, x, n: cols.length};
+/* The whole span is on screen at once and the grid is never wider than the
+   page: the weeks share whatever width is left beside the planting column.
+   When a label no longer fits it steps down — a month's name to its initial,
+   a week's kilograms to its colour alone, the totals from months to quarters —
+   instead of pushing the grid sideways. */
+let SCROLLBAR_W = null;
+// Measured on a box styled as the grid's own, since the page styles its scrollbars.
+function scrollbarWidth(){
+  if(SCROLLBAR_W === null){
+    const d = document.createElement('div');
+    d.className = 'cc-scroll';
+    d.style.cssText = 'position:absolute;top:-999px;left:-999px;width:100px;height:100px;min-height:0;';
+    d.innerHTML = '<div style="height:300px"></div>';
+    document.body.appendChild(d); SCROLLBAR_W = d.offsetWidth - d.clientWidth; d.remove();
+  }
+  return SCROLLBAR_W;
 }
-const WEEK_W = ()=> isMobile() ? 30 : 26;
+// The width the grid may use: the page's content column, less the card's
+// border and the room kept for the grid's own up-and-down scrollbar.
+function gridRoom(){
+  const c = document.getElementById('content');
+  const w = c && c.clientWidth;
+  if(!w) return isMobile() ? 340 : 1000;
+  const cs = getComputedStyle(c);
+  // 6 more for the cells' own borders, which a separated table adds to its width.
+  return Math.floor(w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) - 2 - scrollbarWidth() - 6;
+}
+function gridLayout(months){
+  const room = gridRoom();
+  const pin = isMobile() ? Math.min(124, Math.round(room * 0.34)) : room > 1100 ? 220 : 180;
+  const weekW = (room - pin) / (months.length * 4);
+  const monthW = weekW * 4;
+  // Totals are added up over as many months as it takes to print them legibly.
+  const group = [1, 2, 3, 6, 12].find(g=> g * monthW >= (isMobile() ? 34 : 40)) || 12;
+  return {room, pin, weekW, monthW, group,
+    kg: weekW >= 21, weekNums: weekW >= 13,
+    monthLabel: monthW >= 64 ? 'full' : monthW >= 28 ? 'abbr' : monthW >= 11 ? 'initial' : 'none'};
+}
+let gridView = null;     // the months and layout the grid on screen was drawn for
 
-/* A big farm is a big table — 150 plantings is 21,600 weeks — so the grid is
-   built to stay quick: every column's width is declared up front (fixed table
-   layout, so the browser never has to measure 21,600 cells to place them), a
-   week cell carries nothing but its class and contents, and its tooltip is
-   written only when a pointer reaches it. */
+/* ---- How much of the three years is on screen ----------------------- */
+const SPANS = [{n:36, label:'3 years'}, {n:12, label:'1 year'}, {n:6, label:'6 months'}];
+function viewSpan(){
+  if(!state.span){
+    let s = 36;
+    try{ s = Number(localStorage.getItem('tipfa-cc-span')) || 36; }catch(e){}
+    state.span = SPANS.some(x=> x.n === s) ? s : 36;
+  }
+  return state.span;
+}
+// The months of the window that are shown: all of them, or the year or half
+// year asked for — by default the one holding this week.
+function spanMonths(months){
+  const n = viewSpan();
+  if(n >= months.length) return months;
+  let at = state.spanAt;
+  if(at === null || at === undefined){
+    const i = months.findIndex(mo=> mo.keys.includes(todayKey()));
+    at = i < 0 ? 0 : Math.floor(i / n) * n;
+  }
+  at = Math.max(0, Math.min(months.length - n, at));
+  state.spanAt = at;
+  return months.slice(at, at + n);
+}
+function setSpan(n){
+  state.span = n; state.spanAt = null; state.scroll = null;
+  try{ localStorage.setItem('tipfa-cc-span', String(n)); }catch(e){}
+  renderKeepingPlace();
+}
+// One step back or on. Past either end of the three years the window itself
+// moves a year, so the arrows go on as far as anyone needs.
+function stepView(d, shiftFn){
+  const n = viewSpan();
+  if(n >= WINDOW_MONTHS){ window[shiftFn](d); return; }
+  const at = (state.spanAt || 0) + d * n;
+  if(at < 0){ state.spanAt = at + 12; window[shiftFn](-1); return; }
+  if(at + n > WINDOW_MONTHS){ state.spanAt = at - 12; window[shiftFn](1); return; }
+  state.spanAt = at; state.scroll = null;
+  renderKeepingPlace();
+}
+function viewNavHTML(shown, shiftFn){
+  const a = shown[0], b = shown[shown.length - 1];
+  const label = a.y === b.y && a.m === 1 && b.m === 12 ? String(a.y) : `${MONTH_ABBR[a.m-1]} ${a.y} – ${MONTH_ABBR[b.m-1]} ${b.y}`;
+  const n = viewSpan(), unit = n === 36 ? 'One year' : n === 12 ? 'One year' : 'Six months';
+  return `<div class="cc-window" role="group" aria-label="Calendar dates">
+      <button onclick="stepView(-1,'${shiftFn}')" aria-label="${unit} earlier" title="${unit} earlier">${icon('chevL')}</button>
+      <span class="cw-label">${label}</span>
+      <button onclick="stepView(1,'${shiftFn}')" aria-label="${unit} later" title="${unit} later">${icon('chevR')}</button>
+    </div>
+    <div class="cc-span" role="group" aria-label="How much to show at once">${SPANS.map(s=>
+      `<button class="${s.n === n ? 'on' : ''}" aria-pressed="${s.n === n}" onclick="setSpan(${s.n})">${s.label}</button>`).join('')}</div>`;
+}
+
+/* A big farm is a big table — 150 plantings over three years is 21,600
+   weeks — so the grid is built to stay quick: every column's width is
+   declared up front (fixed table layout, so the browser never measures the
+   cells to place them), a week cell carries nothing but its class and
+   contents, and its tooltip is written only when a pointer reaches it. */
 function gridHTML(f, months, opts){
-  const mobile = isMobile();
   const units = showUnits(f);
   const now = todayKey();
   const ro = opts.readOnly;
-  const {cols, x} = gridCols(f);
-  const lastK = cols[cols.length-1].k;
-  const stickTH = (cl, label, cls)=> `<th class="stk${cl.k===lastK?' edge':''} ${cls||''}" style="left:${cl.left}px;min-width:${cl.w}px;max-width:${cl.w}px;">${label}</th>`;
-  const stickTD = (cl, inner, cls, title)=> `<td class="stk c-${cl.k}${cl.k===lastK?' edge':''}" style="left:${cl.left}px;min-width:${cl.w}px;max-width:${cl.w}px;"${title?` title="${esc(title)}"`:''}>${inner}</td>`;
-  const nCols = cols.length;
+  const L = gridLayout(months);
+  const nW = months.length * 4;
 
-  const head = `<thead>
-    <tr class="mh"><th colspan="${nCols}" class="stk edge cc-corner" style="left:0;min-width:${x}px;max-width:${x}px;" title="${esc(f.name)}">${esc(f.name)}</th>
-      ${months.map(mo=> `<th colspan="4" class="${mo.m===1?'ystart':''}">${MONTH_ABBR[mo.m-1]} ${mo.y}</th>`).join('')}</tr>
-    <tr class="wh">${cols.map(cl=> stickTH(cl, esc(cl.label))).join('')}
-      ${months.map(mo=> mo.keys.map((k, w)=> `<th class="${w===0?'mstart':''}${k===now?' now':''}"${k===now?' title="This week"':''}>${w+1}</th>`).join('')).join('')}</tr>
-  </thead>`;
+  // Heading rows: the years when the months cannot carry them, the months,
+  // and the week numbers when there is room for them.
+  const yearsRow = L.monthLabel !== 'full';
+  const H = {yr: 20, mh: 24, wh: 18};
+  const tops = {yr: 0, mh: yearsRow ? H.yr : 0};
+  tops.wh = tops.mh + H.mh;
+  const nHead = (yearsRow ? 1 : 0) + 1 + (L.weekNums ? 1 : 0);
+  const monthText = mo=> L.monthLabel === 'full' ? `${MONTH_ABBR[mo.m-1]} ${mo.y}`
+    : L.monthLabel === 'abbr' ? MONTH_ABBR[mo.m-1] : L.monthLabel === 'initial' ? MONTH_ABBR[mo.m-1][0] : '';
+  const years = [];
+  months.forEach(mo=>{ const last = years[years.length-1];
+    if(last && last.y === mo.y) last.n++; else years.push({y: mo.y, n: 1}); });
+  const corner = `<th rowspan="${nHead}" class="stk cc-corner" style="top:0;" title="${esc(f.name)}">${esc(f.name)}</th>`;
+  const rowsHead = [];
+  if(yearsRow) rowsHead.push(`<tr class="yr">${corner}${years.map(y=>
+    `<th colspan="${y.n * 4}" style="top:${tops.yr}px;">${y.n * L.monthW >= 34 ? y.y : String(y.y).slice(2)}</th>`).join('')}</tr>`);
+  rowsHead.push(`<tr class="mh">${yearsRow ? '' : corner}${months.map(mo=>
+    `<th colspan="4" class="${mo.m===1?'ystart':''}" style="top:${tops.mh}px;" title="${MONTHS[mo.m-1]} ${mo.y}">${monthText(mo)}</th>`).join('')}</tr>`);
+  if(L.weekNums) rowsHead.push(`<tr class="wh">${months.map(mo=> mo.keys.map((k, w)=>
+    `<th class="${w===0?'mstart':''}${k===now?' now':''}" style="top:${tops.wh}px;"${k===now?' title="This week"':''}>${w+1}</th>`).join('')).join('')}</tr>`);
+  const head = `<thead>${rowsHead.join('')}</thead>`;
 
   const keys = months.flatMap(mo=> mo.keys);
   // Each week column's own classes, worked out once rather than per cell.
@@ -3244,59 +3408,63 @@ function gridHTML(f, months, opts){
   const unitHead = u=>{
     const inUnit = f.rows.filter(x=> x.unit === u.id);
     const area = inUnit.reduce((t, x)=> t + (Number(x.area)||0), 0);
-    return `<tr class="cc-unit"><th colspan="${nCols}" style="min-width:${x}px;max-width:${x}px;">${esc(u.name)}
+    return `<tr class="cc-unit"><th colspan="${nW + 1}">${esc(u.name)}
         <span class="u-meta">${esc(u.type)} · ${inUnit.length ? `${inUnit.length} planting${inUnit.length===1?'':'s'}` : 'nothing planned yet'}${area?` · ${fmt(area)} m²`:''}</span>
-        ${ro ? '' : `<button class="cc-rowbtn" onclick="openEditor(null,'${u.id}')" title="Add a planting to ${esc(u.name)}" aria-label="Add a planting to ${esc(u.name)}">${icon('plus')}</button>`}</th>
-      <td colspan="${months.length*4}"></td></tr>`;
+        ${ro ? '' : `<button class="cc-rowbtn" onclick="openEditor(null,'${u.id}')" title="Add a planting to ${esc(u.name)}" aria-label="Add a planting to ${esc(u.name)}">${icon('plus')}</button>`}</th></tr>`;
   };
   const sequence = units
     ? f.units.flatMap(u=> [{head:u}, ...rows.filter(r=> r.unit === u.id).map(r=> ({row:r}))])
     : rows.map(r=> ({row:r}));
   sequence.forEach(item=>{
     if(item.head){ body += unitHead(item.head); return; }
-    const r = item.row, u = unitOf(f, r.unit);
-    const b = blockOf(u, r.block);
-    const sub = [mobile ? locationText(f, r) : '', mobile && r.area ? `${fmt(r.area)} m²` : ''].filter(Boolean).join(' · ');
+    const r = item.row;
+    const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${guideFor(r.plan.guide) && guideFor(r.plan.guide).tree ? 'trees' : 'plants'}` : '';
+    const sub = [locationText(f, r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+    const tip = [r.crop || '(no crop named)', sub, r.notes].filter(Boolean).join(' — ');
     const cropInner = `<div class="cc-crop-cell">
-        <span class="cn" ${ro ? '' : `onclick="openEditor('${r.id}')"`} title="${esc(r.crop || '(no crop named)')}${r.notes?' — '+esc(r.notes):''}">${esc(r.crop || '—')}
+        <span class="cn" ${ro ? '' : `onclick="openEditor('${r.id}')"`} title="${esc(tip)}">${esc(r.crop || '—')}
           ${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>
         ${ro ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}
       </div>`;
-    const tds = cols.map(cl=>{
-      if(cl.k === 'block') return stickTD(cl, esc(b ? b.name : (u.blocks.length ? 'Whole ' + u.type.toLowerCase() : '')), '', b ? b.name : '');
-      if(cl.k === 'crop') return stickTD(cl, cropInner);
-      if(cl.k === 'area') return stickTD(cl, r.area ? fmt(r.area) : '');
-      return stickTD(cl, esc(r.notes), '', r.notes);
-    }).join('');
     let weeks = '';
     for(let ci = 0; ci < keys.length; ci++){
       const cell = readCell(r.cells[keys[ci]]);
-      weeks += `<td class="${base[ci]}${cell ? ' s-' + cell.s : ''}" data-ri="${ri}" data-ci="${ci}">${cell && cell.s === 'H' ? kgShort(cell.kg) : ''}</td>`;
+      weeks += `<td class="${base[ci]}${cell ? ' s-' + cell.s : ''}" data-ri="${ri}" data-ci="${ci}">${L.kg && cell && cell.s === 'H' ? kgShort(cell.kg) : ''}</td>`;
     }
-    body += `<tr data-row="${r.id}">${tds}${weeks}</tr>`;
+    body += `<tr data-row="${r.id}"><td class="stk c-crop">${cropInner}</td>${weeks}</tr>`;
     order.push(r.id);
     ri++;
   });
 
   gridOrder = order; gridKeys = keys;
-  const cw = WEEK_W();
-  const colgroup = `<colgroup>${cols.map(cl=> `<col style="width:${cl.w}px">`).join('')}${`<col style="width:${cw}px">`.repeat(keys.length)}</colgroup>`;
+  gridView = {months, L};
+  const colgroup = `<colgroup><col style="width:${L.pin}px">${`<col style="width:${L.weekW}px">`.repeat(nW)}</colgroup>`;
+  const cls = 'cc-grid fit' + (ro ? ' readonly' : '') + (L.weekW < 9 ? ' dense' : '') + (L.weekW < 4 ? ' tiny' : '');
   return `<div class="cc-scroll" data-key="${esc(opts.key || (state.member + ':' + f.startYear))}">
-    <table class="cc-grid${ro ? ' readonly' : ''}" style="width:${x + cw * keys.length}px">${colgroup}${head}<tbody>${body}</tbody>${footHTML(f, months)}</table></div>`;
+    <table class="${cls}" style="width:${L.room}px">${colgroup}${head}<tbody>${body}</tbody>${footHTML(f, gridView)}</table></div>`;
 }
-// The template's two blocks of totals, under the plantings.
-function footHTML(f, months){
-  const {n: nCols, x} = gridCols(f);
+// The template's two blocks of totals, under the plantings — by month when
+// they fit, otherwise by two, three, six or twelve months together.
+function footHTML(f, view){
+  const {months, L} = view;
+  const g = L.group;
+  const groups = [];
+  for(let i = 0; i < months.length; i += g) groups.push(months.slice(i, i + g));
   const per = monthTotals(f.rows, months);
+  const sumOf = arr=> groups.map((gr, gi)=> arr.slice(gi * g, gi * g + gr.length).reduce((a, b)=> a + b, 0));
+  const unit = g === 1 ? 'month' : g === 3 ? 'quarter' : g === 6 ? 'half year' : g === 12 ? 'year' : `${g} months`;
+  const name = gr=> gr.length === 1 ? `${MONTHS[gr[0].m-1]} ${gr[0].y}`
+    : `${MONTH_ABBR[gr[0].m-1]} ${gr[0].y} – ${MONTH_ABBR[gr[gr.length-1].m-1]} ${gr[gr.length-1].y}`;
+  const cellW = g * L.monthW;
+  const num = v=> !v ? '0' : cellW >= 52 ? fmt(v) : kgShort(v);
+  const cells = vals=> vals.map((v, i)=> `<td colspan="${groups[i].length * 4}" class="${v?'':'zero'}" title="${name(groups[i])}: ${fmt(v)} kg">${num(v)}</td>`).join('');
   const crops = cropTotals(f.rows, months);
-  const span = `colspan="${nCols}" class="stk edge" style="left:0;min-width:${x}px;max-width:${x}px;"`;
+  const nW = months.length * 4;
   return `<tfoot>
-    <tr class="tot"><th ${span}>TOTAL HARVEST (kg / month)</th>
-      ${per.map(v=> `<td colspan="4" class="${v?'':'zero'}">${v ? fmt(v) : '0'}</td>`).join('')}</tr>
-    <tr class="bych"><th ${span}>Harvest by crop (kg / month)</th><td colspan="${months.length*4}"></td></tr>
-    ${crops.length ? crops.map(g=> `<tr class="crop"><th ${span}>${esc(g.crop)}</th>
-      ${g.per.map(v=> `<td colspan="4" class="${v?'':'zero'}">${v ? fmt(v) : '0'}</td>`).join('')}</tr>`).join('')
-      : `<tr class="crop"><th ${span} style="font-weight:400;color:var(--muted);">No harvest kilograms entered yet</th><td colspan="${months.length*4}"></td></tr>`}
+    <tr class="tot"><th class="stk" title="Total harvest, kg per ${unit}">${isMobile() ? 'TOTAL' : 'TOTAL HARVEST'} <span class="per">kg</span></th>${cells(sumOf(per))}</tr>
+    <tr class="bych"><th class="stk">${isMobile() ? 'By crop' : 'Harvest by crop'}</th><td colspan="${nW}" class="per-note">kg per ${unit}</td></tr>
+    ${crops.length ? crops.map(gc=> `<tr class="crop"><th class="stk" title="${esc(gc.crop)}">${esc(gc.crop)}</th>${cells(sumOf(gc.per))}</tr>`).join('')
+      : `<tr class="crop"><th class="stk" style="font-weight:400;color:var(--muted);">No harvest kilograms yet</th><td colspan="${nW}"></td></tr>`}
   </tfoot>`;
 }
 let gridOrder = [];      // planting ids in the order the grid drew them, for painting by index
@@ -3321,8 +3489,8 @@ function bindTooltips(table, f){
    that is the difference between an instant change and a pause. */
 function refreshAfterEdit(f, rowIds){
   const table = document.querySelector('.cc-grid:not(.readonly)');
-  if(!table){ render(); return; }
-  const months = farmWindow(f);
+  if(!table || !gridView){ render(); return; }
+  const showKg = gridView.L.kg;
   rowIds.forEach(id=>{
     const r = f.rows.find(x=> x.id === id), ri = gridOrder.indexOf(id);
     if(!r || ri < 0) return;
@@ -3330,7 +3498,7 @@ function refreshAfterEdit(f, rowIds){
       const cell = readCell(r.cells[gridKeys[+td.dataset.ci]]);
       const cls = td.className.replace(/ s-\w/, '') + (cell ? ' s-' + cell.s : '');
       if(td.className !== cls) td.className = cls;
-      const txt = cell && cell.s === 'H' ? kgShort(cell.kg) : '';
+      const txt = showKg && cell && cell.s === 'H' ? kgShort(cell.kg) : '';
       if(td.textContent !== txt) td.textContent = txt;
       td.removeAttribute('title'); td.style.background = ''; td.style.color = '';
       td.classList.remove('pv', 'pv-clear');
@@ -3339,23 +3507,22 @@ function refreshAfterEdit(f, rowIds){
   const foot = table.querySelector('tfoot');
   if(foot){
     const fresh = document.createElement('table');
-    fresh.innerHTML = footHTML(f, months);
+    fresh.innerHTML = footHTML(f, gridView);
     const nf = fresh.querySelector('tfoot');
     const oldCells = foot.querySelectorAll('th, td'), newCells = nf.querySelectorAll('th, td');
     if(oldCells.length === newCells.length){
       newCells.forEach((n, i)=>{ const o = oldCells[i];
-        if(o.textContent !== n.textContent) o.textContent = n.textContent;
-        if(o.className !== n.className) o.className = n.className; });
+        if(o.innerHTML !== n.innerHTML) o.innerHTML = n.innerHTML;
+        if(o.className !== n.className) o.className = n.className;
+        if(o.title !== n.title) o.title = n.title; });
     } else { foot.replaceWith(nf); sizeGrid(table.closest('.cc-scroll')); }
   }
-  const fig = farmFigures(f, months);
+  const fig = farmFigures(f, farmWindow(f));
   const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.textContent = v; };
   set('m-plantings', fmt(fig.plantings)); set('m-area', fmt(Math.round(fig.area)));
   set('m-harvest', fmt(Math.round(fig.total))); set('m-peak', fig.peak);
 }
 
-/* Keep the timeline where it was across a redraw; the first time a farm's
-   calendar opens, start a couple of months before this week. */
 // A contained box cannot size itself to its contents, so it is told: as tall
 // as the table, but never taller than the screen allows.
 function sizeGrid(sc){
@@ -3365,19 +3532,24 @@ function sizeGrid(sc){
   const cap = parseFloat(getComputedStyle(sc).maxHeight) || 600;
   sc.style.height = Math.max(220, Math.min(cap, t.offsetHeight + (sc.offsetHeight - sc.clientHeight) + 2)) + 'px';
 }
-window.addEventListener('resize', ()=> document.querySelectorAll('.cc-scroll').forEach(sizeGrid));
+// A grid drawn for one width is drawn again for another: turning a tablet,
+// or resizing a window, keeps the whole span on screen.
+let gridResizeTimer = null;
+window.addEventListener('resize', ()=>{
+  document.querySelectorAll('.cc-scroll').forEach(sizeGrid);
+  clearTimeout(gridResizeTimer);
+  gridResizeTimer = setTimeout(()=>{
+    if(!gridView || drag || !document.querySelector('.cc-grid')) return;
+    if(Math.abs(gridRoom() - gridView.L.room) > 1) renderKeepingPlace();
+  }, 160);
+});
+// Keep the grid where it was, up and down, across a redraw.
 function restoreGridScroll(c){
   const sc = c.querySelector('.cc-scroll');
   if(!sc) return;
   sizeGrid(sc);
-  if(state.scroll && state.scroll.key === sc.dataset.key){
-    sc.scrollLeft = state.scroll.left; sc.scrollTop = state.scroll.top;
-    return;
-  }
-  const now = sc.querySelector('thead th.now');
-  const stick = Array.from(sc.querySelectorAll('thead tr.wh th.stk')).reduce((t, th)=> t + th.offsetWidth, 0);
-  if(now) sc.scrollLeft = Math.max(0, now.offsetLeft - stick - 26*8);
-  state.scroll = {left: sc.scrollLeft, top: 0, key: sc.dataset.key};
+  if(state.scroll && state.scroll.key === sc.dataset.key) sc.scrollTop = state.scroll.top;
+  state.scroll = {left: 0, top: sc.scrollTop, key: sc.dataset.key};
 }
 
 /* ============================================================
@@ -3418,14 +3590,6 @@ function bindGrid(table, f){
     if(!drag) return;
     const el = document.elementFromPoint(e.clientX, e.clientY);
     const td = el && el.closest && el.closest('td.wk');
-    // Near an edge, the timeline scrolls on so a stroke can run past the screen.
-    // The left edge is where the pinned columns end on screen — not their
-    // offsetLeft, which on a sticky cell grows with the scroll itself.
-    const box = sc.getBoundingClientRect();
-    const pinned = sc.querySelector('thead tr.wh th.stk.edge');
-    const leftEdge = pinned ? pinned.getBoundingClientRect().right : box.left;
-    if(e.clientX > box.right - 36) sc.scrollLeft += 18;
-    else if(e.clientX < leftEdge + 24) sc.scrollLeft -= 18;
     if(!td || !table.contains(td)) return;
     const r1 = +td.dataset.ri, c1 = +td.dataset.ci;
     if(r1 !== drag.r1 || c1 !== drag.c1){ drag.r1 = r1; drag.c1 = c1; drag.moved = true; previewDrag(table); }
@@ -3498,7 +3662,24 @@ function openPop(rowId, key, td){
   state.pop = {rowId, key, x: rect.left, y: rect.bottom, top: rect.top};
   drawPop();
 }
-function closePop(){ state.pop = null; const p = document.getElementById('cc-pop'); if(p) p.remove(); }
+function closePop(){ state.pop = null; const p = document.getElementById('cc-pop'); if(p) p.remove(); markPopWeek(); }
+// The week being set is outlined in the grid — on a narrow grid a fingertip
+// covers several weeks, so the chooser says which one it has, and its arrows
+// move it a week at a time.
+function markPopWeek(){
+  document.querySelectorAll('.cc-grid td.wk.pp-target').forEach(td=> td.classList.remove('pp-target'));
+  if(!state.pop) return;
+  const ri = gridOrder.indexOf(state.pop.rowId), ci = gridKeys.indexOf(state.pop.key);
+  const td = ri < 0 || ci < 0 ? null : document.querySelector(`.cc-grid td.wk[data-ri="${ri}"][data-ci="${ci}"]`);
+  if(td) td.classList.add('pp-target');
+}
+function popStep(d){
+  if(!state.pop) return;
+  const i = gridKeys.indexOf(state.pop.key) + d;
+  if(i < 0 || i >= gridKeys.length) return;
+  state.pop.key = gridKeys[i];
+  drawPop();
+}
 function drawPop(){
   const old = document.getElementById('cc-pop');
   if(old) old.remove();
@@ -3512,8 +3693,13 @@ function drawPop(){
   el.setAttribute('aria-label', `Set the stage for ${r.crop}, ${MONTHS[m-1]} ${y} week ${w}`);
   el.innerHTML = `
     <div class="pp-head">
-      <div class="pp-title">${esc(r.crop || 'Planting')}<span class="pp-sub">${esc(locationText(f, r) ? locationText(f, r) + ' · ' : '')}${MONTHS[m-1]} ${y}, week ${w}</span></div>
+      <div class="pp-title">${esc(r.crop || 'Planting')}${locationText(f, r) ? `<span class="pp-sub">${esc(locationText(f, r))}</span>` : ''}</div>
       <button class="pp-close" onclick="closePop()" aria-label="Close">${icon('close')}</button>
+    </div>
+    <div class="pp-week">
+      <button onclick="popStep(-1)" aria-label="The week before" title="The week before" ${gridKeys.indexOf(state.pop.key) <= 0 ? 'disabled' : ''}>${icon('chevL')}</button>
+      <span>${MONTHS[m-1]} ${y}, week ${w}${cell ? ` · <em>${esc(STAGE[cell.s].name)}${cell.s === 'H' && cell.kg ? `, ${fmt(cell.kg)} kg` : ''}</em>` : ''}</span>
+      <button onclick="popStep(1)" aria-label="The week after" title="The week after" ${gridKeys.indexOf(state.pop.key) >= gridKeys.length - 1 ? 'disabled' : ''}>${icon('chevR')}</button>
     </div>
     <div class="pp-stages">${STAGES.map(s=>`<button class="pp-stage ${cell && cell.s===s.code?'on':''}" onclick="setCellFromPop('${s.code}')">
         <span class="sw" style="background:${s.color}"></span>${esc(s.name)}</button>`).join('')}</div>
@@ -3534,6 +3720,7 @@ function drawPop(){
   }
   const first = el.querySelector('.pp-stage.on') || el.querySelector('.pp-stage');
   if(first) first.focus({preventScroll:true});
+  markPopWeek();
 }
 function setCellFromPop(code){
   const f = currentFarm(), r = f.rows.find(x=> x.id === state.pop.rowId);
@@ -3563,21 +3750,25 @@ function openEditor(rowId, unitId){
   const f = currentFarm();
   state.fillRow = null; closePop();
   if(rowId){
-    const r = f.rows.find(x=> x.id === rowId);
-    state.editRow = {id:r.id, unit:r.unit, block:r.block, crop:r.crop, area:r.area || '', notes:r.notes};
+    state.editRow = editState(f.rows.find(x=> x.id === rowId));
   } else {
     const last = orderedRows(f).slice(-1)[0];
     const unit = unitId || (last ? last.unit : f.units[0].id);
-    state.editRow = {id:null, unit, block:'', crop:'', area:'', notes:''};
+    state.editRow = {id:null, unit, block:'', crop:'', area:'', notes:'', sown:'', moved:'', plants:''};
   }
   if(state.tab !== 'calendar'){ state.tab = 'calendar'; rememberSession(); }
   render();
   window.scrollTo({top:0, behavior: REDUCED_MOTION ? 'auto' : 'smooth'});
   setTimeout(()=>{ const el = document.getElementById('ed-crop'); if(el) el.focus({preventScroll:true}); }, 60);
 }
+function editState(r){
+  const p = r.plan || {};
+  return {id:r.id, unit:r.unit, block:r.block, crop:r.crop, area:r.area || '', notes:r.notes,
+          sown:p.sown || '', moved:p.moved || '', plants:p.plants || ''};
+}
 function editorPanel(f){
   const e = state.editRow, u = unitOf(f, e.unit);
-  const crops = [...new Set([...f.rows.map(r=> r.crop.trim()).filter(Boolean), ...COMMON_CROPS])];
+  const crops = [...new Set([...CROP_GUIDE.map(g=> g.name), ...f.rows.map(r=> r.crop.trim()).filter(Boolean), ...COMMON_CROPS])];
   const where = [];
   if(showUnits(f)) where.push(`<div><label class="f">${esc(unitWord(f))}</label>
       <select id="ed-unit" onchange="state.editRow.unit=this.value;state.editRow.block='';keepEditor();">
@@ -3593,12 +3784,13 @@ function editorPanel(f){
     <div class="grid4">
       ${where.join('')}
       <div><label class="f">Crop</label><input id="ed-crop" list="cc-crops" value="${esc(e.crop)}" placeholder="e.g. Cherry tomato"
-        oninput="state.editRow.crop=this.value" onkeydown="if(event.key==='Enter') saveEditor()"></div>
+        oninput="state.editRow.crop=this.value;guideBoxUpdate()" onkeydown="if(event.key==='Enter') saveEditor()"></div>
       <div><label class="f">Area (m²)</label><input id="ed-area" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.area)}"
         oninput="state.editRow.area=this.value" placeholder="e.g. 500"></div>
       <div style="${where.length >= 2 ? 'grid-column:1/-1;' : ''}"><label class="f">Notes</label><input id="ed-notes" value="${esc(e.notes)}"
         oninput="state.editRow.notes=this.value" placeholder="Variety, spacing, anything worth keeping"></div>
     </div>
+    <div id="ed-guide" data-guide="${(()=>{ const g = guideMatch(e.crop); return g ? g.id : e.crop.trim() ? '?' : ''; })()}">${guideBoxHTML()}</div>
     <datalist id="cc-crops">${crops.map(c=> `<option value="${esc(c)}">`).join('')}</datalist>
     <div class="pn-actions">
       <button class="btn" onclick="saveEditor()">${e.id ? 'Save planting' : 'Add planting'}</button>
@@ -3618,18 +3810,52 @@ function saveEditor(){
   if(e.area !== '' && (isNaN(Number(e.area)) || Number(e.area) < 0)) return flagError(document.getElementById('ed-error'), 'Area must be a number of square metres.');
   const u = unitOf(f, e.unit);
   const block = u.blocks.some(b=> b.id === e.block) ? e.block : '';
+  // A crop the guide knows, with its date, is planned from the guide.
+  const g = guideMatch(e.crop);
+  let plan = null, planned = null;
+  if(g){
+    e.crop = g.name;     // one spelling, so every farm's crop adds up together
+    e.sown = val('ed-sown'); e.moved = g.tree ? '' : val('ed-moved'); e.plants = val('ed-plants');
+    if(e.plants !== '' && !(Number(e.plants) > 0)) return flagError(document.getElementById('ed-error'), `The number of ${g.tree ? 'trees' : 'plants'} must be a whole number above nought.`);
+    if(e.sown){
+      planned = planFromGuide(g, e);
+      if(planned.error) return flagError(document.getElementById('ed-error'), planned.error);
+      plan = {guide:g.id, sown:e.sown, moved:e.moved || '', plants:Number(e.plants) || 0};
+    }
+  }
+  const planText = ()=>{
+    const when = `harvest ${dayText(planned.firstH, planned.firstH.getFullYear() !== planned.lastH.getFullYear())} – ${dayText(planned.lastH, true)}`;
+    const kg = planned.plants ? `, ${fmt(planned.total)} kg` : ' — add the number of plants to work out its kilograms';
+    const off = Object.keys(planned.cells).some(k=> !farmWindow(f).some(mo=> mo.keys.includes(k)))
+      ? ' Some of its weeks fall outside the three years on screen; move the calendar on to see them.' : '';
+    return `${g.tree ? '' : `sown ${dayText(planned.sown, false)}, into the greenhouse ${dayText(planned.moved, false)}, `}${when}${kg}.${off}`;
+  };
   if(e.id){
     const r = f.rows.find(x=> x.id === e.id);
+    const same = r.plan && plan && r.plan.guide === plan.guide && r.plan.sown === plan.sown && r.plan.moved === plan.moved && r.plan.plants === plan.plants;
+    if(plan && !same){
+      const n = Object.keys(r.cells).length;
+      if(n && !confirm(`Plan ${e.crop} again from the crop guide? Its ${n} coloured week${n===1?'':'s'} will be replaced by the new plan.`)) return;
+      r.cells = planned.cells;
+    }
     Object.assign(r, {unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes});
-    state.calMsg = `${CHECK_ICON} ${esc(e.crop)} saved.`;
+    if(plan) r.plan = plan; else delete r.plan;
+    state.calMsg = plan && !same ? `${CHECK_ICON} ${esc(e.crop)} planned again: ${planText()}` : `${CHECK_ICON} ${esc(e.crop)} saved.`;
+    if(plan && !same) showPlanStart(f, plan.sown);
     state.editRow = null;
   } else {
-    const r = {id:uid('r'), unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes, cells:{}};
+    const r = {id:uid('r'), unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes, cells: plan ? planned.cells : {}};
+    if(plan) r.plan = plan;
     f.rows.push(r);
     state.editRow = null;
-    // The next thing a new planting needs is its weeks.
-    openFillState(f, r);
-    state.calMsg = `${CHECK_ICON} ${esc(e.crop)} added. Now give it its weeks — fill a run below, or pick a stage and colour them on the grid.`;
+    if(plan){
+      showPlanStart(f, plan.sown);
+      state.calMsg = `${CHECK_ICON} ${esc(e.crop)} planned from the crop guide: ${planText()} Click or tap any week to change it.`;
+    } else {
+      // The next thing a new planting needs is its weeks.
+      openFillState(f, r);
+      state.calMsg = `${CHECK_ICON} ${esc(e.crop)} added. Now give it its weeks — fill a run below, or pick a stage and colour them on the grid.`;
+    }
   }
   touch(state.member);
   render();
@@ -3639,7 +3865,7 @@ function duplicateRow(id){
   const copy = JSON.parse(JSON.stringify(r));
   copy.id = uid('r');
   f.rows.splice(f.rows.indexOf(r) + 1, 0, copy);
-  state.editRow = {id:copy.id, unit:copy.unit, block:copy.block, crop:copy.crop, area:copy.area||'', notes:copy.notes};
+  state.editRow = editState(copy);
   state.calMsg = `${CHECK_ICON} Copied ${esc(r.crop)}, weeks and all. Change what differs, or clear its weeks and plan the next cycle.`;
   touch(state.member);
   render();
@@ -3856,6 +4082,192 @@ function removeBlock(unitId, blockId){
   rows.forEach(r=> r.block = '');
   u.blocks = u.blocks.filter(x=> x.id !== blockId);
   touch(state.member); renderKeepingPlace();
+}
+
+/* ============================================================
+   The TIPFA crop guide: a planting planned from its sowing date
+   The per-plant figures are the association's Harvest Ledger (TIPFA Crop
+   Program, per-plant reference, 24-week season). Its weeks are counted from
+   the week the seedlings go into the greenhouse: for each crop it gives the
+   week of the first harvest and what each harvest week gives one plant.
+   The ledger does not cover the nursery or the weeks between transplanting
+   and the first harvest, so those follow standard durations set here per
+   crop. Whatever is planned, every week can still be changed by hand.
+   ============================================================ */
+const GUIDE_WEEKS = 24;
+const CROP_GUIDE = [
+  {id:'cherry-tomato', name:'Cherry tomato', names:['cherry tomato', 'cherry tomatoes'],
+   nursery:4, flower:3, first:11, kind:'weekly', kg:0.3, note:'300 g a plant every week, weeks 11–24'},
+  {id:'capsicum', name:'Capsicum', names:['capsicum', 'capsicum (bell pepper)', 'bell pepper', 'sweet pepper', 'capsicum (sweet pepper)'],
+   nursery:6, flower:3, first:15, kind:'weekly', kg:0.2, note:'200 g a plant every week, weeks 15–24'},
+  {id:'paprika', name:'Paprika', names:['paprika'],
+   nursery:6, flower:3, first:19, kind:'weekly', kg:0.4, note:'400 g a plant every week, weeks 19–24'},
+  {id:'habanero', name:'Habanero (Loleza)', names:['habanero', 'habanero (loleza)', 'habanero pepper', 'loleza'],
+   nursery:6, flower:3, first:14, kind:'weekly', kg:0.15, note:'150 g a plant every week, weeks 14–24'},
+  {id:'sweet-melon', name:'Sweet melon', names:['sweet melon', 'melon', 'sweet melons', 'rock melon', 'muskmelon', 'cantaloupe'],
+   nursery:3, flower:3, first:13, kind:'pulses', every:3, kg:1.5, note:'1.5 kg a plant every 3 weeks from week 13'},
+  {id:'broccoli', name:'Broccoli', names:['broccoli'],
+   nursery:4, flower:0, first:11, kind:'head', kg:0.75, sideWeeks:4, sideKg:0.25, note:'a 750 g head in week 11, then 250 g of side shoots a week for 4 weeks'},
+  {id:'cauliflower', name:'Cauliflower', names:['cauliflower'],
+   nursery:4, flower:0, first:11, kind:'head', kg:1.15, sideWeeks:0, note:'one 1.15 kg head in week 11'},
+  {id:'avocado', name:'Avocado', names:['avocado', 'avocados', 'avocado (mature tree)'],
+   tree:true, kind:'weekly', first:1, kg:1.5, note:'1.5 kg a bearing tree every week, weeks 1–24'},
+];
+function guideFor(id){ return CROP_GUIDE.find(g=> g.id === id) || null; }
+function guideMatch(crop){ const k = cropKey(crop); return k ? CROP_GUIDE.find(g=> g.names.includes(k)) || null : null; }
+
+// What each of the ledger's 24 weeks is, for one plant: the stage, and for a
+// harvest week its kilograms.
+function guideSeason(g){
+  const out = {};
+  const set = (w, s, kg)=>{ if(w >= 1 && w <= GUIDE_WEEKS) out[w] = {s, kg: kg || 0}; };
+  if(g.tree){ for(let w = 1; w <= GUIDE_WEEKS; w++) set(w, 'H', g.kg); return out; }
+  set(1, 'T');
+  const flowering = g.first - (g.flower || 0);
+  for(let w = 2; w < flowering; w++) set(w, 'V');
+  for(let w = flowering; w < g.first; w++) set(w, 'F');
+  if(g.kind === 'weekly') for(let w = g.first; w <= GUIDE_WEEKS; w++) set(w, 'H', g.kg);
+  if(g.kind === 'pulses') for(let w = g.first; w <= GUIDE_WEEKS; w++){
+    const pick = (w - g.first) % g.every === 0;
+    set(w, pick ? 'H' : 'F', pick ? g.kg : 0);      // between pickings the next fruit is setting
+  }
+  if(g.kind === 'head'){ set(g.first, 'H', g.kg); for(let i = 1; i <= g.sideWeeks; i++) set(g.first + i, 'H', g.sideKg); }
+  return out;
+}
+function guidePerPlant(g){ return Object.values(guideSeason(g)).reduce((t, x)=> t + x.kg, 0); }
+
+function parseDay(s){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s || '');
+  if(!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3]);
+  return isNaN(d) ? null : d;
+}
+function addDays(d, n){ const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function keyOfDay(d){ return weekKey(d.getFullYear(), d.getMonth() + 1, weekOfMonth(d)); }
+function dayText(d, withYear){ return d.toLocaleDateString('en-GB', withYear ? {day:'numeric', month:'short', year:'numeric'} : {day:'numeric', month:'short'}); }
+
+/* A planting's weeks from its dates. Each week of the plan lands in the
+   calendar week holding its date; the calendar's fourth week runs from the
+   22nd to the month's end, so now and then two harvests fall in one calendar
+   week — their kilograms are added together, and nothing is lost or counted
+   twice. Where two stages meet in a week the later one shows. */
+const STAGE_ORDER = {L:1, S:2, V:3, T:4, F:5, H:6};
+function planFromGuide(g, p){
+  const sown = parseDay(p.sown);
+  if(!sown) return {error: g.tree ? 'Enter the date the harvest season starts.' : 'Enter the sowing date.'};
+  const moved = g.tree ? sown : (p.moved ? parseDay(p.moved) : addDays(sown, 7 * g.nursery));
+  if(!moved) return {error: 'The date it goes into the greenhouse is not a date.'};
+  if(moved < sown) return {error: 'It cannot go into the greenhouse before it is sown.'};
+  const plants = Number(p.plants) > 0 ? Number(p.plants) : 0;
+  const acc = {};
+  const put = (date, s, kg)=>{
+    const k = keyOfDay(date), cur = acc[k];
+    if(cur && cur.s === 'H' && s === 'H') cur.kg += kg;
+    else if(!cur || STAGE_ORDER[s] > STAGE_ORDER[cur.s]) acc[k] = {s, kg: s === 'H' ? kg : 0};
+  };
+  const marks = {};
+  if(!g.tree){
+    put(addDays(sown, -7), 'L');
+    const nurseryWeeks = Math.max(1, Math.round((moved - sown) / (7 * 864e5)));
+    for(let j = 0; j < nurseryWeeks; j++) put(addDays(sown, 7 * j), 'S');
+    marks.land = addDays(sown, -7); marks.nursery = [sown, addDays(sown, 7 * nurseryWeeks - 1)];
+  }
+  const season = guideSeason(g);
+  let firstH = null, lastH = null, flowerFrom = null, hWeeks = 0;
+  for(let w = 1; w <= GUIDE_WEEKS; w++){
+    const x = season[w];
+    if(!x) continue;
+    const d = addDays(moved, 7 * (w - 1));
+    put(d, x.s, x.kg);
+    if(x.s === 'H'){ if(!firstH) firstH = d; lastH = d; hWeeks++; }
+    if(x.s === 'F' && !flowerFrom && !firstH) flowerFrom = d;
+  }
+  const cells = {};
+  Object.entries(acc).forEach(([k, v])=>{
+    cells[k] = v.s === 'H' ? writeCell('H', plants ? Math.round(v.kg * plants * 10) / 10 : null) : writeCell(v.s);
+  });
+  const perPlant = guidePerPlant(g);
+  return {cells, sown, moved, plants, firstH, lastH: addDays(lastH, 6), flowerFrom, hWeeks, perPlant,
+          total: Math.round(perPlant * plants * 10) / 10, marks};
+}
+
+/* ---- In the planting editor ----------------------------------------- */
+function guideBoxHTML(){
+  const e = state.editRow, g = guideMatch(e.crop);
+  if(!g){
+    const chips = CROP_GUIDE.map(x=> `<button type="button" class="gb-chip" onclick="pickGuideCrop('${x.id}')">${esc(x.name)}</button>`).join('');
+    return e.crop.trim()
+      ? `<p class="helper gb-none">The crop guide has no figures for <strong>${esc(e.crop.trim())}</strong>, so colour its weeks yourself once it is added.
+           The guide covers: ${CROP_GUIDE.map(x=> esc(x.name)).join(', ')}.</p>`
+      : `<div class="gb-pick"><span class="helper" style="margin:0;">Planned for you from the sowing date:</span> ${chips}</div>`;
+  }
+  const tree = !!g.tree;
+  return `<div class="gb">
+    <div class="gb-head">${icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${tree ? 'date the harvest season starts' : 'sowing date'} and the weeks fill themselves in</span></div>
+    <div class="gb-fields">
+      <div><label class="f" for="ed-sown">${tree ? 'Harvest season starts' : 'Sowing date'}</label>
+        <input id="ed-sown" type="date" value="${esc(e.sown)}" oninput="state.editRow.sown=this.value;guidePreviewUpdate()"></div>
+      ${tree ? '' : `<div><label class="f" for="ed-moved">Into the greenhouse <span class="opt">optional</span></label>
+        <input id="ed-moved" type="date" value="${esc(e.moved)}" oninput="state.editRow.moved=this.value;guidePreviewUpdate()"></div>`}
+      <div><label class="f" for="ed-plants">Number of ${tree ? 'trees' : 'plants'}</label>
+        <input id="ed-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(e.plants)}" placeholder="e.g. ${tree ? '40' : '1000'}"
+          oninput="state.editRow.plants=this.value;guidePreviewUpdate()"></div>
+    </div>
+    <div id="ed-plan-preview">${guidePreviewHTML(g)}</div>
+  </div>`;
+}
+function guidePreviewHTML(g){
+  const e = state.editRow;
+  if(!e.sown) return `<p class="helper gb-hint">${g.tree ? 'A bearing tree' : esc(g.name)}: ${esc(g.note)}${g.tree ? '' : `, counted from the week it goes into the greenhouse — about ${g.nursery} weeks after sowing unless you give that date`}.</p>`;
+  const p = planFromGuide(g, e);
+  if(p.error) return `<p class="helper gb-hint" style="color:var(--red);">${esc(p.error)}</p>`;
+  const sw = s=> `<span class="sw" style="background:${STAGE[s].color}"></span>`;
+  const y = (a, b)=> a.getFullYear() !== b.getFullYear();
+  const span = (a, b)=> `${dayText(a, y(a, b))} – ${dayText(b, true)}`;
+  const lines = [];
+  if(!g.tree){
+    lines.push([sw('L'), 'Land preparation', `week of ${dayText(p.marks.land, true)}`]);
+    lines.push([sw('S'), 'Sowing / nursery', span(p.marks.nursery[0], p.marks.nursery[1])]);
+    lines.push([sw('T'), 'Into the greenhouse', dayText(p.moved, true)]);
+    if(p.flowerFrom) lines.push([sw('F'), 'Flowering / fruit set', `from ${dayText(p.flowerFrom, true)}`]);
+  }
+  lines.push([sw('H'), 'Harvest', `${span(p.firstH, p.lastH)} · ${esc(g.note)}`]);
+  const kgPer = `${fmt(Math.round(p.perPlant * 100) / 100)} kg a ${g.tree ? 'tree' : 'plant'}`;
+  const total = p.plants ? `<strong>${fmt(p.total)} kg</strong> planned — ${fmt(p.plants)} ${g.tree ? 'trees' : 'plants'} × ${kgPer}`
+    : `${kgPer} — enter the number of ${g.tree ? 'trees' : 'plants'} to work out the kilograms`;
+  return `<ul class="gb-plan">${lines.map(([s, name, when])=> `<li>${s}<span class="gp-n">${name}</span><span class="gp-w">${when}</span></li>`).join('')}</ul>
+    <p class="gb-total">${total}</p>`;
+}
+function guideBoxUpdate(){
+  const box = document.getElementById('ed-guide');
+  if(!box) return;
+  const g = guideMatch(state.editRow.crop);
+  // Typing the rest of a name that already matched changes nothing on screen.
+  if(box.dataset.guide === (g ? g.id : state.editRow.crop.trim() ? '?' : '')) return;
+  box.dataset.guide = g ? g.id : state.editRow.crop.trim() ? '?' : '';
+  box.innerHTML = guideBoxHTML();
+}
+function guidePreviewUpdate(){
+  const el = document.getElementById('ed-plan-preview'), g = guideMatch(state.editRow.crop);
+  if(el && g) el.innerHTML = guidePreviewHTML(g);
+}
+function pickGuideCrop(id){
+  const g = guideFor(id), input = document.getElementById('ed-crop');
+  state.editRow.crop = g.name;
+  if(input) input.value = g.name;
+  guideBoxUpdate();
+  const next = document.getElementById('ed-sown');
+  if(next) next.focus();
+}
+// The month a plan starts in, so the calendar can be turned to it.
+function showPlanStart(f, sown){
+  const d = parseDay(sown);
+  if(!d) return false;
+  const idx = (d.getFullYear() - f.startYear) * 12 + d.getMonth();
+  if(idx < 0 || idx >= WINDOW_MONTHS) return false;
+  const n = viewSpan();
+  state.spanAt = n >= WINDOW_MONTHS ? 0 : Math.floor(idx / n) * n;
+  return true;
 }
 
 /* ============================================================
@@ -4312,7 +4724,7 @@ function renderCalendarsAdmin(c){
       <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn small ghost" onclick="state.viewFarm=null;state.scroll=null;render();">&larr; All crop calendars</button>
         <span style="flex:1"></span>
-        ${windowControl('Calendar years', 'shiftAdminYear')}
+        ${viewNavHTML(spanMonths(months), 'shiftAdminYear')}
         <button class="btn small gold" onclick="exportFarmExcelWindow('${esc(id)}')">${icon('down')} Export to Excel</button>
       </div>
       <div class="farm-head">
@@ -4331,7 +4743,7 @@ function renderCalendarsAdmin(c){
         <div class="metric"><div class="lbl">Planned harvest</div><div class="val" style="color:var(--leaf-green);"><span data-count="${Math.round(fig.total)}">0</span><span style="font-size:14px;color:var(--muted);"> kg</span></div></div>
         <div class="metric"><div class="lbl">Busiest month</div><div class="val" style="font-size:20px;">${esc(fig.peak)}</div></div>
       </div>
-      ${f.rows.length ? `<div class="card cc-card">${gridHTML(f, months, {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
+      ${f.rows.length ? `<div class="card cc-card">${gridHTML(f, spanMonths(months), {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
         : emptyState('Nothing planned yet', `${esc(f.name)} has not added a planting to its calendar.`)}`;
     bindTooltips(c.querySelector('.cc-grid'), f);
     return;
@@ -4378,12 +4790,7 @@ function renderCalendarsAdmin(c){
         <span class="grow"></span>
         <button class="btn small gold" onclick="exportAllExcel()">${icon('down')} Export every farm (Excel)</button>
       </div>
-      ${ass.length ? `<div class="ass-scroll"><table class="ass-table">
-        <thead><tr><th class="stk">Crop</th><th>Farms</th>${months.map(mo=> `<th class="${mo.m===1?'ystart':''}">${MONTH_ABBR[mo.m-1]} ${String(mo.y).slice(2)}</th>`).join('')}<th>Total</th></tr></thead>
-        <tbody>${ass.map(e=> `<tr><td class="stk">${esc(e.crop)}</td><td class="v">${e.farms.size}</td>
-            ${e.per.map(v=> `<td class="v ${v?'':'zero'}">${v ? fmt(v) : '–'}</td>`).join('')}<td class="v"><strong>${fmt(e.total)}</strong></td></tr>`).join('')}
-          <tr class="tot"><th class="stk">All crops</th><td></td>${perMonth.map(v=> `<td class="v">${v ? fmt(v) : '–'}</td>`).join('')}<td class="v">${fmt(total)}</td></tr>
-        </tbody></table></div>`
+      ${ass.length ? associationTable(ass, months, perMonth, total)
       : '<p class="helper" style="margin:0;">No farm has entered harvest kilograms for these years yet.</p>'}
     </div>
 
@@ -4413,6 +4820,31 @@ function renderCalendarsAdmin(c){
     </div>`;
 }
 
+/* The association's crops by month, fitted to the page like the grid: the
+   months are put together in twos, threes, sixes or twelves until every
+   column is wide enough to read, so the table never scrolls sideways. */
+function associationTable(ass, months, perMonth, total){
+  const room = gridRoom() - (isMobile() ? 32 : 48);   // inside the card's padding
+  const fixed = isMobile() ? {crop:96, farms:34, total:62} : {crop:170, farms:56, total:90};
+  const left = room - fixed.crop - fixed.farms - fixed.total;
+  const g = [1, 2, 3, 6, 12].find(n=> left / (months.length / n) >= 50) || 12;
+  const groups = [];
+  for(let i = 0; i < months.length; i += g) groups.push(months.slice(i, i + g));
+  const sum = per=> groups.map((gr, gi)=> per.slice(gi * g, gi * g + gr.length).reduce((a, b)=> a + b, 0));
+  const yy = y=> String(y).slice(2);
+  const label = gr=> gr.length === 12 && gr[0].m === 1 ? String(gr[0].y)
+    : gr.length === 1 ? `${MONTH_ABBR[gr[0].m-1]} ${yy(gr[0].y)}`
+    : `${MONTH_ABBR[gr[0].m-1]}–${MONTH_ABBR[gr[gr.length-1].m-1]} ${yy(gr[gr.length-1].y)}`;
+  const w = left / groups.length;
+  const num = v=> !v ? '–' : w >= 64 ? fmt(v) : kgShort(v);
+  return `<table class="ass-table fit">
+    <colgroup><col style="width:${fixed.crop}px"><col style="width:${fixed.farms}px">${'<col>'.repeat(groups.length)}<col style="width:${fixed.total}px"></colgroup>
+    <thead><tr><th class="stk">Crop</th><th>Farms</th>${groups.map(gr=> `<th class="${gr[0].m===1?'ystart':''}">${label(gr)}</th>`).join('')}<th>Total</th></tr></thead>
+    <tbody>${ass.map(e=> `<tr><td class="stk" title="${esc(e.crop)}">${esc(e.crop)}</td><td class="v">${e.farms.size}</td>
+        ${sum(e.per).map((v, i)=> `<td class="v ${v?'':'zero'}" title="${esc(label(groups[i]))}: ${fmt(v)} kg">${num(v)}</td>`).join('')}<td class="v"><strong>${fixed.total < 80 ? kgShort(e.total) : fmt(e.total)}</strong></td></tr>`).join('')}
+      <tr class="tot"><th class="stk">All crops</th><td></td>${sum(perMonth).map(v=> `<td class="v">${num(v)}</td>`).join('')}<td class="v">${fixed.total < 80 ? kgShort(total) : fmt(total)}</td></tr>
+    </tbody></table>`;
+}
 // The Secretariat exports the years it is looking at, not the farm's own.
 async function exportFarmExcelWindow(id){
   const f = FARMS[id];
