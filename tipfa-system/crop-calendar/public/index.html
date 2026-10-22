@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v5">
+<meta name="tipfa-build" content="v6">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -1592,6 +1592,268 @@ html[data-view="mobile"] .gb-plan .gp-w{grid-column:2;font-size:12px;color:var(-
   cursor:pointer;color:var(--deep-green);flex:none;box-shadow:0 0 0 1px var(--line);}
 .cc-pop .pp-week button:disabled{opacity:.35;cursor:default;}
 .cc-grid td.wk.pp-target{box-shadow:inset 0 0 0 2px var(--harvest-orange), 0 0 0 2px var(--harvest-orange);position:relative;z-index:1;}
+
+/* ============================================================
+   The journey — seed to harvest, across every screen
+   Textures are painted once and never move; what moves is a transform or
+   an opacity on a single element. Everything here is listed again at the
+   end, still, for a reader who has asked for less motion.
+   ============================================================ */
+
+/* ---- Grain: the whole page on fibrous paper, like a field ledger ---- */
+body::before{
+  content:''; position:fixed; inset:0; z-index:3; pointer-events:none; opacity:.42;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .17  0 0 0 0 .2  0 0 0 0 .13  0 0 0 .16 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+/* The masthead woven, like sacking. */
+.topbar{
+  background-image:
+    repeating-linear-gradient(0deg, rgba(239,237,226,.035) 0 1px, transparent 1px 4px),
+    repeating-linear-gradient(90deg, rgba(0,0,0,.05) 0 1px, transparent 1px 4px);
+}
+/* The day's journey along the bottom of the masthead: a horizon, and the
+   sun where it is now. */
+.topbar::after{
+  content:''; position:absolute; left:0; right:0; bottom:0; height:2px; z-index:0; pointer-events:none;
+  background:linear-gradient(90deg, transparent 0, rgba(232,167,52,.15) calc(var(--sun,.5) * 100% - 22%),
+    var(--harvest-orange) calc(var(--sun,.5) * 100%), rgba(232,167,52,.15) calc(var(--sun,.5) * 100% + 22%), transparent 100%);
+}
+.topbar::before{
+  content:''; position:absolute; bottom:-5px; left:calc(var(--sun,.5) * 100% - 6px); width:12px; height:12px; z-index:0;
+  border-radius:50%; background:radial-gradient(circle, #FFE6B0 0 30%, var(--harvest-orange) 55%, rgba(232,167,52,0) 72%);
+  animation:sunGlow 4s var(--ease-in-out) infinite alternate; pointer-events:none;
+}
+@keyframes sunGlow{ from{ transform:scale(.85); opacity:.75; } to{ transform:scale(1.25); opacity:1; } }
+html[data-daypart="night"] .topbar::before{ background:radial-gradient(circle, #F4F2E6 0 28%, rgba(239,237,226,.5) 50%, transparent 72%); }
+
+/* ---- The sky follows the clock ---- */
+html[data-daypart="dawn"]{ --canopy-1:rgba(126,155,63,.34); --canopy-3:rgba(232,167,52,.40); }
+html[data-daypart="dusk"]{ --canopy-2:rgba(64,94,53,.40); --canopy-3:rgba(232,167,52,.44); }
+html[data-daypart="night"]{ --canopy-1:rgba(47,122,130,.30); --canopy-2:rgba(44,68,35,.46); --canopy-3:rgba(232,167,52,.12); }
+
+/* ---- The front door: the season as a path ---- */
+.jpath{margin:6px 0 26px;max-width:440px;color:var(--field-cream);}
+.jpath > svg{width:100%;height:auto;display:block;overflow:visible;}
+.jp-ground{fill:none;stroke:rgba(239,237,226,.18);stroke-width:7;stroke-linecap:round;}
+.jp-trail{fill:none;stroke:var(--harvest-orange);stroke-width:2.2;stroke-linecap:round;stroke-dasharray:2 5;
+  animation:trailMarch 1.6s linear infinite, trailIn 2.2s var(--ease-out) both;}
+@keyframes trailMarch{ to{ stroke-dashoffset:-7; } }
+@keyframes trailIn{ from{ opacity:0; } to{ opacity:1; } }
+.jp-stop{animation:stopIn .7s var(--ease-spring) both;animation-delay:calc(.35s + var(--i) * .28s);transform-box:fill-box;}
+@keyframes stopIn{ from{ opacity:0; } to{ opacity:1; } }
+.jp-dot{fill:#2C4423;stroke:rgba(239,237,226,.55);stroke-width:1.4;}
+.jp-ico{color:var(--harvest-orange);}
+.jp-halo{fill:rgba(232,167,52,.22);opacity:0;transform-box:fill-box;transform-origin:center;
+  animation:haloPulse 11s var(--ease-in-out) infinite;animation-delay:calc(var(--i) * 2.2s + 1s);}
+@keyframes haloPulse{ 0%,100%{ opacity:0; transform:scale(.6); } 6%{ opacity:1; transform:scale(1.25); } 16%{ opacity:0; transform:scale(1.6); } }
+.jp-stop text{fill:rgba(239,237,226,.82);font-family:'Poppins',sans-serif;font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;}
+.jp-walker circle{fill:#FFE6B0;}
+.jp-walker .jp-walker-glow{fill:rgba(232,167,52,.28);}
+html[data-view="mobile"] .jpath{margin:4px 0 0;max-width:360px;}
+
+/* Pollen and husks drifting up through the light. */
+.pollen{position:absolute;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.pollen i{position:absolute;left:var(--x);bottom:-12px;width:calc(6px * var(--s));height:calc(6px * var(--s));border-radius:60% 40% 55% 45%;
+  background:rgba(239,237,226,.5);box-shadow:0 0 8px rgba(232,167,52,.35);
+  animation:drift var(--d) linear infinite;animation-delay:var(--delay);}
+.pollen i:nth-child(3n){background:rgba(232,167,52,.55);}
+.pollen i:nth-child(4n){border-radius:50% 0 50% 0;background:rgba(126,155,63,.6);}
+@keyframes drift{
+  0%  { transform:translate3d(0,0,0) rotate(0); opacity:0; }
+  10% { opacity:1; }
+  50% { transform:translate3d(18px,-50vh,0) rotate(160deg); }
+  90% { opacity:.9; }
+  100%{ transform:translate3d(-12px,-105vh,0) rotate(320deg); opacity:0; }
+}
+
+/* ---- Every page arrives along the path ---- */
+/* …once. The same page drawn again stays where it is. */
+.content.settled .card, .content.settled .metric, .content.settled .section-label, .content.settled .section-label::before,
+.content.settled > h1.page-title, .content.settled > h1.page-title::after,
+.content.settled .grid-table tbody tr, .content.settled .sj li, .content.settled .sj::before{animation:none !important;}
+.content.settled .section-label::before{width:18px;margin-right:9px;}
+.content.is-swapping > h1.page-title{animation:titleIn .8s var(--ease-out) both;}
+@keyframes titleIn{ from{ clip-path:inset(0 100% 0 0); transform:translateY(6px); } to{ clip-path:inset(0 0 0 0); transform:none; } }
+.content > h1.page-title::after{
+  content:''; display:block; height:3px; width:58px; margin-top:7px; border-radius:3px;
+  background:linear-gradient(90deg, var(--harvest-orange), var(--leaf-green) 70%, transparent);
+  transform-origin:left; animation:furrow 1s var(--ease-out) .25s both;
+}
+@keyframes furrow{ from{ transform:scaleX(0); } to{ transform:scaleX(1); } }
+
+/* The section you are in grows a leaf. */
+.tabbtn.active::after{
+  content:''; position:absolute; left:2px; top:4px; width:9px; height:9px; pointer-events:none;
+  background:var(--leaf-green); border-radius:0 80% 0 80%; transform-origin:0 100%;
+  animation:leafSprout .7s var(--ease-spring) .2s both;
+}
+@keyframes leafSprout{ from{ transform:scale(0) rotate(-50deg); } to{ transform:scale(1) rotate(0); } }
+
+/* An empty field waits, swaying. */
+.empty-state .es-mark svg{transform-origin:50% 100%;animation:sway 4.5s var(--ease-in-out) infinite alternate;}
+@keyframes sway{ from{ transform:rotate(-7deg); } to{ transform:rotate(7deg); } }
+
+/* ---- The calendar: stages carry the texture of what is happening ---- */
+.cc-field{position:relative;}
+.cc-grid:not(.dense) td.wk.s-L{background-image:repeating-linear-gradient(135deg, rgba(27,53,80,.16) 0 1.5px, transparent 1.5px 6px);}
+.cc-grid:not(.dense) td.wk.s-S{background-image:radial-gradient(circle at 30% 30%, rgba(74,69,0,.30) 1.1px, transparent 1.8px),
+  radial-gradient(circle at 75% 72%, rgba(74,69,0,.24) 1px, transparent 1.7px);background-size:9px 9px;}
+.cc-grid:not(.dense) td.wk.s-T{background-image:linear-gradient(0deg, rgba(255,255,255,.22) 0 2px, transparent 2px);background-size:100% 7px;}
+.cc-grid:not(.dense) td.wk.s-V{background-image:repeating-linear-gradient(60deg, rgba(255,255,255,.18) 0 1px, transparent 1px 7px),
+  repeating-linear-gradient(-60deg, rgba(255,255,255,.12) 0 1px, transparent 1px 7px);}
+.cc-grid:not(.dense) td.wk.s-F{background-image:radial-gradient(circle, rgba(255,255,255,.34) 1.3px, transparent 2px);background-size:7px 7px;}
+.cc-grid:not(.dense) td.wk.s-H{background-image:linear-gradient(180deg, rgba(255,255,255,.24), transparent 55%),
+  repeating-linear-gradient(90deg, rgba(0,0,0,.09) 0 1px, transparent 1px 5px);}
+.cc-grid:not(.dense) td.wk.s-R{background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.16) 0 2px, transparent 2px 6px);}
+
+/* This week, down the whole field. */
+.cc-today{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;z-index:2;pointer-events:none;
+  background:linear-gradient(180deg, var(--harvest-orange), rgba(232,167,52,.35) 40%, rgba(232,167,52,.6));
+  box-shadow:0 0 10px rgba(232,167,52,.55);animation:todayGlow 2.6s var(--ease-in-out) infinite alternate;}
+@keyframes todayGlow{ from{ opacity:.45; } to{ opacity:1; } }
+
+/* The planting pass: a strip of tilled soil drawn back across the field,
+   a seed drill riding its edge. One element, however big the farm. */
+.cc-sow, .cc-grow{position:absolute;z-index:4;pointer-events:none;bottom:0;transform-origin:100% 50%;
+  background:
+    repeating-linear-gradient(90deg, rgba(168,92,63,.10) 0 2px, transparent 2px 9px),
+    linear-gradient(90deg, #E9E3CF, #F2EEDF);
+  animation:tillBack 1.15s var(--ease-in-out) .1s both;}
+.cc-grow{bottom:auto;animation-duration:1.6s;animation-delay:.25s;}
+@keyframes tillBack{ from{ transform:scaleX(1); } to{ transform:scaleX(0); } }
+.cc-drill{position:absolute;left:-14px;top:50%;width:28px;height:28px;margin-top:-14px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:#fff;background:var(--tipfa-green);
+  box-shadow:0 0 0 4px rgba(126,155,63,.28), 0 6px 14px -4px rgba(35,40,31,.5);
+  animation:drillRide 1.15s var(--ease-in-out) .1s both;}
+.cc-sow .cc-drill{top:26px;}
+.cc-grow .cc-drill{animation-duration:1.6s;animation-delay:.25s;background:var(--leaf-green);}
+/* The cover shrinks toward its right edge; its left edge — where the drill
+   rides — therefore travels the whole width. Same timing, same easing. */
+@keyframes drillRide{ from{ transform:translateX(0); } to{ transform:translateX(var(--w)) scale(.6); opacity:.0; } }
+.cc-sow .cc-drill, .cc-grow .cc-drill{transform-origin:50% 50%;}
+tr.just-planted td.stk{animation:plantedGlow 2s var(--ease-out);}
+@keyframes plantedGlow{ 0%,30%{ background:#EEF4E2; } 100%{ background:#fff; } }
+
+/* A week just coloured lights up, then settles. */
+.cc-grid td.wk.just{animation:cellPop .6s var(--ease-out);}
+@keyframes cellPop{ from{ box-shadow:inset 0 0 0 2px rgba(255,255,255,.95), 0 0 10px 2px rgba(232,167,52,.55); filter:brightness(1.25) saturate(1.2); }
+  to{ box-shadow:inset 0 0 0 0 rgba(255,255,255,0); filter:none; } }
+.cc-grid tfoot td.bump{animation:bump .7s var(--ease-out);}
+@keyframes bump{ from{ color:var(--harvest-orange); text-shadow:0 0 8px rgba(232,167,52,.6); } to{ text-shadow:none; } }
+
+/* ---- A plan, drawn as a ribbon from sowing to harvest ---- */
+.jr{margin:14px 0 4px;}
+.jr-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-bottom:5px;font-weight:500;}
+.jr-ends span{display:inline-flex;align-items:center;gap:5px;}
+.jr-ends svg{color:var(--tipfa-green);}
+.jr-track{position:relative;display:flex;gap:2px;height:16px;border-radius:99px;padding:2px;background:#E7E5D6;
+  box-shadow:inset 0 1px 2px rgba(35,40,31,.12);}
+.jr-seg{display:block;min-width:4px;height:100%;border-radius:3px;transform-origin:0 50%;
+  animation:segGrow .5s var(--ease-out) both;animation-delay:calc(var(--i) * .16s);}
+.jr-seg:first-child{border-radius:99px 3px 3px 99px;} .jr-seg:nth-last-child(2){border-radius:3px 99px 99px 3px;}
+@keyframes segGrow{ from{ transform:scaleX(0); opacity:0; } to{ transform:scaleX(1); opacity:1; } }
+.jr-seg.s-L{background-image:repeating-linear-gradient(135deg, rgba(27,53,80,.18) 0 1.5px, transparent 1.5px 5px);}
+.jr-seg.s-S{background-image:radial-gradient(circle, rgba(74,69,0,.32) 1px, transparent 1.6px);background-size:6px 6px;}
+.jr-seg.s-V{background-image:repeating-linear-gradient(60deg, rgba(255,255,255,.22) 0 1px, transparent 1px 6px);}
+.jr-seg.s-F{background-image:radial-gradient(circle, rgba(255,255,255,.4) 1px, transparent 1.6px);background-size:6px 6px;}
+.jr-seg.s-H{background-image:repeating-linear-gradient(90deg, rgba(0,0,0,.12) 0 1px, transparent 1px 4px);}
+.jr-walker{position:absolute;top:50%;left:0;width:26px;height:26px;margin:-13px 0 0 -13px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;color:#fff;background:var(--tipfa-green);
+  box-shadow:0 0 0 3px #fff, 0 4px 10px -2px rgba(35,40,31,.45);
+  animation:walk 2.4s var(--ease-in-out) .3s both;}
+@keyframes walk{ from{ left:0; } to{ left:100%; } }
+.jr.still .jr-seg, .jr.still .jr-walker{animation:none;}
+.jr.still .jr-walker{left:100%;}
+
+/* ---- A seed germinating ---- */
+.germ{width:96px;height:96px;flex:none;margin:0 auto 6px;}
+.germ svg{width:100%;height:100%;overflow:visible;}
+.g-soil{fill:url(#g-soil-grad);}
+.germ .g-soil-top{fill:none;stroke:#8C6A4C;stroke-width:1.4;opacity:.5;}
+.g-specks circle{fill:#8C6A4C;opacity:.6;}
+.g-seed{fill:#C9A227;stroke:#8A6412;stroke-width:1.2;animation:seedSwell 3.6s var(--ease-in-out) infinite;transform-box:fill-box;transform-origin:center;}
+@keyframes seedSwell{ 0%,100%{ transform:scale(1); } 40%{ transform:scale(1.12,1.04); } }
+.g-root{fill:none;stroke:#F2EEDF;stroke-width:1.6;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;
+  animation:rootGrow 1.6s var(--ease-out) .2s forwards;}
+@keyframes rootGrow{ to{ stroke-dashoffset:0; } }
+.g-stem{fill:none;stroke:var(--leaf-green);stroke-width:3;stroke-linecap:round;stroke-dasharray:1;stroke-dashoffset:1;
+  animation:rootGrow 1.3s var(--ease-out) 1s forwards;}
+.g-leaf{fill:var(--leaf-green);transform-box:fill-box;transform:scale(0);animation:leafOpen .9s var(--ease-spring) 1.9s forwards;}
+.g-leaf.l{transform-origin:100% 100%;} .g-leaf.r{transform-origin:0 100%;fill:var(--tipfa-green);}
+@keyframes leafOpen{ to{ transform:scale(1); } }
+/* Grown: the seedling sways in the air. */
+.g-shoot{transform-box:fill-box;transform-origin:50% 100%;animation:sway 3.8s var(--ease-in-out) 2.8s infinite alternate;}
+/* The loader starts over, again and again. */
+.germ.loop .g-root{animation:rootLoop 3.4s var(--ease-out) infinite;}
+.germ.loop .g-stem{animation:stemLoop 3.4s var(--ease-out) infinite;}
+.germ.loop .g-leaf{animation:leafLoop 3.4s var(--ease-spring) infinite;}
+.germ.loop .g-shoot{animation:none;}
+@keyframes rootLoop{ 0%{ stroke-dashoffset:1; opacity:1; } 40%,88%{ stroke-dashoffset:0; opacity:1; } 100%{ stroke-dashoffset:0; opacity:0; } }
+@keyframes stemLoop{ 0%,22%{ stroke-dashoffset:1; opacity:1; } 58%,88%{ stroke-dashoffset:0; opacity:1; } 100%{ stroke-dashoffset:0; opacity:0; } }
+@keyframes leafLoop{ 0%,48%{ transform:scale(0); opacity:1; } 66%,88%{ transform:scale(1); opacity:1; } 100%{ transform:scale(1); opacity:0; } }
+/* Resting: paused or turned down — the seedling stands still. */
+.germ.resting .g-root, .germ.resting .g-stem{animation:none;stroke-dashoffset:0;}
+.germ.resting .g-leaf{animation:none;transform:scale(1);}
+.germ.resting .g-seed, .germ.resting .g-shoot{animation:none;}
+.germ.resting .g-shoot{filter:grayscale(.6);opacity:.75;}
+.restoring-card .germ{width:110px;height:110px;}
+
+/* ---- Where an account stands: the first steps of the journey ---- */
+.sc-top{display:flex;gap:18px;align-items:center;margin-bottom:6px;}
+.sc-top .germ{margin:0;}
+.sj{list-style:none;margin:6px 0 18px;padding:0;position:relative;}
+.sj::before{content:'';position:absolute;left:13px;top:14px;bottom:14px;width:2px;background:linear-gradient(180deg,var(--leaf-green),#E3E1D3 70%);
+  transform-origin:top;animation:furrow .9s var(--ease-out) .2s both;}
+.sj li{display:flex;gap:12px;align-items:flex-start;padding:7px 0;position:relative;animation:riseIn .5s var(--ease-out) both;}
+.sj li:nth-child(2){animation-delay:.18s;} .sj li:nth-child(3){animation-delay:.36s;}
+.sj-dot{width:28px;height:28px;flex:none;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#EEEDE3;border:2px solid #DAD8C8;color:#fff;position:relative;z-index:1;}
+.sj-dot svg{width:15px;height:15px;}
+.sj li.done .sj-dot{background:var(--leaf-green);border-color:var(--leaf-green);}
+.sj li.now .sj-dot{background:var(--harvest-orange);border-color:var(--harvest-orange);animation:softPulse 1.8s infinite;}
+.sj li.halt .sj-dot{background:#C9C2AE;border-color:#C9C2AE;}
+.sj li.stop .sj-dot{background:var(--red);border-color:var(--red);}
+.sj-t{font-family:'Poppins',sans-serif;font-weight:600;font-size:13.5px;color:var(--deep-green);padding-top:4px;}
+.sj-t small{display:block;font-family:'Inter',sans-serif;font-weight:400;font-size:12px;color:var(--muted);margin-top:1px;}
+
+/* ---- A decision stamped on a waiting card ---- */
+.wait-card{position:relative;overflow:hidden;}
+.wait-card.stamp-ok::after, .wait-card.stamp-no::after{
+  position:absolute;right:14px;top:16px;padding:5px 12px;border:3px solid;border-radius:8px;
+  font-family:'Poppins',sans-serif;font-weight:700;font-size:15px;letter-spacing:.12em;text-transform:uppercase;
+  animation:stamp .45s var(--ease-spring) both;}
+.wait-card.stamp-ok::after{content:'Approved';color:var(--tipfa-green);border-color:var(--tipfa-green);background:rgba(238,244,226,.92);}
+.wait-card.stamp-no::after{content:'Turned down';color:var(--red);border-color:var(--red);background:rgba(251,238,234,.92);}
+@keyframes stamp{ from{ transform:scale(2.2) rotate(-14deg); opacity:0; } 60%{ transform:scale(.92) rotate(-8deg); opacity:1; } to{ transform:scale(1) rotate(-8deg); } }
+
+/* ---- The association's harvest, as baskets filling ---- */
+.ass-table td.v.bar{position:relative;}
+.ass-table td.v.bar::before{content:'';position:absolute;left:4px;right:4px;bottom:3px;height:3px;border-radius:2px;
+  background:linear-gradient(90deg, var(--leaf-green), var(--harvest-orange));transform-origin:0 50%;
+  transform:scaleX(var(--f));animation:barFill 1.1s var(--ease-out) .3s both;opacity:.85;}
+@keyframes barFill{ from{ transform:scaleX(0); } }
+
+/* ---- Leaves flying ---- */
+.leafburst{position:fixed;z-index:200;width:0;height:0;pointer-events:none;}
+.leafburst i{position:absolute;left:-5px;top:-5px;width:11px;height:11px;background:var(--c);border-radius:0 80% 0 80%;
+  animation:fly var(--t) cubic-bezier(.15,.75,.35,1) both;}
+@keyframes fly{
+  0%  { transform:translate(0,0) rotate(0) scale(.4); opacity:1; }
+  70% { opacity:1; }
+  100%{ transform:translate(var(--tx),calc(var(--ty) + 60px)) rotate(var(--r)) scale(1); opacity:0; }
+}
+
+/* ---- Still, for a reader who has asked for less motion ---- */
+@media (prefers-reduced-motion: reduce){
+  .topbar::before, .jp-trail, .jp-stop, .jp-halo, .pollen, .content.is-swapping > h1.page-title, .content > h1.page-title::after,
+  .tabbtn.active::after, .empty-state .es-mark svg, .cc-today, .cc-grid td.wk.just, .cc-grid tfoot td.bump, .jr-seg, .jr-walker,
+  .g-seed, .g-root, .g-stem, .g-leaf, .sj::before, .sj li, .sj li.now .sj-dot, .wait-card::after, .ass-table td.v.bar::before{animation:none !important;}
+  .pollen{display:none;}
+  .jr-walker{left:100%;}
+  .g-root, .g-stem{stroke-dashoffset:0;}
+  .g-leaf{transform:scale(1);}
+  .g-shoot{animation:none !important;}
+}
 </style>
 </head>
 <body>
@@ -2303,11 +2565,11 @@ function staggerIn(container, selector){
     if(i < 8) n.classList.add('reveal-'+(i+1));
   });
 }
-function animateCounters(container){
+function animateCounters(container, instant){
   container.querySelectorAll('[data-count]').forEach(el=>{
     const target = Number(el.getAttribute('data-count'))||0;
     const suffix = el.getAttribute('data-suffix')||'';
-    if(REDUCED_MOTION || !target){ el.textContent = fmt(target)+suffix; return; }
+    if(REDUCED_MOTION || instant || !target){ el.textContent = fmt(target)+suffix; return; }
     const dur = 900, start = performance.now();
     function tick(now){
       const p = Math.min(1,(now-start)/dur);
@@ -2386,6 +2648,7 @@ function toggleAdminSignup(on){ state.adminSignup = on; state.regMsg = ''; rende
 function showForgot(which){ state.forgot = which; render(); }
 
 function renderLogin(){
+  afterRender.page = null;            // whoever signs in next arrives
   const box = document.getElementById('loginScreen');
   const isMember = state.loginTab === 'member';
   const cloud = cloudOn();
@@ -2398,12 +2661,14 @@ function renderLogin(){
         <div class="arcfield" aria-hidden="true">
           <div class="arc arc--green-1"></div><div class="arc arc--green-2"></div><div class="arc arc--green-3"></div>
         </div>
+        ${pollenHTML(18)}
         <img class="lb-logo" src="assets/brand/tipfa-logo-reversed.png"
              alt="TIPFA — Tanzania Indoor &amp; Professional Farmers Association">
         <div class="eyebrow">Crop calendar &middot; ${new Date().getFullYear()} &middot; ${esc(BUILD)}</div>
         <h2>Farming together.<br>Harvesting excellence.</h2>
         <p class="strap">One association. One quality standard. One coordinated crop calendar.
           <em>Tanzania Indoor &amp; Professional Farmers Association</em></p>
+        ${journeyPathHTML()}
         <div class="values">
           ${BRAND_VALUES.map((v,i)=>`
             <div class="value reveal reveal-${i+3}">${v.icon}
@@ -2435,6 +2700,7 @@ function renderLogin(){
 function connectionPane(){
   const waiting = CLOUD.status === 'connecting';
   return `<div class="card restoring-card" style="text-align:left;">
+    ${waiting ? germinateHTML('loop') : ''}
     <h2 style="margin-top:0;">${waiting ? 'Connecting to the crop calendar…' : 'The crop calendar cannot be reached'}</h2>
     <p class="helper">${waiting ? 'One moment.'
       : 'Check that this phone or computer is online, then try again. Nothing has been lost — calendars are kept in the system, not on this device.'}</p>
@@ -2752,6 +3018,7 @@ function onStatusChanged(){
   if(!state.loggedIn) return;
   const ok = isApproved();
   if(ok && state.tab === 'status'){
+    state.celebrate = true;           // let in: the leaves fly
     state.tab = state.role === 'member' ? 'calendar' : 'calendarsA';
     if(state.role === 'member') state.calMsg = `${CHECK_ICON} Your farm has been approved. Welcome — your crop calendar is ready.`;
   }
@@ -2972,7 +3239,7 @@ function renderRestoring(){
   document.getElementById('loginScreen').style.display = 'block';
   document.getElementById('appScreen').style.display = 'none';
   document.getElementById('loginScreen').innerHTML = `<div class="card restoring-card">
-    <div class="es-mark" aria-hidden="true">${icon('refresh')}</div>
+    ${germinateHTML('loop')}
     <h2>Signing you back in</h2><p class="helper">This browser is already signed in — fetching your calendar.</p></div>`;
 }
 
@@ -3046,11 +3313,18 @@ function renderKeepingPlace(){
   window.scrollTo(0, y);
   requestAnimationFrame(()=> window.scrollTo(0, y));
 }
+// Arriving somewhere — another page, another farm, just signed in — plays the
+// way in. Drawing the same page again (a planting saved, a week coloured, a
+// live update) does not: the page stays put and only what changed moves.
 function afterRender(c){
-  c.classList.remove('is-swapping'); void c.offsetWidth; c.classList.add('is-swapping');
-  staggerIn(c);
-  animateCounters(c);
+  const page = [state.role, state.tab, state.viewFarm || '', state.member || ''].join('|');
+  const arriving = page !== afterRender.page;
+  afterRender.page = page;
+  c.classList.toggle('settled', !arriving);
+  if(arriving){ c.classList.remove('is-swapping'); void c.offsetWidth; c.classList.add('is-swapping'); staggerIn(c); }
+  animateCounters(c, !arriving);
   restoreGridScroll(c);
+  journeyAfterRender(c);
 }
 function renderTabContent(c){
   if(!isApproved()) return renderAccountStatus(c);
@@ -3443,8 +3717,11 @@ function gridHTML(f, months, opts){
   gridView = {months, L};
   const colgroup = `<colgroup><col style="width:${L.pin}px">${`<col style="width:${L.weekW}px">`.repeat(nW)}</colgroup>`;
   const cls = 'cc-grid fit' + (ro ? ' readonly' : '') + (L.weekW < 9 ? ' dense' : '') + (L.weekW < 4 ? ' tiny' : '');
-  return `<div class="cc-scroll" data-key="${esc(opts.key || (state.member + ':' + f.startYear))}">
-    <table class="${cls}" style="width:${L.room}px">${colgroup}${head}<tbody>${body}</tbody>${footHTML(f, gridView)}</table></div>`;
+  // This week, marked down the whole field.
+  const nowCi = keys.indexOf(now);
+  const today = nowCi < 0 ? '' : `<div class="cc-today" style="left:${(L.pin + (nowCi + 0.5) * L.weekW).toFixed(1)}px" aria-hidden="true"></div>`;
+  return `<div class="cc-scroll" data-key="${esc(opts.key || (state.member + ':' + f.startYear))}"><div class="cc-field" style="width:${L.room}px">
+    <table class="${cls}" style="width:${L.room}px">${colgroup}${head}<tbody>${body}</tbody>${footHTML(f, gridView)}</table>${today}</div></div>`;
 }
 // The template's two blocks of totals, under the plantings — by month when
 // they fit, otherwise by two, three, six or twelve months together.
@@ -3494,13 +3771,14 @@ function refreshAfterEdit(f, rowIds){
   const table = document.querySelector('.cc-grid:not(.readonly)');
   if(!table || !gridView){ render(); return; }
   const showKg = gridView.L.kg;
+  let popped = false;
   rowIds.forEach(id=>{
     const r = f.rows.find(x=> x.id === id), ri = gridOrder.indexOf(id);
     if(!r || ri < 0) return;
     table.querySelectorAll(`td.wk[data-ri="${ri}"]`).forEach(td=>{
       const cell = readCell(r.cells[gridKeys[+td.dataset.ci]]);
-      const cls = td.className.replace(/ s-\w/, '') + (cell ? ' s-' + cell.s : '');
-      if(td.className !== cls) td.className = cls;
+      const cls = td.className.replace(/ s-\w/, '').replace(' just', '') + (cell ? ' s-' + cell.s : '');
+      if(td.className !== cls){ td.className = cls + (cell ? ' just' : ''); popped = true; }
       const txt = showKg && cell && cell.s === 'H' ? kgShort(cell.kg) : '';
       if(td.textContent !== txt) td.textContent = txt;
       td.removeAttribute('title'); td.style.background = ''; td.style.color = '';
@@ -3515,11 +3793,13 @@ function refreshAfterEdit(f, rowIds){
     const oldCells = foot.querySelectorAll('th, td'), newCells = nf.querySelectorAll('th, td');
     if(oldCells.length === newCells.length){
       newCells.forEach((n, i)=>{ const o = oldCells[i];
-        if(o.innerHTML !== n.innerHTML) o.innerHTML = n.innerHTML;
+        if(o.innerHTML !== n.innerHTML){ o.innerHTML = n.innerHTML; if(o.tagName === 'TD' && !REDUCED_MOTION){ o.classList.remove('bump'); void o.offsetWidth; o.classList.add('bump'); } }
         if(o.className !== n.className) o.className = n.className;
         if(o.title !== n.title) o.title = n.title; });
     } else { foot.replaceWith(nf); sizeGrid(table.closest('.cc-scroll')); }
   }
+  // Weeks just coloured light up for a moment, then settle.
+  if(popped){ clearTimeout(refreshAfterEdit.t); refreshAfterEdit.t = setTimeout(()=> table.querySelectorAll('td.wk.just').forEach(td=> td.classList.remove('just')), 650); }
   const fig = farmFigures(f, farmWindow(f));
   const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.textContent = v; };
   set('m-plantings', fmt(fig.plantings)); set('m-area', fmt(Math.round(fig.area)));
@@ -3850,7 +4130,7 @@ function saveEditor(){
     Object.assign(r, {unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes});
     if(plan) r.plan = plan; else delete r.plan;
     state.calMsg = plan && !same ? `${CHECK_ICON} ${esc(e.crop)} planned again: ${planText()}` : `${CHECK_ICON} ${esc(e.crop)} saved.`;
-    if(plan && !same) showPlanStart(f, plan.sown);
+    if(plan && !same){ showPlanStart(f, plan.sown); state.growRow = r.id; }
     state.editRow = null;
   } else {
     const r = {id:uid('r'), unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes, cells: plan ? planned.cells : {}};
@@ -3859,6 +4139,7 @@ function saveEditor(){
     state.editRow = null;
     if(plan){
       showPlanStart(f, plan.sown);
+      state.growRow = r.id;
       state.calMsg = `${CHECK_ICON} ${esc(e.crop)} planned from the crop guide: ${planText()} Click or tap any week to change it.`;
     } else {
       // The next thing a new planting needs is its weeks.
@@ -4353,7 +4634,7 @@ function guidePreviewHTML(g){
     ? `<strong>${fmt(p.total)} kg</strong> planned — ${fmt(p.plants)} ${unit}s × ${kgA} kg a ${unit}`
     : p.perPlant != null ? `${kgA} kg a ${unit} — enter the number of ${unit}s to work out the kilograms`
     : `Harvest weeks are marked without kilograms — give the expected kg a ${unit}${p.plants ? '' : ` and the number of ${unit}s`} to work them out`;
-  return `<ul class="gb-plan">${lines.map(([s, name, when])=> `<li>${s}<span class="gp-n">${name}</span><span class="gp-w">${when}</span></li>`).join('')}</ul>
+  return `${planRibbonHTML(g, p)}<ul class="gb-plan">${lines.map(([s, name, when])=> `<li>${s}<span class="gp-n">${name}</span><span class="gp-w">${when}</span></li>`).join('')}</ul>
     <p class="gb-total">${total}</p>
     <p class="helper gb-src">${esc(guideSourceText(g))}</p>`;
 }
@@ -4956,11 +5237,14 @@ function associationTable(ass, months, perMonth, total){
     : `${MONTH_ABBR[gr[0].m-1]}–${MONTH_ABBR[gr[gr.length-1].m-1]} ${yy(gr[gr.length-1].y)}`;
   const w = left / groups.length;
   const num = v=> !v ? '–' : w >= 64 ? fmt(v) : kgShort(v);
+  // Each figure sits on a bar filled to its share of the busiest period.
+  const top = Math.max(1, ...ass.flatMap(e=> sum(e.per)));
+  const bar = v=> v ? ` bar" style="--f:${(v / top).toFixed(3)}` : '';
   return `<table class="ass-table fit">
     <colgroup><col style="width:${fixed.crop}px"><col style="width:${fixed.farms}px">${'<col>'.repeat(groups.length)}<col style="width:${fixed.total}px"></colgroup>
     <thead><tr><th class="stk">Crop</th><th>Farms</th>${groups.map(gr=> `<th class="${gr[0].m===1?'ystart':''}">${label(gr)}</th>`).join('')}<th>Total</th></tr></thead>
     <tbody>${ass.map(e=> `<tr><td class="stk" title="${esc(e.crop)}">${esc(e.crop)}</td><td class="v">${e.farms.size}</td>
-        ${sum(e.per).map((v, i)=> `<td class="v ${v?'':'zero'}" title="${esc(label(groups[i]))}: ${fmt(v)} kg">${num(v)}</td>`).join('')}<td class="v"><strong>${fixed.total < 80 ? kgShort(e.total) : fmt(e.total)}</strong></td></tr>`).join('')}
+        ${sum(e.per).map((v, i)=> `<td class="v ${v?'':'zero'}${bar(v)}" title="${esc(label(groups[i]))}: ${fmt(v)} kg">${num(v)}</td>`).join('')}<td class="v"><strong>${fixed.total < 80 ? kgShort(e.total) : fmt(e.total)}</strong></td></tr>`).join('')}
       <tr class="tot"><th class="stk">All crops</th><td></td>${sum(perMonth).map(v=> `<td class="v">${num(v)}</td>`).join('')}<td class="v">${fixed.total < 80 ? kgShort(total) : fmt(total)}</td></tr>
     </tbody></table>`;
 }
@@ -5084,10 +5368,11 @@ function renderAccountStatus(c){
     <h1 class="page-title">Account status</h1>
     <p class="page-sub">${esc(who)}</p>
     <div class="card status-card">
-      <div class="es-mark" aria-hidden="true">${icon(s === 'pending' ? 'today' : 'leaf')}</div>
-      <div style="margin:4px 0 12px;">${statusPill(s)}</div>
-      <h2>${copy[0]}</h2>
+      <div class="sc-top">${germinateHTML(s === 'pending' ? '' : 'resting')}
+        <div><div style="margin:4px 0 12px;">${statusPill(s)}</div>
+        <h2>${copy[0]}</h2></div></div>
       <p>${copy[1]}</p>
+      ${statusJourneyHTML(s, member ? (whenText(f.registered) || f.registered || '') : '')}
       ${member ? `<dl class="status-facts">
           <dt>Farm</dt><dd>${esc(f.name)}</dd>
           ${f.contact ? `<dt>Contact</dt><dd>${esc(f.contact)}</dd>` : ''}
@@ -5119,6 +5404,13 @@ async function decide(kind, id, status, btn){
     else if(cloudOn()) OPERATORS[id] = Object.assign({}, OPERATORS[id], stamp);
     else Object.values(ACCOUNTS).forEach(a=>{ if(a.id === id) Object.assign(a, stamp); });
     saveLocal();
+    // A waiting card is stamped with the decision before it leaves the list.
+    const card = btn && btn.closest('.wait-card');
+    if(card && !REDUCED_MOTION && (status === 'approved' || status === 'rejected')){
+      card.classList.add(status === 'approved' ? 'stamp-ok' : 'stamp-no');
+      if(status === 'approved') burstAt(card, 16);
+      await new Promise(r=> setTimeout(r, 520));
+    }
     const verb = {approved:'approved', rejected:'turned down', suspended:'suspended'}[status];
     state.memberMsg = `${CHECK_ICON} ${esc(subject)} ${verb}.`;
     renderKeepingPlace();
@@ -5220,12 +5512,214 @@ function renderMembers(c){
 }
 
 /* ============================================================
+   The journey
+   A season — sown, sprouted, transplanted, in bloom, harvested — runs
+   through every screen: the path at the front door, the seed that
+   germinates while an account waits, the planting pass that sweeps the
+   calendar open, the ribbon a plan is drawn on, and the leaves that fly
+   when something is let in or planted. The sky behind it all follows the
+   time of day.
+
+   All of it is decoration over the same pages. Nothing here holds data or
+   takes a click, every moving part is a transform or an opacity on one
+   element (never thousands of calendar cells), and for a reader who has
+   asked for less motion it is drawn already finished.
+   ============================================================ */
+const J_PATHS = {
+  soil:   '<path d="M3 16h18"/><path d="M6 19.5h12"/><path d="M8 12.5c1.4-1.3 2.6-1.3 4 0s2.6 1.3 4 0"/>',
+  seed:   '<path d="M12 4c3 2.8 4.5 5.7 4.5 8.6a4.5 4.5 0 0 1-9 0C7.5 9.7 9 6.8 12 4z"/><path d="M12 9v6"/>',
+  sprout: '<path d="M12 21v-9"/><path d="M12 12C12 8 9.5 6 5.5 6c0 4 2.5 6 6.5 6z"/><path d="M12 14.5c0-3.2 2.2-5 5.8-5 0 3.2-2.2 5-5.8 5z"/>',
+  plant:  '<path d="M7 21h10l-1.3-5.5H8.3z"/><path d="M12 15.5V9.5"/><path d="M12 9.5c0-3-2-5-5-5 0 3 2 5 5 5z"/><path d="M12 11.5c0-2.6 1.9-4.2 4.6-4.2 0 2.6-1.9 4.2-4.6 4.2z"/>',
+  bloom:  '<circle cx="12" cy="8" r="2"/><path d="M12 6c-.6-2.2.2-3.6 1.6-3.6S15.6 4 14 6.3"/><path d="M13.9 8.3c2.1-.8 3.6-.1 3.7 1.3s-1.5 2.2-3.8.9"/><path d="M12 10c.6 2.2-.2 3.6-1.6 3.6S8.4 12 10 9.7"/><path d="M10.1 7.7C8 8.5 6.5 7.8 6.4 6.4S7.9 4.2 10.2 5.5"/><path d="M12 13v8"/><path d="M12 18c-1.6-1.8-3.4-2.2-5-1.6"/>',
+  basket: '<path d="M3.5 10.5h17l-1.8 9H5.3z"/><path d="M8 10.5 12 4l4 6.5"/><path d="M8.5 13.5v3M12 13.5v3M15.5 13.5v3"/>',
+};
+function jIcon(name, size){
+  return `<svg width="${size||18}" height="${size||18}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${J_PATHS[name]}</svg>`;
+}
+
+/* ---- The sky: dawn, day, dusk or night, from this device's clock ---- */
+function journeySky(){
+  const d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+  const part = h >= 5 && h < 8 ? 'dawn' : h >= 8 && h < 17 ? 'day' : h >= 17 && h < 19.5 ? 'dusk' : 'night';
+  const root = document.documentElement;
+  if(root.getAttribute('data-daypart') !== part) root.setAttribute('data-daypart', part);
+  // How far through the daylight we are, for the sun on the horizon line.
+  root.style.setProperty('--sun', Math.max(0, Math.min(1, (h - 6) / 12)).toFixed(3));
+}
+journeySky();
+setInterval(journeySky, 5 * 60 * 1000);
+
+/* ---- The front door: the season as a path ----------------------------- */
+const J_STOPS = [
+  {x:22,  y:128, icon:'seed',   label:'Sow'},
+  {x:118, y:94,  icon:'sprout', label:'Sprout'},
+  {x:214, y:70,  icon:'plant',  label:'Transplant'},
+  {x:310, y:92,  icon:'bloom',  label:'Bloom'},
+  {x:398, y:40,  icon:'basket', label:'Harvest'},
+];
+function journeyPathHTML(){
+  const d = 'M22,128 C62,128 74,94 118,94 S170,66 214,70 S270,106 310,92 S370,40 398,40';
+  return `<div class="jpath" aria-hidden="true">
+    <svg viewBox="0 0 420 160" preserveAspectRatio="xMidYMid meet">
+      <path class="jp-ground" d="${d}"/>
+      <path class="jp-trail" id="jp-trail" d="${d}" pathLength="100"/>
+      ${J_STOPS.map((s, i)=> `<g class="jp-stop" style="--i:${i}" transform="translate(${s.x} ${s.y})">
+          <circle class="jp-halo" r="19"/><circle class="jp-dot" r="14"/>
+          <g transform="translate(-9 -9)" class="jp-ico">${jIcon(s.icon, 18)}</g>
+          <text y="${i % 2 ? -26 : 32}" text-anchor="middle">${s.label}</text>
+        </g>`).join('')}
+      ${REDUCED_MOTION ? '' : `<g class="jp-walker"><circle r="5.5"/><circle r="10" class="jp-walker-glow"/>
+        <animateMotion dur="11s" repeatCount="indefinite" rotate="0" calcMode="spline" keyTimes="0;1" keySplines=".45 0 .55 1"><mpath href="#jp-trail"/></animateMotion></g>`}
+    </svg>
+  </div>`;
+}
+// Pollen and seed husks drifting up through the light. Fixed positions,
+// not random, so the page looks the same on every visit.
+function pollenHTML(n){
+  return `<div class="pollen" aria-hidden="true">${Array.from({length: n || 16}, (_, i)=>
+    `<i style="--x:${(i * 37 + 11) % 100}%;--d:${9 + (i * 7) % 11}s;--delay:-${(i * 13) % 17}s;--s:${0.5 + ((i * 29) % 10) / 10}"></i>`).join('')}</div>`;
+}
+
+/* ---- A burst of leaves, for a moment worth marking --------------------- */
+function leafBurst(x, y, n){
+  if(REDUCED_MOTION) return;
+  const host = document.createElement('div');
+  host.className = 'leafburst'; host.setAttribute('aria-hidden', 'true');
+  host.style.left = x + 'px'; host.style.top = y + 'px';
+  const colours = ['var(--leaf-green)', 'var(--tipfa-green)', 'var(--harvest-orange)', '#9DB65E'];
+  host.innerHTML = Array.from({length: n || 18}, (_, i)=>{
+    const a = (i / (n || 18)) * Math.PI * 2 + (i % 3) * 0.35, dist = 60 + (i * 23) % 70;
+    return `<i style="--tx:${Math.round(Math.cos(a) * dist)}px;--ty:${Math.round(Math.sin(a) * dist - 30)}px;--r:${(i * 47) % 360}deg;--c:${colours[i % 4]};--t:${0.8 + (i % 5) * 0.12}s"></i>`;
+  }).join('');
+  document.body.appendChild(host);
+  setTimeout(()=> host.remove(), 1700);
+}
+function burstAt(el, n){
+  if(!el) return;
+  const r = el.getBoundingClientRect();
+  leafBurst(r.left + Math.min(r.width / 2, 120), r.top + r.height / 2, n);
+}
+
+/* ---- A seed germinating, while something is on its way ----------------- */
+function germinateHTML(mode){
+  return `<div class="germ${mode ? ' ' + mode : ''}" aria-hidden="true">
+    <svg viewBox="0 0 120 120">
+      <defs><linearGradient id="g-soil-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#C9A27C"/><stop offset="1" stop-color="#A85C3F" stop-opacity=".55"/></linearGradient></defs>
+      <path class="g-soil" d="M6 84 C24 74 44 72 60 73 C78 72 98 75 114 84 C116 98 106 112 60 114 C14 112 4 98 6 84 Z"/>
+      <path class="g-soil-top" d="M14 80 C34 74 50 73 60 74 C74 73 90 75 106 80"/>
+      <g class="g-specks"><circle cx="26" cy="92" r="1.6"/><circle cx="44" cy="104" r="1.2"/><circle cx="78" cy="96" r="1.5"/><circle cx="96" cy="106" r="1.2"/><circle cx="62" cy="110" r="1"/></g>
+      <path class="g-root" d="M60 86 C58 94 63 99 59 106 M60 92 C54 96 50 97 46 103 M60 95 C66 98 70 101 73 108" pathLength="1"/>
+      <ellipse class="g-seed" cx="60" cy="84" rx="8" ry="5.5"/>
+      <g class="g-shoot">
+        <path class="g-stem" d="M60 80 C60 66 60 58 60 48" pathLength="1"/>
+        <path class="g-leaf l" d="M60 54 C50 52 43 45 42 36 C52 37 59 44 60 54 Z"/>
+        <path class="g-leaf r" d="M60 50 C68 46 76 44 82 38 C80 48 71 53 60 50 Z"/>
+      </g>
+    </svg>
+  </div>`;
+}
+
+/* ---- Where an account stands, as the first steps of the journey -------- */
+function statusJourneyHTML(s, registered){
+  const steps = {
+    pending:   [['done', 'Registered', registered || ''], ['now', 'Checked by the Secretariat', 'in progress'], ['', 'Your calendar opens', 'and planting begins']],
+    suspended: [['done', 'Registered', registered || ''], ['done', 'Approved', ''], ['halt', 'Paused by an administrator', 'your calendar is kept']],
+    rejected:  [['done', 'Registered', registered || ''], ['stop', 'Not approved', 'contact the Secretariat']],
+  }[s];
+  if(!steps) return '';
+  return `<ol class="sj">${steps.map(([cls, t, sub])=> `<li class="${cls}"><span class="sj-dot">${cls === 'done' ? CHECK_ICON : ''}</span>
+      <span class="sj-t">${esc(t)}${sub ? `<small>${esc(sub)}</small>` : ''}</span></li>`).join('')}</ol>`;
+}
+
+/* ---- The plan, drawn as a ribbon from sowing to harvest ----------------- */
+let journeyLastPlan = '';
+function planRibbonHTML(g, p){
+  const seg = [];
+  if(!g.tree){
+    seg.push(['L', p.marks.land, addDays(p.marks.land, 7)]);
+    if(g.direct) seg.push(['S', p.sown, addDays(p.sown, 7)]);
+    else { seg.push(['S', p.sown, p.moved]); seg.push(['T', p.moved, addDays(p.moved, 7)]); }
+    const vFrom = g.direct ? addDays(p.sown, 7) : addDays(p.moved, 7);
+    const vTo = p.hWeeks ? (p.flowerFrom || p.firstH) : addDays(p.growUntil || vFrom, 1);
+    if(vTo > vFrom) seg.push(['V', vFrom, vTo]);
+    if(p.flowerFrom && p.hWeeks && p.firstH > p.flowerFrom) seg.push(['F', p.flowerFrom, p.firstH]);
+  }
+  if(p.hWeeks) seg.push(['H', p.firstH, addDays(p.lastH, 1)]);
+  if(!seg.length) return '';
+  const start = seg[0][1], end = seg[seg.length - 1][2];
+  const total = Math.max(1, daysBetween(start, end));
+  // Only a new plan is drawn again; typing a plant count leaves it be.
+  const sig = `${g.id}|${p.sown && p.sown.getTime()}|${p.moved && p.moved.getTime()}`;
+  const still = sig === journeyLastPlan; journeyLastPlan = sig;
+  const endIcon = p.hWeeks ? 'basket' : 'sprout';
+  return `<div class="jr${still ? ' still' : ''}" aria-hidden="true">
+    <div class="jr-ends"><span>${jIcon(g.tree ? 'basket' : 'seed', 15)} ${dayText(start, true)}</span>
+      <span>${dayText(addDays(end, -1), true)} ${jIcon(endIcon, 15)}</span></div>
+    <div class="jr-track">${seg.map(([s, a, b], i)=>
+      `<span class="jr-seg s-${s}" style="flex:${Math.max(daysBetween(a, b), total * 0.025)};background-color:${STAGE[s].color};--i:${i}"
+         title="${esc(STAGE[s].name)}: ${dayText(a, true)} – ${dayText(addDays(b, -1), true)}"></span>`).join('')}
+      <span class="jr-walker">${jIcon('sprout', 16)}</span></div>
+  </div>`;
+}
+
+/* ---- The calendar opening: a planting pass across the field ------------ */
+let journeyLastGrid = null;
+function sowSweep(sc){
+  const field = sc.querySelector('.cc-field'), t = sc.querySelector('table.cc-grid');
+  if(!field || !t || !gridView) return;
+  const head = t.tHead ? t.tHead.offsetHeight : 0;
+  const w = gridView.L.room - gridView.L.pin;
+  const cover = document.createElement('div');
+  cover.className = 'cc-sow';
+  cover.style.cssText = `left:${gridView.L.pin}px;top:${head}px;width:${w}px;--w:${w}px;`;
+  cover.innerHTML = `<span class="cc-drill">${jIcon('seed', 16)}</span>`;
+  field.appendChild(cover);
+  setTimeout(()=> cover.remove(), 1500);
+}
+// A planting just planned from the guide grows across its row.
+function growRow(sc, id){
+  const field = sc.querySelector('.cc-field'), tr = sc.querySelector(`tr[data-row="${id}"]`);
+  if(!field || !tr || !gridView) return;
+  const head = sc.querySelector('thead') ? sc.querySelector('thead').offsetHeight : 0;
+  const top = tr.offsetTop;
+  if(top - head < sc.scrollTop || top + tr.offsetHeight > sc.scrollTop + sc.clientHeight) sc.scrollTop = Math.max(0, top - head - 40);
+  const w = gridView.L.room - gridView.L.pin;
+  const cover = document.createElement('div');
+  cover.className = 'cc-grow';
+  cover.style.cssText = `left:${gridView.L.pin}px;top:${top}px;height:${tr.offsetHeight}px;width:${w}px;--w:${w}px;`;
+  cover.innerHTML = `<span class="cc-drill">${jIcon('sprout', 16)}</span>`;
+  field.appendChild(cover);
+  tr.classList.add('just-planted');
+  setTimeout(()=>{ cover.remove(); tr.classList.remove('just-planted'); }, 2200);
+  const name = tr.querySelector('.cn');
+  if(name) setTimeout(()=> burstAt(name, 14), 150);
+}
+
+/* ---- After every page is drawn ------------------------------------------- */
+function journeyAfterRender(c){
+  const sc = c.querySelector('.cc-scroll');
+  const key = sc ? sc.dataset.key + '|' + viewSpan() + '|' + (state.spanAt || 0) : null;
+  if(sc && !REDUCED_MOTION){
+    if(state.growRow) growRow(sc, state.growRow);
+    else if(key !== journeyLastGrid) sowSweep(sc);
+  }
+  state.growRow = null;
+  journeyLastGrid = key;
+  if(state.celebrate){
+    state.celebrate = false;
+    setTimeout(()=> burstAt(c.querySelector('h1.page-title') || c, 26), 250);
+  }
+}
+
+/* ============================================================
    Start-up
    ============================================================ */
 // The key's colours become the grid's, from the one list above.
 (function stageStyles(){
   const s = document.createElement('style');
-  s.textContent = STAGES.map(st=> `.cc-grid td.wk.s-${st.code}{background:${st.color};color:${st.ink};}`).join('\n');
+  // The colour only, so each stage's texture can lie over it.
+  s.textContent = STAGES.map(st=> `.cc-grid td.wk.s-${st.code}{background-color:${st.color};color:${st.ink};}`).join('\n');
   document.head.appendChild(s);
 })();
 

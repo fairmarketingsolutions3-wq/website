@@ -69,6 +69,19 @@ weeks (across several plantings at once if they share a stage); click or tap a
 single week and choose from its own small menu, whose arrows step a week at a
 time; or **Fill weeks** on a planting — one stage, from one week to another.
 
+### The journey
+
+The whole copy is drawn as a season, seed to harvest: a path from sowing to
+harvest at the front door, with pollen drifting through the light; a seed that
+germinates while an account waits, and leaves that fly when it is let in; a
+planting pass that sweeps the calendar open, a line marking this week, and a
+texture for each stage (soil furrows, seeds, leaf veins, petals, crates); a plan
+drawn as a ribbon a seedling walks along; stamped approvals; harvest bars on the
+association's table; and a sky that follows the time of day. Pages animate when
+you arrive, not when the same page is drawn again. Everything moving is a
+transform or an opacity on one element, never on the calendar's cells, and it
+all stands still for anyone whose device asks for less motion.
+
 ### However a farm divides its ground
 
 Every farm is stored in the same shape: a list of growing units (greenhouse,
