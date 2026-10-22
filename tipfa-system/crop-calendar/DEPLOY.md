@@ -241,6 +241,15 @@ browsers always check for a newer copy. Logos and the Excel library are cached
 for a week and 30 days respectively. If you replace the Excel library, give it a
 new file name.
 
+## Hosting on Netlify from the repository
+
+`netlify.toml` in this folder sets Netlify up the same way as Firebase Hosting.
+In Netlify: **Site configuration → Build & deploy → Link repository** → GitHub →
+this repository and branch, with **Base directory** `tipfa-system/crop-calendar`,
+**Build command** empty and **Publish directory** `tipfa-system/crop-calendar/public`.
+Every push to that branch then goes live by itself. Add the Netlify address under
+**Authentication → Settings → Authorized domains** in Firebase.
+
 ## Hosting somewhere else
 
 Any static host works (cPanel, Netlify, Cloudflare Pages, an S3 bucket…):
