@@ -43,14 +43,24 @@ months to quarters or half years.
 
 ### Planned from the sowing date
 
-For the crops in the TIPFA Harvest Ledger — cherry tomato, capsicum, paprika,
-habanero (Loleza), sweet melon, broccoli, cauliflower and avocado — adding a
-planting asks for the sowing date and the number of plants, and fills in every
-week: land preparation, nursery, transplanting, growth, flowering and each
-harvest week with its kilograms (per-plant yield × plants). The ledger counts
-its 24 weeks from transplanting; the transplanting date can be given, or is
-taken as the crop's usual nursery time after sowing (the `CROP_GUIDE` list in
-`crop-calendar/public/index.html`). Any planned week can still be changed by hand.
+Adding a planting of a crop the guide knows asks for the sowing date and the
+number of plants, and fills in every week: land preparation, nursery,
+transplanting, growth, flowering and each harvest week with its kilograms. Two
+sources are used, each for what it covers:
+
+- **When** — the sowing and growth timelines: weeks to transplant size and days
+  from sowing to harvest (the middle of each range).
+- **How much** — the TIPFA Harvest Ledger: what a harvest week gives one plant,
+  how often it is picked and for how many weeks; for herbs, the Greenhouse Yield
+  Calculator's 1.2–2.4 kg a plant a season.
+
+Crops: cherry tomato, tomato, capsicum, paprika, habanero (Loleza), sweet melon,
+broccoli, cauliflower, onion, garlic, herbs (basil, coriander), herbs (rosemary,
+thyme) and avocado. Where the guide has no yield (tomato, onion, garlic,
+perennial herbs) the farm may give its own expected kg a plant. The transplanting
+date can be given instead of the usual nursery time. Any planned week can still
+be changed by hand. The figures are the `CROP_GUIDE` list in
+`crop-calendar/public/index.html`.
 
 Weeks can also be entered by hand, three ways: pick a stage and drag across the
 weeks (across several plantings at once if they share a stage); click or tap a

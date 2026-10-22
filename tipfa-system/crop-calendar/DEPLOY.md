@@ -220,14 +220,21 @@ sender name and wording can be changed under **Authentication → Templates**.
 
 ### Changing the crop guide's figures
 
-The per-plant figures behind **planned from the sowing date** are the `CROP_GUIDE`
-list in `public/index.html` (search for `const CROP_GUIDE`). For each crop:
-`nursery` (weeks from sowing to transplanting, used when no transplanting date is
-given), `flower` (weeks of flowering before the first harvest), `first` (the
-harvest week, counted from transplanting as in the Harvest Ledger), and the
-kilograms a plant gives (`kg`, and for broccoli `sideKg`; sweet melon picks every
-`every` weeks). Changing a figure affects plantings planned from then on, not
-ones already on a calendar. Raise the build number after editing.
+The figures behind **planned from the sowing date** are the `CROP_GUIDE` list in
+`public/index.html` (search for `const CROP_GUIDE`). For each crop:
+
+| Field | Meaning | Source |
+|---|---|---|
+| `nursery: [6, 8]` | weeks from sowing to transplant size | sowing table |
+| `fromSowing: [85, 100]` | days from sowing to the first harvest | sowing table |
+| `fromTransplant: 70` | days from transplanting to the first harvest, for crops not in the sowing table | Harvest Ledger week |
+| `flower: 3` | weeks of flowering / fruit set before the first harvest | standard |
+| `harvest` | `weekly` (`weeks`, `kg`), `pulses` (`count`, `every`, `kg`), `head` (`kg`, `sideWeeks`, `sideKg`), `single`, or `picking` (`seasonKg`, cut weekly to 24 weeks after transplanting) | Harvest Ledger, Yield Calculator |
+
+Ranges use their middle. `kg: null` means the guide has no yield for that crop,
+and the farm is asked for its own expected kg a plant. Changing a figure affects
+plantings planned from then on, not ones already on a calendar. Raise the build
+number after editing.
 
 `firebase.json` serves `index.html` and `firebase-config.js` with `no-cache`, so
 browsers always check for a newer copy. Logos and the Excel library are cached
