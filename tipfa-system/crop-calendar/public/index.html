@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v8">
+<meta name="tipfa-build" content="v9">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -5466,6 +5466,10 @@ async function removeFarm(id, btn){
     renderKeepingPlace();
   }catch(e){
     if(btn) btn.classList.remove('is-busy');
+    // Refused by the rules: the database still has rules from before Remove
+    // existed. Say so, rather than the sign-up message a refusal usually means.
+    if(String((e && e.code) || '').includes('permission-denied'))
+      return showFatal('The farm was not removed: the database\u2019s security rules do not allow it yet. In the Firebase console, open Firestore Database \u2192 Rules, publish the latest firestore.rules (it allows approved administrators to remove a farm), wait a minute, reload this page and try again.');
     showFatal('The farm was not removed: ' + cloudErrorText(e));
   }
 }
