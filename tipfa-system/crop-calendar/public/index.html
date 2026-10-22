@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v7">
+<meta name="tipfa-build" content="v8">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2411,6 +2411,8 @@ function cloudListen(){
   const quiet = ()=>{};
   if(CLOUD_STATE.role === 'farm'){
     CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.farms, CLOUD_STATE.uid), snap=>{
+      // Removed by an administrator while open: there is nothing left to show.
+      if(!snap.exists() && !snap.metadata.fromCache && FARMS[CLOUD_STATE.uid] && state.loggedIn){ onFarmRemoved(); return; }
       if(!snap.exists() || !FARMS[CLOUD_STATE.uid]) return;
       const d = snap.data(), f = FARMS[CLOUD_STATE.uid];
       if(d.status !== f.status){
@@ -2463,6 +2465,13 @@ async function cloudPullOwnFarm(){
 }
 
 // An administrator's decision on a farm or another administrator.
+// Removing a farm deletes its record and calendar. Its sign-in stays in
+// Firebase Authentication, which only the console can delete, so the same
+// email can register again later.
+async function cloudRemoveFarm(id){
+  const { doc, deleteDoc } = CLOUD.fs;
+  await deleteDoc(doc(CLOUD.db, COL.farms, id));
+}
 async function cloudDecide(kind, id, status){
   const { doc, updateDoc } = CLOUD.fs;
   await updateDoc(doc(CLOUD.db, kind === 'farm' ? COL.farms : COL.operators, id),
@@ -2855,7 +2864,7 @@ async function doMemberLogin(btn){
         await cloudSignOut();
         if(btn) btn.classList.remove('is-busy');
         return flagError(err, who.role === 'operator' ? 'That is an administrator account. Use the Administrator tab.'
-                                                      : 'That account has no farm calendar behind it. Register the farm first.');
+                                                      : 'That account has no farm calendar — it may have been removed by the Secretariat. Register the farm to start one.');
       }
       curtainTransition(()=>{ enterSession('member', {member:who.id}); render(); });
     }catch(e){ if(btn) btn.classList.remove('is-busy'); flagError(err, cloudErrorText(e)); }
@@ -3080,6 +3089,17 @@ async function restoreSession(){
   }
   forgetSession();
   return false;
+}
+// This farm's record was removed by an administrator while it was open.
+async function onFarmRemoved(){
+  clearTimeout(CLOUD_STATE.pushTimer); CLOUD_STATE.pendingId = null;   // nothing to save it to
+  delete FARMS[state.member];
+  await cloudSignOut();
+  state.loggedIn = false; state.role = null; state.member = null; state.navOpen = false;
+  state.regMsg = '';
+  state.restoreError = 'This farm was removed from the crop calendar by the Secretariat. To use it again, register the farm afresh.';
+  document.body.removeAttribute('data-role');
+  forgetSession(); render();
 }
 async function logout(){
   flushCloud();
@@ -5424,6 +5444,31 @@ async function decide(kind, id, status, btn){
     showFatal('The decision was not saved: ' + cloudErrorText(e));
   }
 }
+/* ---- Removing a farm ------------------------------------------------------
+   For good: the farm's record and its whole calendar. Suspending is the way
+   to keep someone out and keep what they planned; this is for an account that
+   should not be there at all — a test, a duplicate, a farm that has left. */
+async function removeFarm(id, btn){
+  const f = FARMS[id];
+  if(!f) return;
+  const n = (f.rows || []).length;
+  if(!confirm(`Remove ${f.name} from the crop calendar for good?\n\n` +
+      (n ? `Its calendar — ${n} planting${n===1?'':'s'} — will be deleted and cannot be recovered. Export it to Excel first if it may be needed.\n\n` : '') +
+      `To keep the farm out but keep its calendar, Suspend it instead.`)) return;
+  if(btn) btn.classList.add('is-busy');
+  try{
+    if(cloudOn()) await withTimeout(cloudRemoveFarm(id), 15000, 'Removing the farm');
+    delete FARMS[id];
+    Object.keys(ACCOUNTS).forEach(k=>{ if(ACCOUNTS[k].id === id && ACCOUNTS[k].role === 'farm') delete ACCOUNTS[k]; });
+    saveLocal();
+    if(state.viewFarm === id) state.viewFarm = null;
+    state.memberMsg = `${CHECK_ICON} ${esc(f.name)} was removed.` + (cloudOn() ? ` Its sign-in is still in Firebase, so the same email can register again; to free the email completely, delete it under Authentication → Users.` : '');
+    renderKeepingPlace();
+  }catch(e){
+    if(btn) btn.classList.remove('is-busy');
+    showFatal('The farm was not removed: ' + cloudErrorText(e));
+  }
+}
 function decisionButtons(kind, x){
   if(kind === 'operator' && (x.id === state.adminId || x.owner)) return `<span class="helper" style="margin:0;">${x.owner ? 'System owner' : 'You'}</span>`;
   const b = (status, label, cls)=> `<button class="btn small ${cls||''}" onclick="decide('${kind}','${esc(x.id)}','${status}', this)">${label}</button>`;
@@ -5482,6 +5527,7 @@ function renderMembers(c){
 
     <div class="section-label">Farms</div>
     <div class="card">
+      <p class="helper" style="margin:0 0 10px;"><strong>Suspend</strong> keeps a farm out and keeps its calendar. <strong>Remove</strong> deletes the farm and its calendar for good.</p>
       <div class="cc-row" style="margin-bottom:10px;">
         <input id="member-search" type="search" value="${esc(state.memberSearch)}" placeholder="Search by farm, contact, location, email or phone"
           oninput="state.memberSearch=this.value; onLiveData();" style="margin:0;max-width:420px;">
@@ -5496,7 +5542,8 @@ function renderMembers(c){
           <td>${statusPill(f.status)}${decidedText(f) ? `<div class="helper" style="margin:4px 0 0;">${decidedText(f)}</div>` : ''}</td>
           <td class="row-actions">${f.status === 'approved' || f.status === 'suspended' ? `<button class="btn small ghost" onclick="state.tab='calendarsA';openAdminFarm('${esc(f.id)}')">View calendar</button>` : ''}
             ${decisionButtons('farm', f)}
-            ${local ? `<button class="btn small ghost" onclick="adminResetFarmPassword('${esc(f.id)}')" title="Set a new password for this farm on this device">New password</button>` : ''}</td>
+            ${local ? `<button class="btn small ghost" onclick="adminResetFarmPassword('${esc(f.id)}')" title="Set a new password for this farm on this device">New password</button>` : ''}
+            <button class="btn small ghost danger" onclick="removeFarm('${esc(f.id)}', this)" title="Delete this farm and its calendar for good">${icon('trash')} Remove</button></td>
         </tr>`).join('')}</tbody></table>`
       : `<p class="helper" style="margin:0;">${farms.length ? 'No farm matches that search.' : 'No farm has registered yet.'}</p>`}
     </div>

@@ -40,7 +40,7 @@ Read this before going live; step 6 depends on it.
   "waiting for approval" page until an administrator approves it. It can't open
   or change a calendar until then.
 - **Administrators approve, turn down, suspend and reinstate** farms and other
-  administrators, under **Members & approvals**. Every decision is recorded with
+  administrators, and can remove a farm for good, under **Members & approvals**. Every decision is recorded with
   who made it and when.
 - **The first administrator to register becomes the system owner** and is approved
   automatically, because somebody has to approve everyone else. Every later
@@ -193,12 +193,16 @@ live for any administrator signed in. There is no email notification of new
 registrations; sending email needs Cloud Functions, which needs the paid Blaze plan.
 
 ### Removing an account
-The app deliberately cannot delete anything. Suspending keeps a farm out and keeps
-its calendar. To remove an account completely, in the console:
+Under **Members & approvals → Farms**, **Remove** deletes a farm and its whole
+calendar for good (an approved administrator only; export it to Excel first if
+it may be needed). **Suspend** is the way to keep a farm out *and* keep its
+calendar. A removed farm that has the page open is signed out with a message.
 
-1. **Firestore → `calendarFarms`** (or `calendarOperators`) → the document named by
-   the user's UID → delete it.
-2. **Authentication → Users** → the same user → delete.
+The farm's sign-in stays in Firebase Authentication, so the same email can
+register again later. To free the email completely, also delete it under
+**Authentication → Users**. Administrators are not removed from the app; delete
+an administrator's document in **Firestore → `calendarOperators`** and its user
+under **Authentication → Users** in the console.
 
 ### Backups
 Under **Crop calendars**, **Export every farm (Excel)** downloads one workbook: the
@@ -279,7 +283,7 @@ Any static host works (cPanel, Netlify, Cloudflare Pages, an S3 bucket…):
 | `calendarSettings/signup` | the two sign-up codes | nobody | console only |
 | `calendarSettings/owner` | the system owner's UID | anyone signed in | the first administrator, once |
 | `calendarOperators/{uid}` | an administrator: name, email, status | themselves, approved administrators | themselves on registering; approved administrators change status |
-| `calendarFarms/{uid}` | a farm: details, status, units and blocks, plantings and their weeks | the farm, approved administrators | the farm (calendar, only while approved); approved administrators change status |
+| `calendarFarms/{uid}` | a farm: details, status, units and blocks, plantings and their weeks | the farm, approved administrators | the farm (calendar, only while approved); approved administrators change status or remove the farm |
 
 A farm's whole calendar is one document. Each week is stored compactly, `"T"` for a
 transplanting week or `"H:120"` for a harvest week of 120 kg. The rules cap a farm

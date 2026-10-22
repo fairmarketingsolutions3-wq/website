@@ -29,7 +29,8 @@ rules_version = '2';
  *
  * A farm reads its own record at any status, so it can see where it stands,
  * but writes its calendar only while approved. Approved administrators read
- * every farm and every administrator, and change nothing but status.
+ * every farm and every administrator, change nothing but status, and may
+ * remove a farm altogether. Nothing else is ever deleted from the app.
  *
  * IMPORTANT — a Firestore database has ONE set of rules. Do not publish this
  * file into a project that runs the full TIPFA platform: it would replace the
@@ -136,7 +137,8 @@ service cloud.firestore {
             && changedOnly(farmOwnFields()) && farmShape(request.resource.data))
         // an administrator's decision
         || (!isSelf(uid) && isDecision());
-      allow delete: if false;
+      // An approved administrator may remove a farm, calendar and all.
+      allow delete: if !isSelf(uid) && isApprovedOperator();
     }
 
     match /{document=**} {
