@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v9">
+<meta name="tipfa-build" content="v10">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -1854,6 +1854,115 @@ tr.just-planted td.stk{animation:plantedGlow 2s var(--ease-out);}
   .g-leaf{transform:scale(1);}
   .g-shoot{animation:none !important;}
 }
+
+/* ============================================================
+   The calendar in full
+   Taller rows; each stage a bar running across its weeks with its name on
+   it; the crop's column says where it is today; the totals stand as a skyline.
+   ============================================================ */
+.cc-grid.fit tbody td.stk{height:var(--rowH);padding:0 8px 0 10px;}
+.cc-grid.fit tbody td.wk{height:var(--rowH);vertical-align:bottom;}
+.cc-grid.fit tbody td.wk.sg-a{overflow:visible;position:relative;}
+/* The bar: the stage's colour, held in from the top and bottom of the row. */
+/* The bar: the stage's colour painted only inside the cell's padding, so the
+   field shows above and below it. One colour per cell, no images — as quick
+   to draw as a plain cell, however big the farm. */
+.cc-grid.fit tbody td.wk{padding:11px 0;}
+.cc-grid.fit tbody td.wk[class*=" s-"]{background-clip:content-box;}
+.cc-grid.fit tbody td.wk[class*=" s-"]:not(.sg-a){border-left-width:0;}
+.cc-grid.fit tbody td.wk.sg-a{padding-left:2px;}
+.cc-grid.fit td.wk .kg{margin-bottom:4px;}
+.cc-grid.fit tbody td.wk:hover{box-shadow:none;outline:2px solid rgba(35,40,31,.4);outline-offset:-2px;}
+.cc-grid.fit tbody td.wk[class*=" s-"]:hover{outline:none;filter:brightness(1.1) saturate(1.1);}
+.cc-grid.fit.readonly tbody td.wk:hover{outline:none;filter:none;}
+.cc-grid.fit tbody td.wk.pv{box-shadow:inset 0 0 0 2px var(--deep-green);}
+.cc-grid.fit tbody td.wk.pp-target{box-shadow:none;outline:2px solid var(--harvest-orange);outline-offset:-1px;}
+@keyframes cellPop{ from{ filter:brightness(1.45) saturate(1.3); } to{ filter:none; } }
+
+/* The stage's name, on its bar. */
+.seg-lab{position:absolute;left:7px;top:15px;z-index:1;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  font:600 10.5px/1.25 'Poppins',sans-serif;letter-spacing:.02em;color:inherit;text-shadow:0 1px 2px rgba(0,0,0,.22);
+  animation:labIn .6s var(--ease-out) both;animation-delay:var(--d,0ms);}
+.s-S .seg-lab, .s-L .seg-lab{text-shadow:none;}
+/* The phone's own rule keeps everything inside its box; these are meant to reach past theirs. */
+.seg-lab, .cc-today-flag{max-width:none !important;}
+@keyframes labIn{ from{ opacity:0; transform:translateX(-10px); } to{ opacity:1; transform:none; } }
+.cc-grid.fit td.wk .kg{display:block;position:relative;font-size:9px;font-weight:700;line-height:1;letter-spacing:-.02em;}
+
+
+/* The crop's column: where it is today, and how far through its season. */
+.cc-grid.fit .cc-crop-cell{gap:9px;align-items:center;}
+.cc-ico{width:34px;height:34px;flex:none;border-radius:11px;display:flex;align-items:center;justify-content:center;
+  background:#EEF2E4;color:var(--tipfa-green);box-shadow:inset 0 0 0 1px rgba(35,40,31,.08);
+  animation:icoPop .6s var(--ease-spring) both;}
+@keyframes icoPop{ from{ transform:scale(.4) rotate(-20deg); opacity:0; } to{ transform:none; opacity:1; } }
+.cc-ico.s-L{background:#E8EFF7;color:#1B3550;} .cc-ico.s-S{background:#FFF7BF;color:#6E6400;}
+.cc-ico.s-T{background:#DDF5E6;color:#00803A;} .cc-ico.s-V{background:#DCF2FB;color:#0079A6;}
+.cc-ico.s-F{background:#EFE3F7;color:#7030A0;} .cc-ico.s-H{background:#FFE3E0;color:#C00000;animation:icoPop .6s var(--ease-spring) both, ripen 2.6s var(--ease-in-out) .8s infinite alternate;}
+.cc-ico.s-R{background:#EBF1DF;color:#4E6A1F;} .cc-ico.soon, .cc-ico.empty{background:#F2F1E8;color:var(--muted);}
+.cc-ico.done{background:#FFF1D2;color:#8A6412;}
+@keyframes ripen{ from{ box-shadow:inset 0 0 0 1px rgba(192,0,0,.12); } to{ box-shadow:inset 0 0 0 1px rgba(192,0,0,.12), 0 0 0 4px rgba(255,0,0,.10); } }
+.cc-grid.fit .cc-crop-cell .cn{display:flex;flex-direction:column;line-height:1.28;white-space:nowrap;}
+.cc-grid.fit .cc-crop-cell .cn:hover{text-decoration:none;}
+.cc-grid.fit .cc-crop-cell .cn:hover .cn-name{text-decoration:underline;}
+.cn-name{font-weight:600;color:var(--deep-green);font-size:13.5px;overflow:hidden;text-overflow:ellipsis;}
+.cc-grid.fit .cc-crop-cell .sub{font-size:10.5px;}
+.cc-now{font-size:10.5px;color:var(--ink);opacity:.78;overflow:hidden;text-overflow:ellipsis;}
+.cc-prog{display:block;height:4px;border-radius:4px;background:#ECEBE2;margin-top:4px;overflow:hidden;}
+.cc-prog i{display:block;height:100%;border-radius:4px;background:linear-gradient(90deg, var(--leaf-green), var(--harvest-orange));
+  transform-origin:0 50%;transform:scaleX(var(--p));animation:progFill 1.2s var(--ease-out) both;animation-delay:var(--d,0ms);}
+@keyframes progFill{ from{ transform:scaleX(0); } }
+
+/* Headings: larger, the year on its own band, this month marked. */
+.cc-grid.fit thead tr.yr th{height:24px;font-size:11px;letter-spacing:.16em;}
+.cc-grid.fit thead tr.mh th{height:30px;font-size:10.5px;letter-spacing:.08em;}
+.cc-grid.fit thead tr.mh th.cur{background:linear-gradient(180deg, #3B5C30, var(--deep-green));box-shadow:inset 0 -3px 0 var(--harvest-orange);color:#fff;}
+.cc-grid.fit thead tr.wh th{height:20px;font-size:9.5px;}
+.cc-corner-name{display:block;font-size:11px;overflow:hidden;text-overflow:ellipsis;}
+.cc-corner-sub{display:block;font-family:'Inter',sans-serif;font-size:10px;letter-spacing:.02em;text-transform:none;font-weight:400;opacity:.72;margin-top:3px;}
+
+/* A greenhouse heading, as a band across the field. */
+.cc-grid.fit tr.cc-unit th{height:38px;font-size:13.5px;background:linear-gradient(90deg, #E5EDD6, #F2F5EB 55%, rgba(242,245,235,0));}
+.cc-grid.fit tr.cc-unit .u-ico svg{width:16px;height:16px;vertical-align:-3px;margin-right:7px;color:var(--tipfa-green);}
+
+/* The totals as a skyline: each period's harvest stands as a bar. */
+.cc-grid.fit tfoot td{position:relative;}
+.cc-grid.fit tfoot tr.tot td, .cc-grid.fit tfoot tr.tot th{height:48px;}
+.cc-grid.fit tfoot tr.crop td, .cc-grid.fit tfoot tr.crop th{height:34px;}
+.sky{position:absolute;left:3px;right:3px;bottom:0;height:calc(var(--h) * (100% - 6px));border-radius:5px 5px 0 0;pointer-events:none;
+  background:linear-gradient(180deg, #F2BE5C, rgba(232,167,52,.55));box-shadow:0 0 12px -2px rgba(242,190,92,.5);transform-origin:50% 100%;
+  animation:skyRise 1s var(--ease-out) both;animation-delay:calc(.2s + var(--d,0ms));}
+.cc-grid tfoot tr.crop .sky{background:linear-gradient(180deg, rgba(126,155,63,.38), rgba(126,155,63,.08));box-shadow:none;border-radius:4px 4px 0 0;}
+@keyframes skyRise{ from{ transform:scaleY(0); } }
+.cc-grid.fit tfoot .fv{position:relative;z-index:1;}
+.cc-grid.fit tfoot tr.tot td{font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.25);}
+
+/* Today, flagged at the head of its line. */
+.cc-today-flag{position:absolute;top:calc(var(--head, 0px) + 5px);left:50%;transform:translateX(-50%);z-index:3;
+  background:var(--harvest-orange);color:#fff;font:700 9px/1 'Poppins',sans-serif;letter-spacing:.1em;text-transform:uppercase;
+  padding:4px 7px;border-radius:99px;white-space:nowrap;box-shadow:0 3px 10px -2px rgba(232,167,52,.7);
+  animation:flagBob 2.4s var(--ease-in-out) infinite alternate;}
+@keyframes flagBob{ from{ transform:translateX(-50%) translateY(0); } to{ transform:translateX(-50%) translateY(-3px); } }
+
+/* On a phone: the same, a little more compact. */
+html[data-view="mobile"] .cc-grid.fit tbody td.stk{height:var(--rowH);padding:0 5px 0 7px;}
+html[data-view="mobile"] .cc-grid.fit tbody td.wk{height:var(--rowH);}
+html[data-view="mobile"] .cc-ico{width:26px;height:26px;border-radius:8px;}
+html[data-view="mobile"] .cc-ico svg{width:14px;height:14px;}
+html[data-view="mobile"] .cn-name{font-size:12.5px;}
+html[data-view="mobile"] .cc-now{font-size:9.5px;}
+html[data-view="mobile"] .cc-grid.fit .cc-crop-cell{gap:6px;}
+html[data-view="mobile"] .seg-lab{font-size:9.5px;top:14px;left:5px;}
+
+/* Drawn again because something changed: only that row moves. */
+.content.settled .seg-lab, .content.settled .cc-prog i, .content.settled .sky, .content.settled .cc-ico{animation:none;}
+.content.settled tr.redrawn .seg-lab{animation:labIn .45s var(--ease-out) both;}
+.content.settled tr.redrawn .cc-prog i{animation:progFill .8s var(--ease-out) both;}
+.content.settled tr.redrawn .cc-ico{animation:icoPop .5s var(--ease-spring) both;}
+
+@media (prefers-reduced-motion: reduce){
+  .seg-lab, .cc-prog i, .sky, .cc-ico, .cc-today-flag{animation:none !important;}
+}
 </style>
 </head>
 <body>
@@ -3600,12 +3709,12 @@ function gridRoom(){
 }
 function gridLayout(months){
   const room = gridRoom();
-  const pin = isMobile() ? Math.min(124, Math.round(room * 0.34)) : room > 1100 ? 220 : 180;
+  const pin = isMobile() ? Math.min(138, Math.round(room * 0.37)) : room > 1100 ? 270 : 230;
   const weekW = (room - pin) / (months.length * 4);
   const monthW = weekW * 4;
   // Totals are added up over as many months as it takes to print them legibly.
   const group = [1, 2, 3, 6, 12].find(g=> g * monthW >= (isMobile() ? 34 : 40)) || 12;
-  return {room, pin, weekW, monthW, group,
+  return {room, pin, weekW, monthW, group, rowH: isMobile() ? 56 : 62,
     kg: weekW >= 21, weekNums: weekW >= 13,
     monthLabel: monthW >= 64 ? 'full' : monthW >= 28 ? 'abbr' : monthW >= 11 ? 'initial' : 'none'};
 }
@@ -3679,7 +3788,7 @@ function gridHTML(f, months, opts){
   // Heading rows: the years when the months cannot carry them, the months,
   // and the week numbers when there is room for them.
   const yearsRow = L.monthLabel !== 'full';
-  const H = {yr: 20, mh: 24, wh: 18};
+  const H = {yr: 24, mh: 30, wh: 20};
   const tops = {yr: 0, mh: yearsRow ? H.yr : 0};
   tops.wh = tops.mh + H.mh;
   const nHead = (yearsRow ? 1 : 0) + 1 + (L.weekNums ? 1 : 0);
@@ -3688,12 +3797,14 @@ function gridHTML(f, months, opts){
   const years = [];
   months.forEach(mo=>{ const last = years[years.length-1];
     if(last && last.y === mo.y) last.n++; else years.push({y: mo.y, n: 1}); });
-  const corner = `<th rowspan="${nHead}" class="stk cc-corner" style="top:0;" title="${esc(f.name)}">${esc(f.name)}</th>`;
+  const curMonth = now.slice(0, 7);
+  const corner = `<th rowspan="${nHead}" class="stk cc-corner" style="top:0;" title="${esc(f.name)}"><span class="cc-corner-name">${esc(f.name)}</span>
+      <span class="cc-corner-sub">${f.rows.length} planting${f.rows.length === 1 ? '' : 's'}</span></th>`;
   const rowsHead = [];
   if(yearsRow) rowsHead.push(`<tr class="yr">${corner}${years.map(y=>
     `<th colspan="${y.n * 4}" style="top:${tops.yr}px;">${y.n * L.monthW >= 34 ? y.y : String(y.y).slice(2)}</th>`).join('')}</tr>`);
   rowsHead.push(`<tr class="mh">${yearsRow ? '' : corner}${months.map(mo=>
-    `<th colspan="4" class="${mo.m===1?'ystart':''}" style="top:${tops.mh}px;" title="${MONTHS[mo.m-1]} ${mo.y}">${monthText(mo)}</th>`).join('')}</tr>`);
+    `<th colspan="4" class="${mo.m===1?'ystart':''}${mo.keys[0].slice(0, 7) === curMonth ? ' cur' : ''}" style="top:${tops.mh}px;" title="${MONTHS[mo.m-1]} ${mo.y}">${monthText(mo)}</th>`).join('')}</tr>`);
   if(L.weekNums) rowsHead.push(`<tr class="wh">${months.map(mo=> mo.keys.map((k, w)=>
     `<th class="${w===0?'mstart':''}${k===now?' now':''}" style="top:${tops.wh}px;"${k===now?' title="This week"':''}>${w+1}</th>`).join('')).join('')}</tr>`);
   const head = `<thead>${rowsHead.join('')}</thead>`;
@@ -3705,12 +3816,13 @@ function gridHTML(f, months, opts){
   const rows = orderedRows(f);
   let body = '', ri = 0;
   const order = [];
+  gridView = {months, L, keys, base, ro, f};
   // With more than one unit, every unit gets its heading — an empty one too,
   // so a greenhouse just added can be planted from here.
   const unitHead = u=>{
     const inUnit = f.rows.filter(x=> x.unit === u.id);
     const area = inUnit.reduce((t, x)=> t + (Number(x.area)||0), 0);
-    return `<tr class="cc-unit"><th colspan="${nW + 1}">${esc(u.name)}
+    return `<tr class="cc-unit"><th colspan="${nW + 1}"><span class="u-ico">${icon('house')}</span>${esc(u.name)}
         <span class="u-meta">${esc(u.type)} · ${inUnit.length ? `${inUnit.length} planting${inUnit.length===1?'':'s'}` : 'nothing planned yet'}${area?` · ${fmt(area)} m²`:''}</span>
         ${ro ? '' : `<button class="cc-rowbtn" onclick="openEditor(null,'${u.id}')" title="Add a planting to ${esc(u.name)}" aria-label="Add a planting to ${esc(u.name)}">${icon('plus')}</button>`}</th></tr>`;
   };
@@ -3719,34 +3831,85 @@ function gridHTML(f, months, opts){
     : rows.map(r=> ({row:r}));
   sequence.forEach(item=>{
     if(item.head){ body += unitHead(item.head); return; }
-    const r = item.row;
-    const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${guideFor(r.plan.guide) && guideFor(r.plan.guide).tree ? 'trees' : 'plants'}` : '';
-    const sub = [locationText(f, r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
-    const tip = [r.crop || '(no crop named)', sub, r.notes].filter(Boolean).join(' — ');
-    const cropInner = `<div class="cc-crop-cell">
-        <span class="cn" ${ro ? '' : `onclick="openEditor('${r.id}')"`} title="${esc(tip)}">${esc(r.crop || '—')}
-          ${sub ? `<span class="sub">${esc(sub)}</span>` : ''}</span>
-        ${ro ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}
-      </div>`;
-    let weeks = '';
-    for(let ci = 0; ci < keys.length; ci++){
-      const cell = readCell(r.cells[keys[ci]]);
-      weeks += `<td class="${base[ci]}${cell ? ' s-' + cell.s : ''}" data-ri="${ri}" data-ci="${ci}">${L.kg && cell && cell.s === 'H' ? kgShort(cell.kg) : ''}</td>`;
-    }
-    body += `<tr data-row="${r.id}"><td class="stk c-crop">${cropInner}</td>${weeks}</tr>`;
-    order.push(r.id);
+    body += rowHTML(item.row, ri);
+    order.push(item.row.id);
     ri++;
   });
 
   gridOrder = order; gridKeys = keys;
-  gridView = {months, L};
   const colgroup = `<colgroup><col style="width:${L.pin}px">${`<col style="width:${L.weekW}px">`.repeat(nW)}</colgroup>`;
   const cls = 'cc-grid fit' + (ro ? ' readonly' : '') + (L.weekW < 9 ? ' dense' : '') + (L.weekW < 4 ? ' tiny' : '');
-  // This week, marked down the whole field.
+  // This week, marked down the whole field, with its flag.
   const nowCi = keys.indexOf(now);
-  const today = nowCi < 0 ? '' : `<div class="cc-today" style="left:${(L.pin + (nowCi + 0.5) * L.weekW).toFixed(1)}px" aria-hidden="true"></div>`;
+  const today = nowCi < 0 ? '' : `<div class="cc-today" style="left:${(L.pin + (nowCi + 0.5) * L.weekW).toFixed(1)}px" aria-hidden="true"><span class="cc-today-flag">Today</span></div>`;
   return `<div class="cc-scroll" data-key="${esc(opts.key || (state.member + ':' + f.startYear))}"><div class="cc-field" style="width:${L.room}px">
-    <table class="${cls}" style="width:${L.room}px">${colgroup}${head}<tbody>${body}</tbody>${footHTML(f, gridView)}</table>${today}</div></div>`;
+    <table class="${cls}" style="width:${L.room}px;--rowH:${L.rowH}px">${colgroup}${head}<tbody>${body}</tbody>${footHTML(f, gridView)}</table>${today}</div></div>`;
+}
+
+/* ---- One planting's row ---------------------------------------------------
+   The weeks run together into bars, one for each stage, and a bar wide enough
+   to carry its name says it: Nursery, Growing, Harvest · 4,200 kg. The crop's
+   own column says where it is today and how far through its season. */
+const SEG_NAME = {L:'Land prep', S:'Nursery', T:'Transplant', V:'Growing', F:'Flowering', H:'Harvest', R:'Rotation'};
+const NOW_TEXT = {L:'Preparing the land', S:'In the nursery', T:'Transplanting', V:'Growing', F:'Flowering', H:'Harvesting', R:'Rotation crop'};
+const NOW_ICON = {L:'soil', S:'seed', T:'plant', V:'sprout', F:'bloom', H:'basket', R:'sprout'};
+function weekIndex(k){ const {y, m, w} = parseWeekKey(k); return y * 48 + (m - 1) * 4 + (w - 1); }
+// Where a planting stands today, over all its weeks — not only those on screen.
+function rowJourney(r){
+  const ks = Object.keys(r.cells).filter(k=> readCell(r.cells[k])).map(weekIndex).sort((a, b)=> a - b);
+  if(!ks.length) return {cls:'empty', icon:'soil', text:'No weeks yet', p:0};
+  const t = weekIndex(todayKey()), first = ks[0], last = ks[ks.length - 1];
+  let kg = 0; Object.values(r.cells).forEach(v=>{ const c = readCell(v); if(c && c.s === 'H' && c.kg) kg += c.kg; });
+  if(t < first){ const n = first - t; return {cls:'soon', icon:'seed', text:`Starts in ${n} week${n === 1 ? '' : 's'}`, p:0}; }
+  if(t > last) return {cls:'done', icon:'basket', text: kg ? `Season done · ${kgShort(kg)} kg` : 'Season done', p:1};
+  const c = readCell(r.cells[todayKey()]);
+  const s = c ? c.s : 'V';
+  return {cls:'s-' + s, icon: NOW_ICON[s], p: last > first ? (t - first) / (last - first) : 1,
+    text: NOW_TEXT[s] + (c && c.s === 'H' && c.kg ? ` · ${kgShort(c.kg)} kg this week` : '')};
+}
+// A label only where all of it fits: a bar too short for its name keeps quiet.
+function segLabel(s, kg, w){
+  const fits = t=> t.length * 6.6 + 14 <= w;
+  const options = s === 'H'
+    ? (kg ? [`Harvest · ${fmt(Math.round(kg))} kg`, `${kgShort(kg)} kg`] : ['Harvest'])
+    : [SEG_NAME[s]];
+  return options.find(fits) || '';
+}
+function rowHTML(r, ri){
+  const {f, L, keys, base, ro} = gridView;
+  const mobile = isMobile();
+  const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${guideFor(r.plan.guide) && guideFor(r.plan.guide).tree ? 'trees' : 'plants'}` : '';
+  const sub = [locationText(f, r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const j = rowJourney(r);
+  const tip = [r.crop || '(no crop named)', sub, j.text, r.notes].filter(Boolean).join(' — ');
+  const cropInner = `<div class="cc-crop-cell">
+      <span class="cc-ico ${j.cls}" aria-hidden="true">${jIcon(j.icon, 17)}</span>
+      <span class="cn" ${ro ? '' : `onclick="openEditor('${r.id}')"`} title="${esc(tip)}"><span class="cn-name">${esc(r.crop || '—')}</span>
+        ${sub && !mobile ? `<span class="sub">${esc(sub)}</span>` : ''}
+        <span class="cc-now">${esc(j.text)}</span>
+        <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
+      ${ro ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}
+    </div>`;
+  const st = keys.map(k=> readCell(r.cells[k]));
+  let weeks = '';
+  for(let ci = 0; ci < keys.length; ci++){
+    const cell = st[ci], prev = st[ci - 1], next = st[ci + 1];
+    let cls = base[ci], inner = '';
+    if(cell){
+      cls += ' s-' + cell.s;
+      if(!prev || prev.s !== cell.s){
+        cls += ' sg-a';
+        let k = ci, kg = 0;
+        while(k < keys.length && st[k] && st[k].s === cell.s){ kg += st[k].kg || 0; k++; }
+        const w = (k - ci) * L.weekW, label = segLabel(cell.s, kg, w);
+        if(label) inner += `<span class="seg-lab" style="width:${Math.round(w - 9)}px;--d:${Math.min(ri, 24) * 45 + 120}ms">${esc(label)}</span>`;
+      }
+      if(!next || next.s !== cell.s) cls += ' sg-z';
+      if(L.kg && cell.s === 'H' && cell.kg) inner += `<b class="kg">${kgShort(cell.kg)}</b>`;
+    }
+    weeks += `<td class="${cls}" data-ri="${ri}" data-ci="${ci}">${inner}</td>`;
+  }
+  return `<tr data-row="${r.id}"><td class="stk c-crop">${cropInner}</td>${weeks}</tr>`;
 }
 // The template's two blocks of totals, under the plantings — by month when
 // they fit, otherwise by two, three, six or twelve months together.
@@ -3762,7 +3925,9 @@ function footHTML(f, view){
     : `${MONTH_ABBR[gr[0].m-1]} ${gr[0].y} – ${MONTH_ABBR[gr[gr.length-1].m-1]} ${gr[gr.length-1].y}`;
   const cellW = g * L.monthW;
   const num = v=> !v ? '0' : cellW >= 52 ? fmt(v) : kgShort(v);
-  const cells = vals=> vals.map((v, i)=> `<td colspan="${groups[i].length * 4}" class="${v?'':'zero'}" title="${name(groups[i])}: ${fmt(v)} kg">${num(v)}</td>`).join('');
+  // Each figure stands on a bar as tall as its share of the row's best period.
+  const cells = vals=>{ const top = Math.max(1, ...vals);
+    return vals.map((v, i)=> `<td colspan="${groups[i].length * 4}" class="${v?'':'zero'}" title="${name(groups[i])}: ${fmt(v)} kg">${v ? `<span class="sky" style="--h:${(v / top).toFixed(3)};--d:${i * 40}ms"></span>` : ''}<span class="fv">${num(v)}</span></td>`).join(''); };
   const crops = cropTotals(f.rows, months);
   const nW = months.length * 4;
   return `<tfoot>
@@ -3795,20 +3960,22 @@ function bindTooltips(table, f){
 function refreshAfterEdit(f, rowIds){
   const table = document.querySelector('.cc-grid:not(.readonly)');
   if(!table || !gridView){ render(); return; }
-  const showKg = gridView.L.kg;
   let popped = false;
+  // A changed planting's row is drawn again whole — its bars, their labels and
+  // where it stands today all follow from its weeks — and the weeks that
+  // changed light up.
   rowIds.forEach(id=>{
     const r = f.rows.find(x=> x.id === id), ri = gridOrder.indexOf(id);
-    if(!r || ri < 0) return;
-    table.querySelectorAll(`td.wk[data-ri="${ri}"]`).forEach(td=>{
-      const cell = readCell(r.cells[gridKeys[+td.dataset.ci]]);
-      const cls = td.className.replace(/ s-\w/, '').replace(' just', '') + (cell ? ' s-' + cell.s : '');
-      if(td.className !== cls){ td.className = cls + (cell ? ' just' : ''); popped = true; }
-      const txt = showKg && cell && cell.s === 'H' ? kgShort(cell.kg) : '';
-      if(td.textContent !== txt) td.textContent = txt;
-      td.removeAttribute('title'); td.style.background = ''; td.style.color = '';
-      td.classList.remove('pv', 'pv-clear');
-    });
+    const tr = table.querySelector(`tr[data-row="${id}"]`);
+    if(!r || ri < 0 || !tr) return;
+    const stageOf = td=> (td.className.match(/ s-(\w)/) || [])[1] || '';
+    const was = [...tr.querySelectorAll('td.wk')].map(stageOf);
+    const tmp = document.createElement('tbody');
+    tmp.innerHTML = rowHTML(r, ri);
+    const fresh = tmp.firstElementChild;
+    fresh.classList.add('redrawn');
+    fresh.querySelectorAll('td.wk').forEach((td, i)=>{ const s = stageOf(td); if(s && s !== was[i]){ td.classList.add('just'); popped = true; } });
+    tr.replaceWith(fresh);
   });
   const foot = table.querySelector('tfoot');
   if(foot){
@@ -3825,6 +3992,7 @@ function refreshAfterEdit(f, rowIds){
   }
   // Weeks just coloured light up for a moment, then settle.
   if(popped){ clearTimeout(refreshAfterEdit.t); refreshAfterEdit.t = setTimeout(()=> table.querySelectorAll('td.wk.just').forEach(td=> td.classList.remove('just')), 650); }
+  if(state.pop) markPopWeek();
   const fig = farmFigures(f, farmWindow(f));
   const set = (id, v)=>{ const el = document.getElementById(id); if(el) el.textContent = v; };
   set('m-plantings', fmt(fig.plantings)); set('m-area', fmt(Math.round(fig.area)));
@@ -5755,6 +5923,9 @@ function growRow(sc, id){
 /* ---- After every page is drawn ------------------------------------------- */
 function journeyAfterRender(c){
   const sc = c.querySelector('.cc-scroll');
+  // The Today flag sits just under the headings, however many there are.
+  const field = sc && sc.querySelector('.cc-field'), th = sc && sc.querySelector('thead');
+  if(field && th) field.style.setProperty('--head', th.offsetHeight + 'px');
   const key = sc ? sc.dataset.key + '|' + viewSpan() + '|' + (state.spanAt || 0) : null;
   if(sc && !REDUCED_MOTION){
     if(state.growRow) growRow(sc, state.growRow);
@@ -5775,7 +5946,7 @@ function journeyAfterRender(c){
 (function stageStyles(){
   const s = document.createElement('style');
   // The colour only, so each stage's texture can lie over it.
-  s.textContent = STAGES.map(st=> `.cc-grid td.wk.s-${st.code}{background-color:${st.color};color:${st.ink};}`).join('\n');
+  s.textContent = STAGES.map(st=> `.cc-grid td.wk.s-${st.code}{background-color:${st.color};--sc:${st.color};color:${st.ink};}`).join('\n');
   document.head.appendChild(s);
 })();
 
