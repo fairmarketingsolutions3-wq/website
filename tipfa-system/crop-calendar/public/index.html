@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v4">
+<meta name="tipfa-build" content="v5">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -4263,13 +4263,23 @@ function planFromGuide(g, p){
     perPlant, total: perPlant != null && plants ? Math.round(perPlant * plants * 10) / 10 : null});
 }
 
+// Each harvest week is rounded to 0.1 kg; what the rounding gains or loses is
+// settled in the last harvest week, so the weeks add up to the plan's total.
 function cellsOf(acc, plants){
-  const cells = {};
-  Object.entries(acc).forEach(([k, v])=>{
-    cells[k] = v.s === 'H' ? writeCell('H', plants && v.kg != null ? Math.round(v.kg * plants * 10) / 10 : null) : writeCell(v.s);
+  const cells = {}, r1 = x=> Math.round(x * 10) / 10;
+  let exact = 0, shown = 0, last = null;
+  Object.keys(acc).sort(weekOrder).forEach(k=>{
+    const v = acc[k];
+    if(v.s === 'H' && plants && v.kg != null){
+      const kg = r1(v.kg * plants);
+      exact += v.kg * plants; shown += kg; last = k;
+      cells[k] = writeCell('H', kg);
+    } else cells[k] = v.s === 'H' ? writeCell('H', null) : writeCell(v.s);
   });
+  if(last){ const fix = r1(r1(exact) - shown); if(fix) cells[last] = writeCell('H', r1(readCell(cells[last]).kg + fix)); }
   return cells;
 }
+function weekOrder(a, b){ const x = parseWeekKey(a), y = parseWeekKey(b); return (x.y - y.y) || (x.m - y.m) || (x.w - y.w); }
 // The day after the calendar's three years, for a crop that grows on past them.
 function calendarEnd(){ const f = currentFarm(); return new Date((f && f.startYear || DEFAULT_START_YEAR) + 3, 0, 1); }
 
