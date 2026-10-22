@@ -14,7 +14,14 @@
  * key (Project settings → Service accounts → Generate new private key) here or
  * anywhere in the site.
  */
-window.TIPFA_CC_FIREBASE_CONFIG = null;
+window.TIPFA_CC_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBX8P7uU76ce8D_ZZ2_aBKwA6dxIytkTIQ",
+  authDomain: "tipfa-crop-calendar.firebaseapp.com",
+  projectId: "tipfa-crop-calendar",
+  storageBucket: "tipfa-crop-calendar.firebasestorage.app",
+  messagingSenderId: "128160155890",
+  appId: "1:128160155890:web:13ce158a3db9e49796686b"
+};
 
 /* Once the project exists it looks like this:
 window.TIPFA_CC_FIREBASE_CONFIG = {
