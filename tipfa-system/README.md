@@ -56,7 +56,9 @@ sources are used, each for what it covers:
 
 Crops: cherry tomato, tomato, capsicum, paprika, habanero (Loleza), sweet melon,
 broccoli, cauliflower, onion, garlic, herbs (basil, coriander), herbs (rosemary,
-thyme) and avocado. Where the guide has no yield (tomato, onion, garlic,
+thyme), avocado (a tree already bearing) and avocado from seed (sprouting
+timeline: a sapling at 180–210 days, then growing on with no harvest in the
+calendar's three years). Where the guide has no yield (tomato, onion, garlic,
 perennial herbs) the farm may give its own expected kg a plant. The transplanting
 date can be given instead of the usual nursery time. Any planned week can still
 be changed by hand. The figures are the `CROP_GUIDE` list in

@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v3">
+<meta name="tipfa-build" content="v4">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -1577,6 +1577,7 @@ table.ass-table.fit{width:100%;table-layout:fixed;}
   color:var(--deep-green);font-family:'Inter',sans-serif;}
 .gb-chip:hover{border-color:var(--deep-green);}
 .gb-none{margin:2px 0 0;}
+.gb-alt{border:none;background:none;padding:0;margin-left:6px;color:var(--leaf-green);font:inherit;font-weight:600;text-decoration:underline;cursor:pointer;}
 .gb-src{margin:8px 0 0;font-size:11.5px;line-height:1.5;}
 .gb-fields:has(> div:nth-child(4)){grid-template-columns:repeat(4,minmax(0,1fr));}
 html[data-view="mobile"] .gb-fields{grid-template-columns:1fr;}
@@ -3822,16 +3823,16 @@ function saveEditor(){
     if(e.plants !== '' && !(Number(e.plants) > 0)) return err(`The number of ${g.tree ? 'trees' : 'plants'} must be a whole number above nought.`);
     if(e.kgpp !== '' && !(Number(e.kgpp) >= 0)) return err('The expected kilograms a plant must be a number.');
     if(e.sown){
-      planned = planFromGuide(g, e);
+      planned = planFromGuide(g, Object.assign({until: calendarEnd()}, e));
       if(planned.error) return err(planned.error);
       plan = {guide:g.id, sown:e.sown, moved:e.moved || '', plants:Number(e.plants) || 0};
       if(e.kgpp !== '') plan.kgpp = Number(e.kgpp);
     }
   }
   const planText = ()=>{
-    const p = planned, yr = p.firstH.getFullYear() !== p.lastH.getFullYear();
-    const when = p.hWeeks === 1 ? `harvest ${dayText(p.firstH, true)}` : `harvest ${dayText(p.firstH, yr)} – ${dayText(p.lastH, true)}`;
-    const kg = p.total != null ? `, ${fmt(p.total)} kg`
+    const p = planned, yr = p.hWeeks && p.firstH.getFullYear() !== p.lastH.getFullYear();
+    const when = !p.hWeeks ? 'growing on with no harvest in these three years' : p.hWeeks === 1 ? `harvest ${dayText(p.firstH, true)}` : `harvest ${dayText(p.firstH, yr)} – ${dayText(p.lastH, true)}`;
+    const kg = !p.hWeeks ? '' : p.total != null ? `, ${fmt(p.total)} kg`
       : p.plants ? ' — give the expected kg a plant to work out its kilograms' : ' — add the number of plants to work out its kilograms';
     const off = Object.keys(p.cells).some(k=> !farmWindow(f).some(mo=> mo.keys.includes(k)))
       ? ' Some of its weeks fall outside the three years on screen; move the calendar on to see them.' : '';
@@ -4152,13 +4153,19 @@ const CROP_GUIDE = [
    nursery:[8, 10], fromSowing:[90, 120], flower:0, sow:'February to March',
    timingNote:'slow to establish; light picking only at first',
    harvest:{kind:'picking', seasonKg:null}, yieldNote:'picked lightly every week to the end of the season'},
-  {id:'avocado', name:'Avocado', names:['avocado', 'avocados', 'avocado (mature tree)'],
-   tree:true, harvest:{kind:'weekly', weeks:24, kg:1.5}, yieldNote:'1.5 kg a bearing tree every week for 24 weeks'},
+  {id:'avocado', name:'Avocado', names:['avocado', 'avocados', 'avocado (mature tree)', 'avocado (bearing tree)'],
+   tree:true, alt:'avocado-seed', harvest:{kind:'weekly', weeks:24, kg:1.5}, yieldNote:'1.5 kg a bearing tree every week for 24 weeks'},
+  // Grown from seed: the avocado sprouting timeline. A seedling tree takes
+  // years to bear, beyond the calendar's three, so no harvest is planned.
+  {id:'avocado-seed', name:'Avocado (from seed)', names:['avocado (from seed)', 'avocado from seed', 'avocado seed', 'avocado seeds', 'avocado seedling', 'avocado seedlings'],
+   nurseryDays:[180, 210], flower:0, alt:'avocado',
+   timingNote:'roots in 14–35 days, first leaves in 45–89 days (up to 90 days or more when cool or dry), a sturdy sapling at 180–210 days',
+   harvest:{kind:'none'}, yieldNote:'no fruit within the calendar — a tree grown from seed takes years to bear'},
 ];
 function guideFor(id){ return CROP_GUIDE.find(g=> g.id === id) || null; }
 function guideMatch(crop){ const k = cropKey(crop); return k ? CROP_GUIDE.find(g=> g.names.includes(k)) || null : null; }
 // Whether the guide knows what a plant gives, or the farm is asked.
-function guideHasYield(g){ const h = g.harvest; return h.kind === 'picking' ? h.seasonKg != null : h.kg != null; }
+function guideHasYield(g){ const h = g.harvest; return h.kind === 'none' ? true : h.kind === 'picking' ? h.seasonKg != null : h.kg != null; }
 
 const midOf = r=> (r[0] + r[1]) / 2;
 function parseDay(s){
@@ -4197,15 +4204,16 @@ function planFromGuide(g, p){
   let moved = null, firstH, seasonEnd;
   if(g.tree){ firstH = sown; seasonEnd = addDays(sown, 7 * GUIDE_SEASON_WEEKS); }
   else {
-    const nurseryDays = g.direct ? 0 : Math.round(midOf(g.nursery) * 7);
-    const afterTransplant = g.fromTransplant != null ? g.fromTransplant : Math.round(midOf(g.fromSowing)) - nurseryDays;
+    const nurseryDays = g.direct ? 0 : g.nurseryDays ? Math.round(midOf(g.nurseryDays)) : Math.round(midOf(g.nursery) * 7);
+    const none = g.harvest.kind === 'none';
+    const afterTransplant = none ? 0 : g.fromTransplant != null ? g.fromTransplant : Math.round(midOf(g.fromSowing)) - nurseryDays;
     if(!g.direct){
       moved = p.moved ? parseDay(p.moved) : addDays(sown, nurseryDays);
       if(!moved) return {error: 'The transplanting date is not a date.'};
       if(moved < sown) return {error: 'It cannot be transplanted before it is sown.'};
     }
     const base = moved || sown;
-    firstH = addDays(base, g.direct ? Math.round(midOf(g.fromSowing)) : afterTransplant);
+    firstH = none ? null : addDays(base, g.direct ? Math.round(midOf(g.fromSowing)) : afterTransplant);
     seasonEnd = addDays(base, 7 * GUIDE_SEASON_WEEKS);
     out.marks.land = addDays(sown, -7);
     put(out.marks.land, 'L');
@@ -4214,6 +4222,14 @@ function planFromGuide(g, p){
       weekly(sown, moved, 'S');
       out.marks.nursery = [sown, addDays(moved, -1)];
       put(moved, 'T');
+      if(none){
+        // Growing on, to the end of the calendar (or a year, when that is unknown).
+        const until = p.until && p.until > moved ? p.until : addDays(moved, 364);
+        weekly(addDays(moved, 7), until, 'V');
+        out.growUntil = addDays(until, -1);
+      }
+    }
+    if(!none && !g.direct){
       const flowering = addDays(firstH, -7 * (g.flower || 0));
       weekly(addDays(moved, 7), flowering < firstH ? flowering : firstH, 'V');
       if(g.flower) { weekly(flowering > moved ? flowering : addDays(moved, 7), firstH, 'F'); out.flowerFrom = flowering > moved ? flowering : null; }
@@ -4222,6 +4238,7 @@ function planFromGuide(g, p){
 
   // How much: the harvest weeks, and what each gives a plant.
   const h = g.harvest, picks = [];          // [date, kg a plant or null]
+  if(h.kind === 'none') return Object.assign(out, {cells: cellsOf(acc, plants), moved, firstH:null, lastH:null, hWeeks:0, perPlant:null, total:null});
   if(h.kind === 'weekly') for(let i = 0; i < h.weeks; i++) picks.push([addDays(firstH, 7 * i), h.kg]);
   if(h.kind === 'pulses') for(let i = 0; i < h.count; i++){
     picks.push([addDays(firstH, 7 * h.every * i), h.kg]);
@@ -4240,14 +4257,21 @@ function planFromGuide(g, p){
   if(!guideHasYield(g)) picks.forEach(x=> x[1] = ownKg != null ? ownKg / picks.length : null);
   picks.forEach(([d, kg])=> put(d, 'H', kg));
 
-  const cells = {};
-  Object.entries(acc).forEach(([k, v])=>{
-    cells[k] = v.s === 'H' ? writeCell('H', plants && v.kg != null ? Math.round(v.kg * plants * 10) / 10 : null) : writeCell(v.s);
-  });
+  const cells = cellsOf(acc, plants);
   const perPlant = picks.every(x=> x[1] != null) ? picks.reduce((t, x)=> t + x[1], 0) : null;
   return Object.assign(out, {cells, moved, firstH, lastH: addDays(picks[picks.length - 1][0], 6), hWeeks: picks.length,
     perPlant, total: perPlant != null && plants ? Math.round(perPlant * plants * 10) / 10 : null});
 }
+
+function cellsOf(acc, plants){
+  const cells = {};
+  Object.entries(acc).forEach(([k, v])=>{
+    cells[k] = v.s === 'H' ? writeCell('H', plants && v.kg != null ? Math.round(v.kg * plants * 10) / 10 : null) : writeCell(v.s);
+  });
+  return cells;
+}
+// The day after the calendar's three years, for a crop that grows on past them.
+function calendarEnd(){ const f = currentFarm(); return new Date((f && f.startYear || DEFAULT_START_YEAR) + 3, 0, 1); }
 
 /* ---- In the planting editor ----------------------------------------- */
 function guideBoxHTML(){
@@ -4262,7 +4286,8 @@ function guideBoxHTML(){
   const unit = g.tree ? 'trees' : 'plants';
   const dateLabel = g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date';
   return `<div class="gb">
-    <div class="gb-head">${icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in</span></div>
+    <div class="gb-head">${icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt
+      ? ` <button type="button" class="gb-alt" onclick="pickGuideCrop('${g.alt}')">${g.tree ? 'Growing it from seed instead?' : 'A tree already bearing fruit instead?'}</button>` : ''}</span></div>
     <div class="gb-fields">
       <div><label class="f" for="ed-sown">${dateLabel}</label>
         <input id="ed-sown" type="date" value="${esc(e.sown)}" oninput="state.editRow.sown=this.value;guidePreviewUpdate()"></div>
@@ -4280,7 +4305,8 @@ function guideBoxHTML(){
 }
 // Where each figure comes from, in a line under the plan.
 function guideSourceText(g){
-  if(g.tree) return 'Harvest Ledger: a bearing tree.';
+  if(g.tree) return 'Yield: 1.5 kg a bearing tree every week for 24 weeks (Harvest Ledger, which assumes a tree already bearing).';
+  if(g.harvest.kind === 'none') return `Timing: ${g.timingNote} (sprouting timeline; the middle, 195 days, is used for the nursery). ${g.yieldNote.charAt(0).toUpperCase() + g.yieldNote.slice(1)}.`;
   const when = g.fromSowing ? `${rangeText(g.fromSowing, 'days')} from ${g.direct ? 'planting' : 'sowing'} to harvest` : '';
   const nur = g.nursery && g.fromSowing ? `, ${rangeText(g.nursery, 'weeks')} to transplant size` : '';
   const parts = [];
@@ -4293,7 +4319,7 @@ function guideSourceText(g){
 function guidePreviewHTML(g){
   const e = state.editRow;
   if(!e.sown) return `<p class="helper gb-hint">${esc(guideSourceText(g))}</p>`;
-  const p = planFromGuide(g, e);
+  const p = planFromGuide(g, Object.assign({until: calendarEnd()}, e));
   if(p.error) return `<p class="helper gb-hint" style="color:var(--red);">${esc(p.error)}</p>`;
   const sw = s=> `<span class="sw" style="background:${STAGE[s].color}"></span>`;
   const y = (a, b)=> a.getFullYear() !== b.getFullYear();
@@ -4308,10 +4334,12 @@ function guidePreviewHTML(g){
     }
     if(p.flowerFrom) lines.push([sw('F'), 'Flowering / fruit set', `from ${dayText(p.flowerFrom, true)}`]);
   }
-  lines.push([sw('H'), 'Harvest', `${p.hWeeks === 1 ? dayText(p.firstH, true) : span(p.firstH, p.lastH)}${p.hWeeks > 1 ? ` · ${p.hWeeks} weeks` : ''}`]);
+  if(p.hWeeks) lines.push([sw('H'), 'Harvest', `${p.hWeeks === 1 ? dayText(p.firstH, true) : span(p.firstH, p.lastH)}${p.hWeeks > 1 ? ` · ${p.hWeeks} weeks` : ''}`]);
+  else if(p.growUntil && p.growUntil > p.moved) lines.push([sw('V'), 'Growing on', `${dayText(addDays(p.moved, 7), true)} – ${dayText(p.growUntil, true)}, the end of the calendar`]);
   const unit = g.tree ? 'tree' : 'plant';
   const kgA = Number(p.perPlant).toLocaleString('en-GB', {maximumFractionDigits:2});
-  const total = p.total != null
+  const total = !p.hWeeks ? `No harvest is planned: ${esc(g.yieldNote)}.`
+    : p.total != null
     ? `<strong>${fmt(p.total)} kg</strong> planned — ${fmt(p.plants)} ${unit}s × ${kgA} kg a ${unit}`
     : p.perPlant != null ? `${kgA} kg a ${unit} — enter the number of ${unit}s to work out the kilograms`
     : `Harvest weeks are marked without kilograms — give the expected kg a ${unit}${p.plants ? '' : ` and the number of ${unit}s`} to work them out`;

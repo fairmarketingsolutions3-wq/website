@@ -225,11 +225,11 @@ The figures behind **planned from the sowing date** are the `CROP_GUIDE` list in
 
 | Field | Meaning | Source |
 |---|---|---|
-| `nursery: [6, 8]` | weeks from sowing to transplant size | sowing table |
+| `nursery: [6, 8]` | weeks from sowing to transplant size (`nurseryDays: [180, 210]` gives it in days) | sowing table, avocado sprouting timeline |
 | `fromSowing: [85, 100]` | days from sowing to the first harvest | sowing table |
 | `fromTransplant: 70` | days from transplanting to the first harvest, for crops not in the sowing table | Harvest Ledger week |
 | `flower: 3` | weeks of flowering / fruit set before the first harvest | standard |
-| `harvest` | `weekly` (`weeks`, `kg`), `pulses` (`count`, `every`, `kg`), `head` (`kg`, `sideWeeks`, `sideKg`), `single`, or `picking` (`seasonKg`, cut weekly to 24 weeks after transplanting) | Harvest Ledger, Yield Calculator |
+| `harvest` | `weekly` (`weeks`, `kg`), `pulses` (`count`, `every`, `kg`), `head` (`kg`, `sideWeeks`, `sideKg`), `single`, or `picking` (`seasonKg`, cut weekly to 24 weeks after transplanting), or `none` (grows on to the end of the calendar, as avocado from seed) | Harvest Ledger, Yield Calculator |
 
 Ranges use their middle. `kg: null` means the guide has no yield for that crop,
 and the farm is asked for its own expected kg a plant. Changing a figure affects
