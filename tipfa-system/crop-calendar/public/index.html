@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v6">
+<meta name="tipfa-build" content="v7">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2938,7 +2938,12 @@ async function sendReset(btn){
   try{
     await CLOUD.authApi.sendPasswordResetEmail(CLOUD.auth, email);
     msg.style.color = 'var(--deep-green)';
-    msg.textContent = `If an account uses ${email}, a reset link is on its way. Check the inbox and spam folder.`;
+    // Firebase answers the same for an address it does not know, so say plainly
+    // that the email only comes to the exact address the account was made with,
+    // and whom it comes from, so it can be found in a spam folder.
+    const from = 'noreply@' + ((window.TIPFA_CC_FIREBASE_CONFIG || {}).authDomain || 'firebaseapp.com');
+    msg.textContent = `If ${email} is the exact email this account was registered with, a reset link is on its way from ${from}. `
+      + `Look in the inbox and the spam or junk folder. Nothing arrives for any other address — if it does not come, ask the Secretariat which email your account uses.`;
   }catch(e){ flagError(msg, cloudErrorText(e)); }
 }
 
