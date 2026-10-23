@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v12">
+<meta name="tipfa-build" content="v13">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2083,6 +2083,53 @@ body.cc-wide .content > .grid4{display:none;}
   .content > .grid4 .metric .val{font-size:20px;}
   .content > .grid4 .metric .lbl{font-size:9.5px;}
 }
+
+/* ============================================================
+   A big calendar
+   On a calendar page the app takes the whole window and the menu runs across
+   the top; the grid's rows, bars, names and headings are drawn large.
+   ============================================================ */
+@media (min-width: 761px){
+  body.cc-calpage .app{max-width:none;}
+  body.cc-calpage .layout{grid-template-columns:1fr;min-height:0;}
+  body.cc-calpage .sidebar{flex-direction:row;align-items:center;gap:6px;padding:8px 22px;border-right:none;
+    border-bottom:1px solid var(--line);overflow-x:auto;}
+  body.cc-calpage .sidebar .nav-group{display:none;}
+  body.cc-calpage .tabbtn{padding:8px 16px;white-space:nowrap;}
+  body.cc-calpage .tabbtn:hover{transform:none;}
+  body.cc-calpage .tabbtn.active::before{left:14px;right:14px;top:auto;bottom:3px;width:auto;height:3px;border-radius:3px;}
+  body.cc-calpage .content{padding:20px 22px 48px;}
+
+  .cc-grid.fit tbody td.wk{padding:16px 0;}
+  .seg-lab{font-size:13px;top:calc(var(--rowH) / 2 - 9px);left:9px;}
+  .cc-grid.fit td.wk .kg{font-size:11px;margin-bottom:6px;}
+  .cn-name{font-size:16.5px;}
+  .cc-grid.fit .cc-crop-cell .sub, .cc-now{font-size:12px;}
+  .cc-prog{height:5px;margin-top:6px;}
+  .cc-ico{width:42px;height:42px;border-radius:13px;}
+  .cc-ico svg{width:21px;height:21px;}
+  .cc-rowbtn{padding:6px;}
+  .cc-rowbtn svg{width:17px;height:17px;}
+  .cc-grid.fit thead tr.yr th{height:30px;font-size:13px;}
+  .cc-grid.fit thead tr.mh th{height:40px;font-size:13.5px;}
+  .cc-grid.fit thead tr.wh th{height:26px;font-size:11.5px;}
+  .cc-corner-name{font-size:13px;}
+  .cc-corner-sub{font-size:11.5px;}
+  .cc-grid.fit tr.cc-unit th{height:46px;font-size:15.5px;}
+  .cc-grid.fit tfoot tr.tot td, .cc-grid.fit tfoot tr.tot th{height:62px;}
+  .cc-grid.fit tfoot tr.tot td{font-size:15px;}
+  .cc-grid.fit tfoot tr.crop td, .cc-grid.fit tfoot tr.crop th{height:42px;font-size:13px;}
+  .cc-today-flag{font-size:10.5px;padding:5px 9px;}
+}
+@media (max-width: 760px){
+  html[data-view="mobile"] .cc-grid.fit tbody td.wk{padding:13px 0;}
+  html[data-view="mobile"] .seg-lab{font-size:11px;top:calc(var(--rowH) / 2 - 8px);}
+  html[data-view="mobile"] .cn-name{font-size:14px;}
+  html[data-view="mobile"] .cc-now{font-size:10.5px;}
+  .cc-grid.fit thead tr.mh th{height:34px;font-size:12px;}
+  .cc-grid.fit thead tr.wh th{height:24px;font-size:10.5px;}
+  .cc-grid.fit td.wk .kg{font-size:10px;}
+}
 </style>
 </head>
 <body>
@@ -3571,6 +3618,10 @@ function render(){
   renderSidebar(); renderSubbar(); renderAppBar(); renderNavDrawer();
   const sb = document.getElementById('stalebar');
   if(sb) sb.innerHTML = staleBuildBar();
+  // A calendar page takes the whole width of the window: the menu becomes a
+  // strip across the top, so the weeks get the room.
+  document.body.classList.toggle('cc-calpage', isApproved() && (state.role === 'member' ? state.tab === 'calendar'
+    : state.tab === 'calendarsA' && !!state.viewFarm));
   const c = document.getElementById('content');
   renderTabContent(c);
   afterRender(c);
@@ -3852,14 +3903,14 @@ function gridRoom(){
 }
 function gridLayout(months){
   const room = gridRoom();
-  const pin = isMobile() ? Math.min(138, Math.round(room * 0.37)) : room > 1100 ? 270 : 230;
+  const pin = isMobile() ? Math.min(138, Math.round(room * 0.37)) : room > 1300 ? 310 : room > 1100 ? 280 : 240;
   const weekW = (room - pin) / (months.length * 4);
   const monthW = weekW * 4;
   // Totals are added up over as many months as it takes to print them legibly.
   const group = [1, 2, 3, 6, 12].find(g=> g * monthW >= (isMobile() ? 34 : 40)) || 12;
-  return {room, pin, weekW, monthW, group, rowH: isMobile() ? 56 : 62,
+  return {room, pin, weekW, monthW, group, rowH: isMobile() ? 74 : 96,
     kg: weekW >= 21, weekNums: weekW >= 13,
-    monthLabel: monthW >= 64 ? 'full' : monthW >= 28 ? 'abbr' : monthW >= 11 ? 'initial' : 'none'};
+    monthLabel: monthW >= (isMobile() ? 64 : 88) ? 'full' : monthW >= (isMobile() ? 28 : 36) ? 'abbr' : monthW >= 11 ? 'initial' : 'none'};
 }
 let gridView = null;     // the months and layout the grid on screen was drawn for
 
@@ -4026,7 +4077,7 @@ function rowJourney(r){
 }
 // A label only where all of it fits: a bar too short for its name keeps quiet.
 function segLabel(s, kg, w){
-  const fits = t=> t.length * 6.6 + 14 <= w;
+  const fits = t=> t.length * (isMobile() ? 6.6 : 8.4) + 16 <= w;
   const options = s === 'H'
     ? (kg ? [`Harvest · ${fmt(Math.round(kg))} kg`, `${kgShort(kg)} kg`] : ['Harvest'])
     : [SEG_NAME[s]];
