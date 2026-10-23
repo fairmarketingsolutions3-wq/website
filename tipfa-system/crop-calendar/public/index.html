@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v10">
+<meta name="tipfa-build" content="v11">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -1963,6 +1963,118 @@ html[data-view="mobile"] .seg-lab{font-size:9.5px;top:14px;left:5px;}
 @media (prefers-reduced-motion: reduce){
   .seg-lab, .cc-prog i, .sky, .cc-ico, .cc-today-flag{animation:none !important;}
 }
+
+
+/* ============================================================
+   The whole calendar on the page
+   It is no longer a box that scrolls inside the page: every planting shows,
+   and the month headings stick to the top of the screen as the page scrolls.
+   ============================================================ */
+.cc-card{overflow:hidden;overflow:clip;}
+#content.content{overflow:hidden;overflow:clip;}
+.cc-scroll{overflow:visible;overflow-x:clip;max-height:none !important;height:auto !important;min-height:0;contain:none;scrollbar-gutter:auto;}
+html[data-view="mobile"] .cc-scroll{max-height:none;}
+
+/* Full screen: menus away, the calendar the width of the window. */
+body.cc-wide .topbar, body.cc-wide .subbar, body.cc-wide .sidebar, body.cc-wide .cc-layout-line{display:none !important;}
+body.cc-wide .app{max-width:none;}
+body.cc-wide .layout{grid-template-columns:1fr;}
+body.cc-wide .content{padding:14px 16px 40px;}
+body.cc-wide .content > .grid4{display:none;}
+.cc-widebtn svg{width:15px;height:15px;}
+
+/* ---- Edit and archive, beside each planting ---- */
+.cc-rowbtns{display:flex;gap:2px;flex:none;align-items:center;}
+.cc-rowbtn.cc-edit{color:var(--deep-green);background:#EEF3E5;}
+.cc-rowbtn.cc-edit:hover{background:#DFE7D2;}
+.cc-rowbtn.cc-arch{color:var(--harvest-orange, #C9822B);background:#FBF1E2;}
+.cc-rowbtn.cc-arch:hover{background:#F5E2C4;color:#8A5414;}
+@media (max-width: 760px){ .cc-rowbtn{padding:5px;} .cc-rowbtn svg{width:16px;height:16px;} }
+.cc-widebtn svg{width:15px;height:15px;}
+.ed-actions-extra{display:flex;gap:8px;flex-wrap:wrap;}
+
+/* ---- The archive ---- */
+.arch-table td{vertical-align:top;}
+.arch-table td.row-actions{white-space:nowrap;text-align:right;}
+.arch-table .btn svg{width:14px;height:14px;}
+.arch-section{margin-top:18px;}
+@media (max-width: 760px){
+  .arch-table thead{display:none;}
+  .arch-table, .arch-table tbody, .arch-table tr, .arch-table td{display:block;width:100%;}
+  .arch-table tr{border-bottom:1px solid var(--line-soft);padding:8px 0;}
+  .arch-table td{border:none;padding:2px 0;}
+  .arch-table td:nth-child(2)::before{content:'Sown ';color:var(--muted);}
+  .arch-table td:nth-child(3)::before{content:'Harvest ';color:var(--muted);}
+  .arch-table td:nth-child(4)::before{content:'Plants ';color:var(--muted);}
+  .arch-table td:nth-child(5)::before{content:'Harvest kg ';color:var(--muted);}
+  .arch-table td:nth-child(6)::before{content:'Archived ';color:var(--muted);}
+  .arch-table td.row-actions{text-align:left;padding-top:6px;}
+}
+
+/* ---- The crop guide, for the Secretariat ---- */
+.msg-banner.is-error{background:#F8E3DF;color:#8A2B1E;border-left-color:var(--red, #B5432F);}
+.gd-calc-in{display:grid;grid-template-columns:2fr 1fr 1.2fr 1.2fr;gap:12px;align-items:end;}
+.gd-calc-in select, .gd-calc-in input{margin:0;width:100%;}
+#gc-out{margin-top:14px;}
+.gd-figs{display:grid;grid-template-columns:repeat(3, 1fr);gap:10px;margin-bottom:10px;}
+.gd-fig{border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#fff;display:flex;flex-direction:column;gap:2px;
+  animation:riseIn var(--dur-3) var(--ease-out) both;}
+.gd-fig .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+.gd-fig .val{font-size:22px;font-weight:700;color:var(--deep-green);font-variant-numeric:tabular-nums;}
+.gd-fig.is-main{background:linear-gradient(135deg, #EEF5E2, #F9FBF4);border-color:#CFDDB8;}
+.gd-fig.is-main .val{font-size:26px;}
+.gd-working{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.55;margin:6px 0 10px;
+  background:#F7FAF1;border:1px dashed #CFDDB8;border-radius:10px;padding:9px 12px;}
+.gd-working svg{flex:none;width:16px;height:16px;margin-top:2px;stroke:var(--deep-green);}
+.gd-working b{white-space:nowrap;color:var(--deep-green);}
+.gd-list-head{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+.gd-list-head .section-label{margin-bottom:0;flex:1;}
+.gd-list-head{margin-bottom:10px;}
+.gd-grid{display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;}
+.gd-card{display:flex;flex-direction:column;gap:8px;margin:0;}
+.gd-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.gd-card-head strong{font-size:15px;}
+.gd-tag{font-size:10.5px;border-radius:99px;padding:2px 8px;background:#EEF1E8;color:var(--muted);white-space:nowrap;}
+.gd-tag.is-edited{background:#FBF1E2;color:#8A5414;}
+.gd-tag.is-new{background:#E3EEF7;color:#2B5A80;}
+.gd-facts{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin:0;font-size:12.5px;}
+.gd-facts dt{color:var(--muted);}
+.gd-facts dd{margin:0;}
+.gd-out{font-size:13px;background:#F7FAF1;border-radius:8px;padding:6px 10px;}
+.gd-out strong{color:var(--deep-green);}
+.gd-missing{color:var(--muted);}
+.gd-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:auto;}
+.gd-actions .btn svg{width:14px;height:14px;}
+.ge-form{display:flex;flex-direction:column;gap:6px;}
+.ge-sec{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;margin-top:10px;
+  border-bottom:1px solid var(--line-soft);padding-bottom:4px;}
+.ge-row{display:grid;grid-template-columns:repeat(auto-fill, minmax(190px, 1fr));gap:10px 12px;align-items:end;}
+.ge-row.ge-wide{grid-template-columns:1fr 2fr;}
+.ge-row input, .ge-row select{margin:0;width:100%;}
+.ge-preview{margin-top:12px;}
+.gd-prev-line{font-size:13px;margin:0 0 4px;}
+.ge-actions{display:flex;gap:8px;margin-top:10px;}
+@media (max-width: 760px){
+  .gd-calc-in{grid-template-columns:1fr 1fr;}
+  .gd-calc-in > div:first-child{grid-column:1 / -1;}
+  .gd-figs{grid-template-columns:1fr;}
+  .gd-fig{flex-direction:row;align-items:baseline;justify-content:space-between;}
+  .gd-fig .val, .gd-fig.is-main .val{font-size:20px;}
+  .gd-working b{white-space:normal;}
+  .ge-row.ge-wide{grid-template-columns:1fr;}
+  .gd-grid{grid-template-columns:1fr;}
+}
+
+/* Wider on big screens, so the calendar has the room (other pages keep their cards in a grid). */
+@media (min-width: 1280px){ .app{max-width:1600px;} }
+
+/* On a phone the crop column is narrow: the name gets the room, the buttons stack. */
+@media (max-width: 760px){
+  .c-crop .cc-ico{display:none;}
+  .cc-rowbtns{flex-direction:column;gap:3px;}
+  .cc-rowbtn{padding:4px;}
+  .cc-rowbtn svg{width:15px;height:15px;}
+}
 </style>
 </head>
 <body>
@@ -2136,6 +2248,12 @@ const ICONS = {
   close:  '<path d="M6 6l12 12"/><path d="M18 6L6 18"/>',
   chevL:  '<path d="M15 6l-6 6 6 6"/>',
   chevR:  '<path d="M9 6l6 6-6 6"/>',
+  expand: '<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>',
+  shrink: '<path d="M9 4v5H4"/><path d="M15 4v5h5"/><path d="M9 20v-5H4"/><path d="M15 20v-5h5"/>',
+  pencil: '<path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>',
+  archive:'<rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9"/><path d="M10 13h4"/>',
+  restore:'<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>',
+  calc:   '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8"/><path d="M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2"/>',
   today:  '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><circle cx="12" cy="15" r="1.6"/>',
   refresh:'<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
 };
@@ -2518,6 +2636,14 @@ function cloudListen(){
   if(!cloudOn() || !CLOUD_STATE.uid) return;
   const { doc, collection, onSnapshot } = CLOUD.fs;
   const quiet = ()=>{};
+  // The crop guide everyone plans from, as the Secretariat last set it. Until it
+  // has been set (or if it cannot be read) the built-in figures stand.
+  CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.settings, 'cropGuide'), snap=>{
+    const d = snap.exists() ? snap.data() || {} : null;
+    applyGuide(d ? d.crops : null);
+    GUIDE_META = d ? {updatedAt: d.updatedAt || '', updatedBy: d.updatedBy || ''} : null;
+    if(state.loggedIn && state.role === 'admin' && state.tab === 'guide' && !state.guideEdit) onLiveData();
+  }, quiet));
   if(CLOUD_STATE.role === 'farm'){
     CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.farms, CLOUD_STATE.uid), snap=>{
       // Removed by an administrator while open: there is nothing left to show.
@@ -3080,8 +3206,8 @@ async function adminResetFarmPassword(farmId){
 /* ============================================================
    Staying signed in
    ============================================================ */
-const MEMBER_GROUPS = [['Crop calendar', [['calendar','Calendar'], ['layout','Greenhouses & blocks']]]];
-const ADMIN_GROUPS = [['', [['calendarsA','Crop calendars'], ['members','Members & approvals']]]];
+const MEMBER_GROUPS = [['Crop calendar', [['calendar','Calendar'], ['archive','Archive'], ['layout','Greenhouses & blocks']]]];
+const ADMIN_GROUPS = [['', [['calendarsA','Crop calendars'], ['members','Members & approvals'], ['guide','Crop guide']]]];
 const WAITING_GROUPS = [['', [['status','Account status']]]];
 function sidebarGroups(){
   if(!isApproved()) return WAITING_GROUPS;
@@ -3464,9 +3590,11 @@ function renderTabContent(c){
   if(!isApproved()) return renderAccountStatus(c);
   if(state.role === 'member'){
     if(state.tab === 'layout') return renderLayout(c);
+    if(state.tab === 'archive') return renderArchive(c);
     return renderCalendar(c);
   }
   if(state.tab === 'members') return renderMembers(c);
+  if(state.tab === 'guide') return renderGuideAdmin(c);
   return renderCalendarsAdmin(c);
 }
 
@@ -3503,13 +3631,18 @@ function layoutSummary(f){
   return `${f.units.length} ${unitWord(f, true)}` + (nBlocks ? `, ${nBlocks} block${nBlocks===1?'':'s'} between them` : '');
 }
 
+// The plantings still in their season. Archived ones are kept with the farm,
+// under Archive, but leave the calendar, its totals and its exports.
+function liveRows(f){ return f.rows.filter(r=> !r.archived); }
+function archivedRows(f){ return f.rows.filter(r=> r.archived); }
+
 /* Plantings in the order the grid draws them: by unit, then block (the
    whole unit first), then the order they were added. */
 function orderedRows(f){
   const uIdx = Object.fromEntries(f.units.map((u, i)=> [u.id, i]));
   const bIdx = {};
   f.units.forEach(u=> u.blocks.forEach((b, i)=> bIdx[b.id] = i + 1));
-  return f.rows.map((r, i)=> ({r, i})).sort((a, b)=>
+  return liveRows(f).map((r, i)=> ({r, i})).sort((a, b)=>
     (uIdx[a.r.unit] - uIdx[b.r.unit]) || ((bIdx[a.r.block]||0) - (bIdx[b.r.block]||0)) || (a.i - b.i)
   ).map(x=> x.r);
 }
@@ -3541,13 +3674,14 @@ function cropTotals(rows, months){
   }).filter(g=> g.total > 0).sort((a, b)=> b.total - a.total);
 }
 function farmFigures(f, months){
-  const per = monthTotals(f.rows, months);
+  const rows = liveRows(f);
+  const per = monthTotals(rows, months);
   const total = per.reduce((a, b)=> a + b, 0);
   let peak = -1;
   per.forEach((v, i)=>{ if(v > 0 && (peak < 0 || v > per[peak])) peak = i; });
   return {
-    plantings: f.rows.length,
-    area: f.rows.reduce((t, r)=> t + (Number(r.area) || 0), 0),
+    plantings: rows.length,
+    area: rows.reduce((t, r)=> t + (Number(r.area) || 0), 0),
     total, per,
     peak: peak >= 0 ? `${MONTHS[months[peak].m-1].slice(0,3)} ${months[peak].y}` : '—',
   };
@@ -3586,6 +3720,7 @@ function renderCalendar(c){
       <div class="cc-row">
         ${viewNavHTML(spanMonths(months), 'shiftWindow')}
         <button class="btn small ghost" onclick="goToToday()">${icon('today')} This week</button>
+        <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}">${icon(state.wide ? 'shrink' : 'expand')} ${state.wide ? 'Exit full screen' : 'Full screen'}</button>
         <span class="grow"></span>
         <button class="btn small" onclick="openEditor(null)">${icon('plus')} Add a planting</button>
         <button class="btn small ghost" onclick="exportFarmExcel()">${icon('down')} Export to Excel</button>
@@ -3597,7 +3732,7 @@ function renderCalendar(c){
     </div>`;
   state.importMsg = '';
 
-  if(!f.rows.length){
+  if(!liveRows(f).length){
     c.innerHTML = `
       <h1 class="page-title">Crop calendar</h1>
       <p class="page-sub">${esc(f.name)} · ${MONTH_ABBR[0]} ${ys} – ${MONTH_ABBR[11]} ${ys+2} · one row for every planting, one column for every week</p>
@@ -3705,7 +3840,7 @@ function gridRoom(){
   if(!w) return isMobile() ? 340 : 1000;
   const cs = getComputedStyle(c);
   // 6 more for the cells' own borders, which a separated table adds to its width.
-  return Math.floor(w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) - 2 - scrollbarWidth() - 6;
+  return Math.floor(w - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)) - 2 - 6;
 }
 function gridLayout(months){
   const room = gridRoom();
@@ -3722,14 +3857,25 @@ let gridView = null;     // the months and layout the grid on screen was drawn f
 
 /* ---- How much of the three years is on screen ----------------------- */
 const SPANS = [{n:36, label:'3 years'}, {n:12, label:'1 year'}, {n:6, label:'6 months'}];
+// Unless someone has chosen, a year on a computer and half a year on a phone:
+// big enough to read, with three years one tap away.
 function viewSpan(){
   if(!state.span){
-    let s = 36;
-    try{ s = Number(localStorage.getItem('tipfa-cc-span')) || 36; }catch(e){}
-    state.span = SPANS.some(x=> x.n === s) ? s : 36;
+    const dflt = isMobile() ? 6 : 12;
+    let s = dflt;
+    try{ s = Number(localStorage.getItem('tipfa-cc-span')) || dflt; }catch(e){}
+    state.span = SPANS.some(x=> x.n === s) ? s : dflt;
   }
   return state.span;
 }
+// Full screen: the calendar takes the whole window, menus out of the way.
+function toggleWide(on){
+  state.wide = on === undefined ? !state.wide : on;
+  document.body.classList.toggle('cc-wide', !!state.wide);
+  state.scroll = null;
+  render();
+}
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && state.wide && !state.pop && !state.navOpen) toggleWide(false); });
 // The months of the window that are shown: all of them, or the year or half
 // year asked for — by default the one holding this week.
 function spanMonths(months){
@@ -3789,7 +3935,10 @@ function gridHTML(f, months, opts){
   // and the week numbers when there is room for them.
   const yearsRow = L.monthLabel !== 'full';
   const H = {yr: 24, mh: 30, wh: 20};
-  const tops = {yr: 0, mh: yearsRow ? H.yr : 0};
+  // The whole calendar is on the page, so its headings stick to the top of the
+  // screen as it scrolls — below the phone's own bar.
+  const stick = isMobile() ? 56 : 0;
+  const tops = {yr: stick, mh: stick + (yearsRow ? H.yr : 0)};
   tops.wh = tops.mh + H.mh;
   const nHead = (yearsRow ? 1 : 0) + 1 + (L.weekNums ? 1 : 0);
   const monthText = mo=> L.monthLabel === 'full' ? `${MONTH_ABBR[mo.m-1]} ${mo.y}`
@@ -3798,8 +3947,8 @@ function gridHTML(f, months, opts){
   months.forEach(mo=>{ const last = years[years.length-1];
     if(last && last.y === mo.y) last.n++; else years.push({y: mo.y, n: 1}); });
   const curMonth = now.slice(0, 7);
-  const corner = `<th rowspan="${nHead}" class="stk cc-corner" style="top:0;" title="${esc(f.name)}"><span class="cc-corner-name">${esc(f.name)}</span>
-      <span class="cc-corner-sub">${f.rows.length} planting${f.rows.length === 1 ? '' : 's'}</span></th>`;
+  const corner = `<th rowspan="${nHead}" class="stk cc-corner" style="top:${stick}px;" title="${esc(f.name)}"><span class="cc-corner-name">${esc(f.name)}</span>
+      <span class="cc-corner-sub">${liveRows(f).length} planting${liveRows(f).length === 1 ? '' : 's'}</span></th>`;
   const rowsHead = [];
   if(yearsRow) rowsHead.push(`<tr class="yr">${corner}${years.map(y=>
     `<th colspan="${y.n * 4}" style="top:${tops.yr}px;">${y.n * L.monthW >= 34 ? y.y : String(y.y).slice(2)}</th>`).join('')}</tr>`);
@@ -3820,7 +3969,7 @@ function gridHTML(f, months, opts){
   // With more than one unit, every unit gets its heading — an empty one too,
   // so a greenhouse just added can be planted from here.
   const unitHead = u=>{
-    const inUnit = f.rows.filter(x=> x.unit === u.id);
+    const inUnit = liveRows(f).filter(x=> x.unit === u.id);
     const area = inUnit.reduce((t, x)=> t + (Number(x.area)||0), 0);
     return `<tr class="cc-unit"><th colspan="${nW + 1}"><span class="u-ico">${icon('house')}</span>${esc(u.name)}
         <span class="u-meta">${esc(u.type)} · ${inUnit.length ? `${inUnit.length} planting${inUnit.length===1?'':'s'}` : 'nothing planned yet'}${area?` · ${fmt(area)} m²`:''}</span>
@@ -3888,7 +4037,10 @@ function rowHTML(r, ri){
         ${sub && !mobile ? `<span class="sub">${esc(sub)}</span>` : ''}
         <span class="cc-now">${esc(j.text)}</span>
         <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
-      ${ro ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}
+      ${ro ? '' : `<span class="cc-rowbtns">
+        <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants" aria-label="Edit ${esc(r.crop)}: crop, dates and plants">${icon('pencil')}</button>
+        ${j.cls === 'done' ? `<button class="cc-rowbtn cc-arch" onclick="archiveRow('${r.id}')" title="Season done — archive it" aria-label="Archive ${esc(r.crop)}">${icon('archive')}</button>`
+          : mobile ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}</span>`}
     </div>`;
   const st = keys.map(k=> readCell(r.cells[k]));
   let weeks = '';
@@ -3918,7 +4070,7 @@ function footHTML(f, view){
   const g = L.group;
   const groups = [];
   for(let i = 0; i < months.length; i += g) groups.push(months.slice(i, i + g));
-  const per = monthTotals(f.rows, months);
+  const per = monthTotals(liveRows(f), months);
   const sumOf = arr=> groups.map((gr, gi)=> arr.slice(gi * g, gi * g + gr.length).reduce((a, b)=> a + b, 0));
   const unit = g === 1 ? 'month' : g === 3 ? 'quarter' : g === 6 ? 'half year' : g === 12 ? 'year' : `${g} months`;
   const name = gr=> gr.length === 1 ? `${MONTHS[gr[0].m-1]} ${gr[0].y}`
@@ -3928,7 +4080,7 @@ function footHTML(f, view){
   // Each figure stands on a bar as tall as its share of the row's best period.
   const cells = vals=>{ const top = Math.max(1, ...vals);
     return vals.map((v, i)=> `<td colspan="${groups[i].length * 4}" class="${v?'':'zero'}" title="${name(groups[i])}: ${fmt(v)} kg">${v ? `<span class="sky" style="--h:${(v / top).toFixed(3)};--d:${i * 40}ms"></span>` : ''}<span class="fv">${num(v)}</span></td>`).join(''); };
-  const crops = cropTotals(f.rows, months);
+  const crops = cropTotals(liveRows(f), months);
   const nW = months.length * 4;
   return `<tfoot>
     <tr class="tot"><th class="stk" title="Total harvest, kg per ${unit}">${isMobile() ? 'TOTAL' : 'TOTAL HARVEST'} <span class="per">kg</span></th>${cells(sumOf(per))}</tr>
@@ -4002,6 +4154,7 @@ function refreshAfterEdit(f, rowIds){
 // A contained box cannot size itself to its contents, so it is told: as tall
 // as the table, but never taller than the screen allows.
 function sizeGrid(sc){
+  return;                 // the calendar is drawn at its full height on the page
   if(!sc) return;
   const t = sc.querySelector('table');
   if(!t) return;
@@ -4272,6 +4425,8 @@ function editorPanel(f){
       <button class="btn" onclick="saveEditor()">${e.id ? 'Save planting' : 'Add planting'}</button>
       <button class="btn small ghost" onclick="state.editRow=null;render();">Cancel</button>
       ${e.id ? `<span class="push"></span>
+        <button class="btn small ghost" onclick="openFill('${e.id}')">${icon('fill')} Fill weeks</button>
+        <button class="btn small ghost" onclick="archiveRow('${e.id}')">${icon('archive')} Archive</button>
         <button class="btn small ghost" onclick="duplicateRow('${e.id}')">${icon('copy')} Duplicate</button>
         <button class="btn small ghost" style="color:var(--red);" onclick="deleteRow('${e.id}')">${icon('trash')} Delete</button>` : ''}
     </div>
@@ -4302,6 +4457,14 @@ function saveEditor(){
       if(e.kgpp !== '') plan.kgpp = Number(e.kgpp);
     }
   }
+  let facts = null;                   // dates and plants kept with a crop the guide does not know
+  if(!g){
+    e.sown = val('ed-sown'); e.moved = val('ed-moved'); e.plants = val('ed-plants');
+    const err = msg=> flagError(document.getElementById('ed-error'), msg);
+    if(e.plants !== '' && !(Number(e.plants) > 0)) return err('The number of plants must be a whole number above nought.');
+    if(e.sown && e.moved && e.moved < e.sown) return err('It cannot be transplanted before it is sown.');
+    if(e.sown || e.moved || e.plants) facts = {guide:'', sown:e.sown || '', moved:e.moved || '', plants:Number(e.plants) || 0};
+  }
   const planText = ()=>{
     const p = planned, yr = p.hWeeks && p.firstH.getFullYear() !== p.lastH.getFullYear();
     const when = !p.hWeeks ? 'growing on with no harvest in these three years' : p.hWeeks === 1 ? `harvest ${dayText(p.firstH, true)}` : `harvest ${dayText(p.firstH, yr)} – ${dayText(p.lastH, true)}`;
@@ -4321,13 +4484,13 @@ function saveEditor(){
       r.cells = planned.cells;
     }
     Object.assign(r, {unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes});
-    if(plan) r.plan = plan; else delete r.plan;
+    if(plan) r.plan = plan; else if(facts) r.plan = facts; else delete r.plan;
     state.calMsg = plan && !same ? `${CHECK_ICON} ${esc(e.crop)} planned again: ${planText()}` : `${CHECK_ICON} ${esc(e.crop)} saved.`;
     if(plan && !same){ showPlanStart(f, plan.sown); state.growRow = r.id; }
     state.editRow = null;
   } else {
     const r = {id:uid('r'), unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes, cells: plan ? planned.cells : {}};
-    if(plan) r.plan = plan;
+    if(plan) r.plan = plan; else if(facts) r.plan = facts;
     f.rows.push(r);
     state.editRow = null;
     if(plan){
@@ -4488,7 +4651,7 @@ function renderLayout(c){
     </div><p class="helper" style="margin:4px 0 0;">The farm name heads your exported calendar, as [Farm name] does on the template.</p></div>`;
 }
 function unitCard(f, u, i){
-  const n = f.rows.filter(r=> r.unit === u.id).length;
+  const n = liveRows(f).filter(r=> r.unit === u.id).length;
   return `<div class="card unit-card">
     <div class="unit-head">
       <div><label class="f">Name or number</label><input value="${esc(u.name)}" onchange="renameUnit('${u.id}', this.value)" aria-label="Name of ${esc(u.name)}"></div>
@@ -4499,7 +4662,7 @@ function unitCard(f, u, i){
     <div class="unit-meta">${n} planting${n===1?'':'s'} on the calendar${u.blocks.length ? ` · divided into ${u.blocks.length} block${u.blocks.length===1?'':'s'}` : ' · not divided into blocks'}</div>
     <div class="block-list">
       ${u.blocks.map(b=>{
-        const nb = f.rows.filter(r=> r.block === b.id).length;
+        const nb = liveRows(f).filter(r=> r.block === b.id).length;
         return `<span class="block-chip"><input value="${esc(b.name)}" onchange="renameBlock('${u.id}','${b.id}', this.value)" aria-label="Block name">
           ${nb ? `<span class="n">${nb}</span>` : ''}
           <button onclick="removeBlock('${u.id}','${b.id}')" aria-label="Remove ${esc(b.name)}" title="Remove block">${icon('close')}</button></span>`;
@@ -4568,6 +4731,87 @@ function removeBlock(unitId, blockId){
 }
 
 /* ============================================================
+   The archive
+   A planting whose season is over is archived: it leaves the calendar and
+   its totals, and is kept here with its dates, plants and harvest, to be
+   restored or deleted. Nothing about it changes by being archived.
+   ============================================================ */
+function archiveRow(id){
+  const f = currentFarm(), r = f.rows.find(x=> x.id === id);
+  if(!r) return;
+  if(!confirm(`Archive ${r.crop || 'this planting'}?\n\nIt leaves the calendar and its totals, and is kept under Archive with its dates and harvest. You can restore it at any time.`)) return;
+  r.archived = new Date().toISOString();
+  if(state.editRow && state.editRow.id === id) state.editRow = null;
+  if(state.fillRow && state.fillRow.id === id) state.fillRow = null;
+  state.calMsg = `${CHECK_ICON} ${esc(r.crop || 'The planting')} archived. It is kept under <a href="#" onclick="switchTab('archive');return false;">Archive</a>.`;
+  touch(state.member);
+  render();
+}
+function restoreRow(id){
+  const f = currentFarm(), r = f.rows.find(x=> x.id === id);
+  if(!r) return;
+  delete r.archived;
+  state.archMsg = `${CHECK_ICON} ${esc(r.crop || 'The planting')} is back on the calendar.`;
+  touch(state.member);
+  render();
+}
+function deleteArchived(id){
+  const f = currentFarm(), r = f.rows.find(x=> x.id === id);
+  if(!r || !confirm(`Delete ${r.crop || 'this planting'} from the archive for good? This cannot be undone.`)) return;
+  f.rows = f.rows.filter(x=> x.id !== id);
+  state.archMsg = `${esc(r.crop || 'The planting')} was deleted.`;
+  touch(state.member);
+  render();
+}
+// A planting's season in a few facts, from its plan and its weeks.
+function seasonFacts(r){
+  const ks = Object.keys(r.cells).filter(k=> readCell(r.cells[k])).sort(weekOrder);
+  const hs = ks.filter(k=> readCell(r.cells[k]).s === 'H');
+  const kg = hs.reduce((t, k)=> t + (readCell(r.cells[k]).kg || 0), 0);
+  const wk = k=>{ const {y, m} = parseWeekKey(k); return `${MONTH_ABBR[m-1].charAt(0) + MONTH_ABBR[m-1].slice(1).toLowerCase()} ${y}`; };
+  const p = r.plan || {};
+  return {
+    sown: p.sown ? dayText(parseDay(p.sown), true) : ks.length ? wk(ks[0]) : '—',
+    moved: p.moved ? dayText(parseDay(p.moved), true) : '',
+    harvest: hs.length ? (wk(hs[0]) === wk(hs[hs.length-1]) ? wk(hs[0]) : `${wk(hs[0])} – ${wk(hs[hs.length-1])}`) : '—',
+    kg, plants: p.plants || 0,
+  };
+}
+function archiveTableHTML(f, rows, ro){
+  return `<table class="grid-table arch-table">
+    <thead><tr><th>Crop</th><th>Sown</th><th>Harvest</th><th>Plants</th><th>Harvest kg</th><th>Archived</th>${ro ? '' : '<th></th>'}</tr></thead>
+    <tbody>${rows.map(r=>{ const s = seasonFacts(r), where = locationText(f, r);
+      return `<tr>
+        <td><strong>${esc(r.crop || '—')}</strong>${where || r.area ? `<div class="helper" style="margin:2px 0 0;">${esc([where, r.area ? fmt(r.area) + ' m²' : ''].filter(Boolean).join(' · '))}</div>` : ''}</td>
+        <td>${esc(s.sown)}${s.moved ? `<div class="helper" style="margin:2px 0 0;">transplanted ${esc(s.moved)}</div>` : ''}</td>
+        <td>${esc(s.harvest)}</td>
+        <td>${s.plants ? fmt(s.plants) : '—'}</td>
+        <td>${s.kg ? `<strong>${fmt(Math.round(s.kg * 10) / 10)}</strong>` : '—'}</td>
+        <td>${esc(dayText(new Date(r.archived), true))}</td>
+        ${ro ? '' : `<td class="row-actions"><button class="btn small ghost" onclick="restoreRow('${r.id}')">${icon('restore')} Restore</button>
+          <button class="btn small ghost danger" onclick="deleteArchived('${r.id}')">${icon('trash')} Delete</button></td>`}
+      </tr>`; }).join('')}</tbody></table>`;
+}
+function renderArchive(c){
+  const f = currentFarm();
+  const rows = archivedRows(f).sort((a, b)=> String(b.archived).localeCompare(String(a.archived)));
+  const msg = state.archMsg; state.archMsg = '';
+  const kg = rows.reduce((t, r)=> t + seasonFacts(r).kg, 0);
+  c.innerHTML = `
+    <h1 class="page-title">Archive</h1>
+    <p class="page-sub">${esc(f.name)} · plantings whose season is over, kept with their dates, plants and harvest</p>
+    <div class="grid4">
+      <div class="metric"><div class="lbl">Archived plantings</div><div class="val" data-count="${rows.length}">0</div></div>
+      <div class="metric"><div class="lbl">Harvest recorded</div><div class="val"><span data-count="${Math.round(kg)}">0</span><span style="font-size:14px;color:var(--muted);"> kg</span></div></div>
+      <div class="metric"><div class="lbl">Plants</div><div class="val" data-count="${rows.reduce((t, r)=> t + seasonFacts(r).plants, 0)}">0</div></div>
+      <div class="metric"><div class="lbl">On the calendar now</div><div class="val" data-count="${liveRows(f).length}">0</div></div>
+    </div>
+    ${msg ? `<div class="msg-banner">${msg}</div>` : ''}
+    ${rows.length ? `<div class="card" style="overflow-x:auto;">${archiveTableHTML(f, rows, false)}</div>`
+      : emptyState('Nothing archived yet', 'When a planting’s season is over, archive it from the calendar — the box button beside it, or Archive in its editor. It is kept here with its dates and harvest, and can be restored.')}`;
+}
+
+/* ============================================================
    The TIPFA crop guide: a planting planned from its sowing date
    Two sources, each used for what it covers:
    · WHEN — the sowing and growth timelines: how long the seedlings take to
@@ -4581,7 +4825,7 @@ function removeBlock(unitId, blockId){
    still be changed by hand.
    ============================================================ */
 const GUIDE_SEASON_WEEKS = 24;      // the ledger's and the calculator's season, from transplanting
-const CROP_GUIDE = [
+const CROP_GUIDE_DEFAULT = [
   {id:'cherry-tomato', name:'Cherry tomato', names:['cherry tomato', 'cherry tomatoes'],
    nursery:[6, 8], fromSowing:[85, 100], flower:3, sow:'Late February to mid-March',
    harvest:{kind:'weekly', weeks:14, kg:0.3}, yieldNote:'300 g a plant every week for 14 weeks'},
@@ -4636,6 +4880,67 @@ const CROP_GUIDE = [
    timingNote:'roots in 14–35 days, first leaves in 45–89 days (up to 90 days or more when cool or dry), a sturdy sapling at 180–210 days',
    harvest:{kind:'none'}, yieldNote:'no fruit within the calendar — a tree grown from seed takes years to bear'},
 ];
+/* The guide in use: the defaults above until the Secretariat edits it, then
+   the Secretariat's version — kept in the database (or, with none, in this
+   browser) and read by every farm as it plans. */
+const GUIDE_KEY = 'tipfa.cropcal.guide.v1';
+const cloneGuide = g=> JSON.parse(JSON.stringify(g));
+let CROP_GUIDE = CROP_GUIDE_DEFAULT.map(cloneGuide);
+let GUIDE_META = null;                 // when, and by whom, it was last changed
+function sanitiseGuide(list){
+  if(!Array.isArray(list)) return null;
+  return list.filter(g=> g && g.id && g.name && g.harvest && g.harvest.kind).map(g=>{
+    const x = cloneGuide(g);
+    x.names = [...new Set([cropKey(x.name), ...(x.names || []).map(cropKey)].filter(Boolean))];
+    return x;
+  });
+}
+function applyGuide(list){
+  const s = sanitiseGuide(list);
+  CROP_GUIDE = s && s.length ? s : CROP_GUIDE_DEFAULT.map(cloneGuide);
+}
+function loadGuideLocal(){
+  if(CLOUD_CONFIGURED) return;
+  try{ const d = JSON.parse(localStorage.getItem(GUIDE_KEY) || 'null'); if(d) applyGuide(d.crops || d); }catch(e){}
+}
+async function saveGuide(list){
+  const crops = JSON.parse(JSON.stringify(list));
+  if(cloudOn()){
+    const { doc, setDoc } = CLOUD.fs;
+    await setDoc(doc(CLOUD.db, COL.settings, 'cropGuide'), {crops, updatedAt: new Date().toISOString(), updatedBy: CLOUD_STATE.uid});
+  } else {
+    GUIDE_META = {updatedAt: new Date().toISOString(), updatedBy: state.adminId};
+    try{ localStorage.setItem(GUIDE_KEY, JSON.stringify({crops, meta: GUIDE_META})); }catch(e){}
+  }
+  applyGuide(crops);
+}
+
+/* What a plant gives, in words and in kilograms — worked out from the figures,
+   so it stays true however they are edited. */
+function amountText(kg){ return kg < 1 ? `${Math.round(kg * 1000)} g` : `${fmt(kg)} kg`; }
+function yieldText(g){
+  const h = g.harvest, u = g.tree ? 'tree' : 'plant', has = v=> v !== null && v !== undefined && v !== '';
+  switch(h.kind){
+    case 'weekly':  return has(h.kg) ? `${amountText(h.kg)} a ${u} every week for ${h.weeks} weeks` : `picked every week for ${h.weeks} weeks`;
+    case 'pulses':  return has(h.kg) ? `${amountText(h.kg)} a ${u} every ${h.every} weeks, ${h.count} pickings` : `picked every ${h.every} weeks, ${h.count} pickings`;
+    case 'head':    return `${has(h.kg) ? `a ${amountText(h.kg)} head` : 'one main head'}${h.sideWeeks ? `, then ${has(h.sideKg) ? amountText(h.sideKg) + ' of side shoots' : 'side shoots'} a week for ${h.sideWeeks} weeks` : ''}`;
+    case 'single':  return has(h.kg) ? `one harvest of ${amountText(h.kg)} a ${u}` : 'harvested once';
+    case 'picking': return `cut every week to the end of the season${has(h.seasonKg) ? `, ${amountText(h.seasonKg)} a ${u} in all` : ''}`;
+    default:        return 'no harvest within the calendar';
+  }
+}
+// A plant's whole harvest in kg, or null where the guide leaves it to the farm.
+function perPlantOf(g){
+  const h = g.harvest, n = v=> v === null || v === undefined || v === '' ? null : Number(v);
+  switch(h.kind){
+    case 'weekly':  return n(h.kg) === null ? null : n(h.kg) * h.weeks;
+    case 'pulses':  return n(h.kg) === null ? null : n(h.kg) * h.count;
+    case 'head':    return n(h.kg) === null ? null : n(h.kg) + (h.sideWeeks ? (n(h.sideKg) || 0) * h.sideWeeks : 0);
+    case 'single':  return n(h.kg);
+    case 'picking': return n(h.seasonKg);
+    default:        return 0;
+  }
+}
 function guideFor(id){ return CROP_GUIDE.find(g=> g.id === id) || null; }
 function guideMatch(crop){ const k = cropKey(crop); return k ? CROP_GUIDE.find(g=> g.names.includes(k)) || null : null; }
 // Whether the guide knows what a plant gives, or the farm is asked.
@@ -4762,15 +5067,28 @@ function guideBoxHTML(){
   const e = state.editRow, g = guideMatch(e.crop);
   if(!g){
     const chips = CROP_GUIDE.map(x=> `<button type="button" class="gb-chip" onclick="pickGuideCrop('${x.id}')">${esc(x.name)}</button>`).join('');
+    // A crop the guide does not know still has its dates and plants, kept with
+    // the planting; only its weeks are coloured by hand.
     return e.crop.trim()
-      ? `<p class="helper gb-none">The crop guide has no figures for <strong>${esc(e.crop.trim())}</strong>, so colour its weeks yourself once it is added.
-           The guide covers: ${CROP_GUIDE.map(x=> esc(x.name)).join(', ')}.</p>`
+      ? `<div class="gb gb-plain">
+          <div class="gb-head">${icon('today')} <span><strong>Dates &amp; plants</strong> — the crop guide has no figures for
+            <strong>${esc(e.crop.trim())}</strong>, so colour its weeks yourself; these are kept with the planting.
+            <span class="helper" style="display:block;margin:2px 0 0;">The guide covers: ${CROP_GUIDE.map(x=> esc(x.name)).join(', ')}.</span></span></div>
+          <div class="gb-fields">
+            <div><label class="f" for="ed-sown">Sowing date <span class="opt">optional</span></label>
+              <input id="ed-sown" type="date" value="${esc(e.sown)}" oninput="state.editRow.sown=this.value"></div>
+            <div><label class="f" for="ed-moved">Transplanting <span class="opt">optional</span></label>
+              <input id="ed-moved" type="date" value="${esc(e.moved)}" oninput="state.editRow.moved=this.value"></div>
+            <div><label class="f" for="ed-plants">Number of plants <span class="opt">optional</span></label>
+              <input id="ed-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(e.plants)}" placeholder="e.g. 1000"
+                oninput="state.editRow.plants=this.value"></div>
+          </div></div>`
       : `<div class="gb-pick"><span class="helper" style="margin:0;">Planned for you from the sowing date:</span> ${chips}</div>`;
   }
   const unit = g.tree ? 'trees' : 'plants';
   const dateLabel = g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date';
   return `<div class="gb">
-    <div class="gb-head">${icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt
+    <div class="gb-head">${icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt && guideFor(g.alt)
       ? ` <button type="button" class="gb-alt" onclick="pickGuideCrop('${g.alt}')">${g.tree ? 'Growing it from seed instead?' : 'A tree already bearing fruit instead?'}</button>` : ''}</span></div>
     <div class="gb-fields">
       <div><label class="f" for="ed-sown">${dateLabel}</label>
@@ -4789,15 +5107,21 @@ function guideBoxHTML(){
 }
 // Where each figure comes from, in a line under the plan.
 function guideSourceText(g){
-  if(g.tree) return 'Yield: 1.5 kg a bearing tree every week for 24 weeks (Harvest Ledger, which assumes a tree already bearing).';
-  if(g.harvest.kind === 'none') return `Timing: ${g.timingNote} (sprouting timeline; the middle, 195 days, is used for the nursery). ${g.yieldNote.charAt(0).toUpperCase() + g.yieldNote.slice(1)}.`;
-  const when = g.fromSowing ? `${rangeText(g.fromSowing, 'days')} from ${g.direct ? 'planting' : 'sowing'} to harvest` : '';
-  const nur = g.nursery && g.fromSowing ? `, ${rangeText(g.nursery, 'weeks')} to transplant size` : '';
+  const own = g.custom || g.edited;          // the Secretariat's figures, not the published sources
+  const cap = t=> t.charAt(0).toUpperCase() + t.slice(1);
+  if(g.tree) return `Yield: ${yieldText(g)}${own ? '' : ' (Harvest Ledger, which assumes a tree already bearing)'}.${own ? ' Figures set by the Secretariat.' : ''}`;
+  if(g.harvest.kind === 'none') return `${g.timingNote ? `Timing: ${g.timingNote}${own ? '' : ' (sprouting timeline; the middle is used for the nursery)'}. ` : ''}${cap(yieldText(g))}.${own ? ' Figures set by the Secretariat.' : ''}`;
   const parts = [];
-  if(g.fromSowing) parts.push(`Timing: ${when}${nur} (sowing table; the middle of each range is used)`);
-  if(g.timingNote) parts.push(g.timingNote.charAt(0).toUpperCase() + g.timingNote.slice(1));
-  parts.push(`Yield: ${g.yieldNote}${guideHasYield(g) ? (g.harvest.kind === 'picking' ? ' (Yield Calculator)' : ' (Harvest Ledger)') : ' — no figure in the guide, so give your own expected kg a plant'}`);
-  if(g.sow) parts.push(`Usual sowing (temperate baseline): ${g.sow}`);
+  if(g.fromSowing){
+    const nur = g.nursery && !g.direct ? `, ${rangeText(g.nursery, 'weeks')} to transplant size` : '';
+    parts.push(`Timing: ${rangeText(g.fromSowing, 'days')} from ${g.direct ? 'planting' : 'sowing'} to harvest${nur}${own ? '' : ' (sowing table; the middle of each range is used)'}`);
+  } else if(g.fromTransplant != null){
+    parts.push(`Timing: ${g.nursery ? rangeText(g.nursery, 'weeks') + ' in the nursery, then ' : ''}first harvest ${g.fromTransplant} days after transplanting`);
+  }
+  if(g.timingNote) parts.push(cap(g.timingNote));
+  parts.push(`Yield: ${yieldText(g)}${guideHasYield(g) ? (own ? '' : g.harvest.kind === 'picking' ? ' (Yield Calculator)' : ' (Harvest Ledger)') : ' — no figure in the guide, so give your own expected kg a plant'}`);
+  if(g.sow) parts.push(`Usual sowing${own ? '' : ' (temperate baseline)'}: ${g.sow}`);
+  if(own) parts.push('Figures set by the Secretariat');
   return parts.join('. ') + '.';
 }
 function guidePreviewHTML(g){
@@ -4822,7 +5146,7 @@ function guidePreviewHTML(g){
   else if(p.growUntil && p.growUntil > p.moved) lines.push([sw('V'), 'Growing on', `${dayText(addDays(p.moved, 7), true)} – ${dayText(p.growUntil, true)}, the end of the calendar`]);
   const unit = g.tree ? 'tree' : 'plant';
   const kgA = Number(p.perPlant).toLocaleString('en-GB', {maximumFractionDigits:2});
-  const total = !p.hWeeks ? `No harvest is planned: ${esc(g.yieldNote)}.`
+  const total = !p.hWeeks ? `No harvest is planned: ${esc(yieldText(g))}.`
     : p.total != null
     ? `<strong>${fmt(p.total)} kg</strong> planned — ${fmt(p.plants)} ${unit}s × ${kgA} kg a ${unit}`
     : p.perPlant != null ? `${kgA} kg a ${unit} — enter the number of ${unit}s to work out the kilograms`
@@ -4998,7 +5322,7 @@ function writeTemplateSheet(ws, f, months){
   }
 
   // TOTAL HARVEST — the template's =SUM over each month's four columns.
-  const per = monthTotals(f.rows, months);
+  const per = monthTotals(liveRows(f), months);
   const totRow = ws.getRow(rTot); totRow.height = 21.75;
   ws.mergeCells(`A${rTot}:E${rTot}`);
   const tl = ws.getCell(`A${rTot}`);
@@ -5034,7 +5358,7 @@ function writeTemplateSheet(ws, f, months){
     const nm = ws.getCell(`C${rn}`);
     nm.value = crop || null; nm.font = xlFont({size:9, color:{argb:XL.input}}); nm.fill = solid(zebra);
     nm.alignment = {horizontal:'left', vertical:'middle'}; nm.border = {bottom: side('hair', XL.hair)};
-    const perCrop = crop ? monthTotals(f.rows.filter(r=> cropKey(r.crop) === cropKey(crop)), months) : months.map(()=> 0);
+    const perCrop = crop ? monthTotals(liveRows(f).filter(r=> cropKey(r.crop) === cropKey(crop)), months) : months.map(()=> 0);
     months.forEach((mo, mi)=>{
       const c1 = FIRST_WEEK_COL + mi*4, a = colName(c1), b = colName(c1+3);
       ws.mergeCells(rn, c1, rn, c1 + 3);
@@ -5215,9 +5539,9 @@ async function importFarmExcel(input){
     if(!parsed) return done('That file does not look like the crop calendar template — no sheet has a CROP heading with months beside it.', true);
     if(!parsed.plantings.length) return done('The template was read, but it has no plantings in it yet.', true);
     const f = currentFarm();
-    const replace = !f.rows.length ? true
+    const replace = !liveRows(f).length ? true
       : confirm(`This file has ${parsed.plantings.length} planting${parsed.plantings.length===1?'':'s'}.\n\n` +
-                `OK — replace the ${f.rows.length} already on your calendar\nCancel — add them to it`);
+                `OK — replace the ${liveRows(f).length} already on your calendar\nCancel — add them to it`);
     const n = applyImport(f, parsed, replace);
     touch(state.member);
     state.scroll = null;
@@ -5232,7 +5556,7 @@ async function importFarmExcel(input){
    farm's first unit. */
 function applyImport(f, parsed, replace){
   if(replace){
-    f.rows = [];
+    f.rows = archivedRows(f);           // what is archived stays archived
     const named = parsed.plantings.some(p=> p.unit);
     // A brand-new farm's untouched "Greenhouse 1" gives way to the names in the file.
     if(named && f.units.length === 1 && !f.units[0].blocks.length && /^(Greenhouse|Screenhouse|Open field|Nursery) 1$/.test(f.units[0].name)) f.units = [];
@@ -5286,7 +5610,7 @@ function updatedText(iso){
 // Harvest by crop and month, every farm together.
 function associationByCrop(months){
   const by = new Map();
-  countedIds().forEach(id=> cropTotals(FARMS[id].rows, months).forEach(g=>{
+  countedIds().forEach(id=> cropTotals(liveRows(FARMS[id]), months).forEach(g=>{
     const k = cropKey(g.crop);
     if(!by.has(k)) by.set(k, {crop:g.crop, per: months.map(()=> 0), farms:new Set()});
     const e = by.get(k);
@@ -5318,6 +5642,7 @@ function renderCalendarsAdmin(c){
         <button class="btn small ghost" onclick="state.viewFarm=null;state.scroll=null;render();">&larr; All crop calendars</button>
         <span style="flex:1"></span>
         ${viewNavHTML(spanMonths(months), 'shiftAdminYear')}
+        <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}">${icon(state.wide ? 'shrink' : 'expand')} ${state.wide ? 'Exit full screen' : 'Full screen'}</button>
         <button class="btn small gold" onclick="exportFarmExcelWindow('${esc(id)}')">${icon('down')} Export to Excel</button>
       </div>
       <div class="farm-head">
@@ -5336,8 +5661,10 @@ function renderCalendarsAdmin(c){
         <div class="metric"><div class="lbl">Planned harvest</div><div class="val" style="color:var(--leaf-green);"><span data-count="${Math.round(fig.total)}">0</span><span style="font-size:14px;color:var(--muted);"> kg</span></div></div>
         <div class="metric"><div class="lbl">Busiest month</div><div class="val" style="font-size:20px;">${esc(fig.peak)}</div></div>
       </div>
-      ${f.rows.length ? `<div class="card cc-card">${gridHTML(f, spanMonths(months), {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
-        : emptyState('Nothing planned yet', `${esc(f.name)} has not added a planting to its calendar.`)}`;
+      ${liveRows(f).length ? `<div class="card cc-card">${gridHTML(f, spanMonths(months), {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
+        : emptyState('Nothing planned yet', `${esc(f.name)} has not added a planting to its calendar.`)}
+      ${archivedRows(f).length ? `<div class="section-label">Archived plantings</div>
+        <div class="card" style="overflow-x:auto;">${archiveTableHTML(f, archivedRows(f).sort((a, b)=> String(b.archived).localeCompare(String(a.archived))), true)}</div>` : ''}`;
     bindTooltips(c.querySelector('.cc-grid'), f);
     return;
   }
@@ -5357,8 +5684,8 @@ function renderCalendarsAdmin(c){
   const perMonth = months.map((_, i)=> ass.reduce((t, e)=> t + e.per[i], 0));
   const total = perMonth.reduce((a, b)=> a + b, 0);
   const counted = countedIds();
-  const plantings = counted.reduce((n, id)=> n + FARMS[id].rows.length, 0);
-  const area = counted.reduce((n, id)=> n + FARMS[id].rows.reduce((t, r)=> t + (Number(r.area)||0), 0), 0);
+  const plantings = counted.reduce((n, id)=> n + liveRows(FARMS[id]).length, 0);
+  const area = counted.reduce((n, id)=> n + liveRows(FARMS[id]).reduce((t, r)=> t + (Number(r.area)||0), 0), 0);
   const q = norm(state.calSearch);
   const shown = ids.filter(id=> !q || [FARMS[id].name, FARMS[id].location, FARMS[id].contact].some(v=> norm(v).includes(q)));
   const waiting = pendingCount();
@@ -5736,6 +6063,418 @@ function renderMembers(c){
 }
 
 /* ============================================================
+   The crop guide, for the Secretariat
+   What every farm's plan is worked out from: how long each crop takes and
+   what a plant gives. A calculator shows the working for any number of
+   seedlings; every figure can be changed, a crop added, and a built-in
+   crop put back as it was. Farms plan from the new figures straight away;
+   plantings already on a calendar keep the weeks they were given.
+   ============================================================ */
+const HARVEST_KINDS = {
+  weekly:  'Every week',
+  pulses:  'Every few weeks',
+  head:    'A head, then side shoots',
+  single:  'Once',
+  picking: 'Cut every week to the end of the season',
+  none:    'No harvest within the calendar',
+};
+const guideNum = v=> v === null || v === undefined || v === '' ? null : Number(v);
+const kgText = kg=> `${Number(kg).toLocaleString('en-GB', {maximumFractionDigits:3})} kg`;
+const isBuiltIn = id=> CROP_GUIDE_DEFAULT.some(d=> d.id === id);
+function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+
+// How long a crop takes, in words.
+function timingText(g){
+  if(g.tree) return 'A bearing tree: the harvest starts on the date entered';
+  const nur = g.direct ? 'Sown or planted direct' : g.nurseryDays ? `${rangeText(g.nurseryDays, 'days')} in the nursery` : g.nursery ? `${rangeText(g.nursery, 'weeks')} in the nursery` : '';
+  if(g.harvest.kind === 'none') return nur;
+  const first = g.fromTransplant != null ? `first harvest ${g.fromTransplant} days after transplanting` : g.fromSowing ? `first harvest ${rangeText(g.fromSowing, 'days')} after ${g.direct ? 'planting' : 'sowing'}` : '';
+  return [nur, first].filter(Boolean).join(', ');
+}
+// The sum behind a plant's harvest.
+function perPlantWorking(g){
+  const h = g.harvest, per = perPlantOf(g);
+  if(per === null) return null;
+  switch(h.kind){
+    case 'weekly':  return `${kgText(h.kg)} a week × ${h.weeks} weeks = ${kgText(per)}`;
+    case 'pulses':  return `${kgText(h.kg)} a picking × ${h.count} pickings, every ${h.every} weeks = ${kgText(per)}`;
+    case 'head':    return h.sideWeeks ? `${kgText(h.kg)} head + ${kgText(guideNum(h.sideKg) || 0)} × ${h.sideWeeks} weeks of side shoots = ${kgText(per)}` : `one head of ${kgText(per)}`;
+    case 'single':  return `one harvest of ${kgText(per)}`;
+    case 'picking': return `${kgText(per)} over the season, cut every week`;
+    default:        return 'no harvest within the calendar';
+  }
+}
+function guideTag(g){
+  return g.custom ? '<span class="gd-tag is-new">Added by the Secretariat</span>'
+       : g.edited ? '<span class="gd-tag is-edited">Edited</span>'
+       : '<span class="gd-tag">TIPFA guide</span>';
+}
+
+/* ---- The page ------------------------------------------------------------ */
+function renderGuideAdmin(c){
+  if(state.guideEdit) return renderGuideEditor(c);
+  const msg = state.guideMsg; state.guideMsg = '';
+  const list = CROP_GUIDE;
+  const calc = state.guideCalc || (state.guideCalc = {id: list[0] ? list[0].id : '', plants: '1000', sown: todayISO(), kgpp: ''});
+  if(!guideFor(calc.id) && list[0]) calc.id = list[0].id;
+  const meta = GUIDE_META && GUIDE_META.updatedAt
+    ? `Last changed ${esc(whenText(GUIDE_META.updatedAt))}${operatorName(GUIDE_META.updatedBy) ? ' by ' + esc(operatorName(GUIDE_META.updatedBy)) : ''}.`
+    : 'These are the TIPFA guide’s own figures — nobody has changed them yet.';
+  c.innerHTML = `
+    <h1 class="page-title">Crop guide</h1>
+    <p class="page-sub">The figures every farm’s plan is worked out from. Change one here and farms plan with the new figure straight away.</p>
+    <div class="grid4">
+      <div class="metric"><div class="lbl">Crops in the guide</div><div class="val" data-count="${list.length}">0</div></div>
+      <div class="metric"><div class="lbl">With a yield figure</div><div class="val" data-count="${list.filter(g=> g.harvest.kind !== 'none' && perPlantOf(g) !== null).length}">0</div></div>
+      <div class="metric"><div class="lbl">Edited</div><div class="val" data-count="${list.filter(g=> g.edited).length}">0</div></div>
+      <div class="metric"><div class="lbl">Added</div><div class="val" data-count="${list.filter(g=> g.custom).length}">0</div></div>
+    </div>
+    ${msg ? `<div class="msg-banner">${msg}</div>` : ''}
+
+    <div class="section-label">Calculator</div>
+    <div class="card gd-calc">
+      <div class="gd-calc-in">
+        <div><label class="f" for="gc-crop">Crop</label>
+          <select id="gc-crop" onchange="state.guideCalc.id=this.value;state.guideCalc.kgpp='';guideCalcUpdate(true)">
+            ${list.map(g=> `<option value="${esc(g.id)}"${g.id === calc.id ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>
+        <div><label class="f" for="gc-plants">Seedlings</label>
+          <input id="gc-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(calc.plants)}"
+            oninput="state.guideCalc.plants=this.value;guideCalcUpdate()"></div>
+        <div><label class="f" for="gc-sown">Sowing date</label>
+          <input id="gc-sown" type="date" value="${esc(calc.sown)}" oninput="state.guideCalc.sown=this.value;guideCalcUpdate()"></div>
+        <div id="gc-kgpp-box"></div>
+      </div>
+      <div id="gc-out"></div>
+    </div>
+
+    <div class="gd-list-head"><div class="section-label">Crops</div>
+      <button class="btn small" onclick="guideStartEdit(null)">${icon('plus')} Add a crop</button></div>
+    <p class="helper" style="margin:-4px 0 12px;">${meta} A farm typing any of a crop’s names gets its plan. Plantings already on a calendar keep their weeks.</p>
+    <div class="gd-grid">${list.map(guideCardHTML).join('')}</div>`;
+  guideCalcUpdate(true);
+}
+
+function guideCardHTML(g){
+  const per = perPlantOf(g), id = esc(g.id);
+  const plants = Number(state.guideCalc && state.guideCalc.plants) > 0 ? Number(state.guideCalc.plants) : 1000;
+  const unit = g.tree ? 'tree' : 'plant';
+  const out = g.harvest.kind === 'none' ? 'No harvest within the calendar'
+    : per === null ? `<span class="gd-missing">No kg figure — farms give their own</span>`
+    : `${fmt(plants)} ${unit}s → <strong>${fmt(Math.round(per * plants * 10) / 10)} kg</strong>`;
+  return `<div class="card gd-card" data-guide="${id}">
+    <div class="gd-card-head"><strong>${esc(g.name)}</strong>${guideTag(g)}</div>
+    <dl class="gd-facts">
+      <dt>Timing</dt><dd>${esc(timingText(g) || '—')}${g.flower && !g.tree && !g.direct && g.harvest.kind !== 'none' ? `; flowers ${g.flower} week${g.flower === 1 ? '' : 's'} before` : ''}</dd>
+      <dt>Harvest</dt><dd>${esc(yieldText(g))}</dd>
+      <dt>A ${unit}</dt><dd>${per === null ? '—' : g.harvest.kind === 'none' ? '0 kg' : `<strong>${kgText(per)}</strong>`}</dd>
+      ${g.sow ? `<dt>Usual sowing</dt><dd>${esc(g.sow)}</dd>` : ''}
+    </dl>
+    <div class="gd-out">${out}</div>
+    <div class="gd-actions">
+      <button class="btn small ghost" onclick="guideCalcPick('${id}')">${icon('calc')} Calculate</button>
+      <button class="btn small ghost" onclick="guideStartEdit('${id}')">${icon('pencil')} Edit</button>
+      ${g.edited && isBuiltIn(g.id) ? `<button class="btn small ghost" onclick="guideReset('${id}', this)" title="Put back the TIPFA guide’s own figures">${icon('restore')} Reset</button>` : ''}
+      ${g.custom ? `<button class="btn small ghost danger" onclick="guideDelete('${id}', this)">${icon('trash')} Delete</button>` : ''}
+    </div>
+  </div>`;
+}
+
+/* ---- The calculator -------------------------------------------------------- */
+function guideCalcPick(id){
+  state.guideCalc.id = id; state.guideCalc.kgpp = '';
+  const sel = document.getElementById('gc-crop');
+  if(sel) sel.value = id;
+  guideCalcUpdate(true);
+  const card = document.querySelector('.gd-calc');
+  if(card) card.scrollIntoView({behavior: REDUCED_MOTION ? 'auto' : 'smooth', block: 'start'});
+}
+function guideCalcUpdate(cropChanged){
+  const out = document.getElementById('gc-out'), box = document.getElementById('gc-kgpp-box');
+  const calc = state.guideCalc, g = guideFor(calc.id);
+  if(!out || !g) return;
+  const unit = g.tree ? 'tree' : 'plant', many = g.tree ? 'trees' : g.direct ? 'plants' : 'seedlings';
+  if(cropChanged && box){
+    box.innerHTML = guideHasYield(g) ? '' : `<label class="f" for="gc-kgpp">Expected kg a ${unit}</label>
+      <input id="gc-kgpp" type="number" min="0" step="any" inputmode="decimal" value="${esc(calc.kgpp)}" placeholder="the guide has none"
+        oninput="state.guideCalc.kgpp=this.value;guideCalcUpdate()">`;
+    const lab = document.querySelector('label[for="gc-plants"]'), dl = document.querySelector('label[for="gc-sown"]');
+    if(lab) lab.textContent = g.tree ? 'Trees' : g.direct ? 'Plants' : 'Seedlings';
+    if(dl) dl.textContent = g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date';
+  }
+  const plants = Number(calc.plants) > 0 ? Math.round(Number(calc.plants)) : 0;
+  const p = planFromGuide(g, {sown: calc.sown || todayISO(), plants, kgpp: calc.kgpp, until: addDays(new Date(), 3 * 365)});
+  if(p.error){ out.innerHTML = `<p class="helper" style="color:var(--red);">${esc(p.error)}</p>`; return; }
+  const h = g.harvest, per = p.perPlant;
+  const own = !guideHasYield(g) && per != null;
+  // The working, a step at a time.
+  const steps = [];
+  if(!g.tree){
+    if(g.direct) steps.push(['S', `${g.direct ? 'Planted' : 'Sown'} ${dayText(p.sown, true)}`, '']);
+    else {
+      const nur = g.nurseryDays ? `${Math.round(midOf(g.nurseryDays))} days, the middle of ${rangeText(g.nurseryDays, 'days')}` : `${fmt(midOf(g.nursery))} weeks, the middle of ${rangeText(g.nursery, 'weeks')}`;
+      steps.push(['S', `Sown ${dayText(p.sown, true)}`, `then ${nur} in the nursery`]);
+      steps.push(['T', `Transplanted ${dayText(p.moved, true)}`, '']);
+    }
+  }
+  if(p.hWeeks){
+    const why = g.tree ? 'the date entered'
+      : g.fromTransplant != null ? `${g.fromTransplant} days after transplanting`
+      : `${Math.round(midOf(g.fromSowing))} days after ${g.direct ? 'planting' : 'sowing'}, the middle of ${rangeText(g.fromSowing, 'days')}`;
+    steps.push(['H', `First harvest ${dayText(p.firstH, true)}`, why]);
+    steps.push(['H', `Last harvest week ends ${dayText(p.lastH, true)}`, `${p.hWeeks} harvest week${p.hWeeks === 1 ? '' : 's'}`]);
+  } else if(p.growUntil) steps.push(['V', 'Grows on to the end of the calendar', yieldText(g)]);
+  const sw = s=> `<span class="sw" style="background:${STAGE[s].color}"></span>`;
+  const working = h.kind === 'none' ? 'No harvest within the calendar.'
+    : per == null ? `The guide has no kg figure for ${esc(g.name)}${guideHasYield(g) ? '' : ` — enter the expected kg a ${unit} above, or give the crop a figure with Edit`}.`
+    : own ? `${kgText(per)} a ${unit} (your figure), shared over ${p.hWeeks} harvest week${p.hWeeks === 1 ? '' : 's'}`
+    : perPlantWorking(g);
+  const weekly = per != null && plants && p.hWeeks ? Math.round(per * plants / p.hWeeks * 10) / 10 : null;
+  out.innerHTML = `
+    <div class="gd-figs">
+      <div class="gd-fig"><span class="lbl">A ${unit} gives</span><span class="val">${per == null ? '—' : kgText(per)}</span></div>
+      <div class="gd-fig is-main"><span class="lbl">${plants ? fmt(plants) : 'No'} ${many} give</span><span class="val">${per == null || !plants ? '—' : fmt(p.total) + ' kg'}</span></div>
+      <div class="gd-fig"><span class="lbl">${h.kind === 'weekly' || h.kind === 'picking' ? 'Each harvest week' : 'A harvest week, on average'}</span><span class="val">${weekly == null ? '—' : fmt(weekly) + ' kg'}</span></div>
+    </div>
+    <p class="gd-working">${icon('calc')} <span>${working}${per != null && plants && h.kind !== 'none' ? ` <b>× ${fmt(plants)} ${many} = ${fmt(p.total)} kg</b>` : ''}</span></p>
+    ${planRibbonHTML(g, p)}
+    <ul class="gb-plan">${steps.map(([s, a, b])=> `<li>${sw(s)}<span class="gp-n">${esc(a)}</span><span class="gp-w">${esc(b)}</span></li>`).join('')}</ul>`;
+}
+
+/* ---- Changing the guide ---------------------------------------------------- */
+function toDraft(g){
+  const h = g ? g.harvest : {kind:'weekly', weeks:10, kg:''};
+  const s = v=> v === null || v === undefined ? '' : String(v);
+  const nr = g && (g.nurseryDays || g.nursery);
+  return {
+    orig: g ? g.id : null,
+    name: g ? g.name : '',
+    names: g ? g.names.filter(n=> n !== cropKey(g.name)).join(', ') : '',
+    start: !g ? 'nursery' : g.tree ? 'tree' : g.direct ? 'direct' : 'nursery',
+    nUnit: g && g.nurseryDays ? 'days' : 'weeks',
+    nLo: nr ? s(nr[0]) : '', nHi: nr ? s(nr[1]) : '',
+    basis: g && g.fromTransplant != null ? 'transplant' : 'sowing',
+    dLo: g && g.fromSowing ? s(g.fromSowing[0]) : '', dHi: g && g.fromSowing ? s(g.fromSowing[1]) : '',
+    dT: g && g.fromTransplant != null ? s(g.fromTransplant) : '',
+    flower: g ? s(g.flower || 0) : '3',
+    kind: h.kind,
+    weeks: s(h.weeks), kg: s(h.kg), count: s(h.count), every: s(h.every),
+    sideWeeks: s(h.sideWeeks), sideKg: s(h.sideKg), seasonKg: s(h.seasonKg),
+    sow: g && g.sow || '', note: g && g.timingNote || '',
+  };
+}
+// The draft as a guide entry, or the first thing wrong with it.
+function fromDraft(d){
+  const name = d.name.trim();
+  if(!name) return {error: 'Give the crop a name.'};
+  if(name.length > 60) return {error: 'Keep the name to 60 characters.'};
+  const whole = (v, lo, hi)=> v !== '' && Number.isInteger(Number(v)) && Number(v) >= lo && Number(v) <= hi;
+  const kgOk = v=> v === '' || (Number(v) >= 0 && Number(v) <= 1000);
+  const orig = d.orig ? guideFor(d.orig) : null;
+  const g = {id: d.orig || '', name, names: [], flower: 0};
+  if(orig && orig.alt) g.alt = orig.alt;
+  if(d.start === 'tree') g.tree = true;
+  if(d.start === 'direct') g.direct = true;
+  if(d.start === 'nursery'){
+    const max = d.nUnit === 'days' ? 730 : 104;
+    if(!whole(d.nLo, 1, max) || !whole(d.nHi, 1, max)) return {error: `Give the time in the nursery as whole ${d.nUnit}, from and to (the same number twice if it is exact).`};
+    if(Number(d.nLo) > Number(d.nHi)) return {error: 'The nursery time runs from the smaller number to the larger.'};
+    g[d.nUnit === 'days' ? 'nurseryDays' : 'nursery'] = [Number(d.nLo), Number(d.nHi)];
+  }
+  if(d.start !== 'tree' && d.kind !== 'none'){
+    if(d.start === 'direct' || d.basis === 'sowing'){
+      if(!whole(d.dLo, 1, 1500) || !whole(d.dHi, 1, 1500)) return {error: `Give the days from ${d.start === 'direct' ? 'planting' : 'sowing'} to the first harvest, from and to.`};
+      if(Number(d.dLo) > Number(d.dHi)) return {error: 'The days to the first harvest run from the smaller number to the larger.'};
+      g.fromSowing = [Number(d.dLo), Number(d.dHi)];
+      if(d.start === 'nursery'){
+        const nurDays = g.nurseryDays ? midOf(g.nurseryDays) : midOf(g.nursery) * 7;
+        if(midOf(g.fromSowing) <= nurDays) return {error: 'The first harvest has to come after transplanting: the days from sowing must be more than the time in the nursery.'};
+      }
+    } else {
+      if(!whole(d.dT, 1, 1500)) return {error: 'Give the days from transplanting to the first harvest.'};
+      g.fromTransplant = Number(d.dT);
+    }
+    if(d.start === 'nursery'){
+      if(!whole(d.flower, 0, 20)) return {error: 'Flowering is a whole number of weeks before the first harvest, 0 to 20.'};
+      g.flower = Number(d.flower);
+    }
+  }
+  const kg = v=> v === '' ? null : Number(v);
+  switch(d.kind){
+    case 'weekly':
+      if(!whole(d.weeks, 1, 60)) return {error: 'Give the number of harvest weeks, 1 to 60.'};
+      if(!kgOk(d.kg)) return {error: 'The kg a week is a number from 0 to 1000, or blank.'};
+      g.harvest = {kind:'weekly', weeks:Number(d.weeks), kg:kg(d.kg)}; break;
+    case 'pulses':
+      if(!whole(d.count, 1, 30)) return {error: 'Give the number of pickings, 1 to 30.'};
+      if(!whole(d.every, 1, 12)) return {error: 'Give the weeks between pickings, 1 to 12.'};
+      if(!kgOk(d.kg)) return {error: 'The kg a picking is a number from 0 to 1000, or blank.'};
+      g.harvest = {kind:'pulses', count:Number(d.count), every:Number(d.every), kg:kg(d.kg)}; break;
+    case 'head':
+      if(!kgOk(d.kg) || !kgOk(d.sideKg)) return {error: 'The kilograms are numbers from 0 to 1000, or blank.'};
+      if(d.sideWeeks !== '' && !whole(d.sideWeeks, 0, 20)) return {error: 'Side shoots are picked for 0 to 20 weeks.'};
+      g.harvest = {kind:'head', kg:kg(d.kg), sideWeeks:Number(d.sideWeeks || 0), sideKg:kg(d.sideKg)};
+      if(!g.harvest.sideWeeks) g.harvest.sideKg = null;
+      break;
+    case 'single':
+      if(!kgOk(d.kg)) return {error: 'The kg a plant is a number from 0 to 1000, or blank.'};
+      g.harvest = {kind:'single', kg:kg(d.kg)}; break;
+    case 'picking':
+      if(!kgOk(d.seasonKg)) return {error: 'The season’s kg a plant is a number from 0 to 1000, or blank.'};
+      g.harvest = {kind:'picking', seasonKg:kg(d.seasonKg)}; break;
+    default: g.harvest = {kind:'none'};
+  }
+  if(d.sow.trim()) g.sow = d.sow.trim().slice(0, 120);
+  if(d.note.trim()) g.timingNote = d.note.trim().slice(0, 300);
+  // Every name a farm might type, none of them another crop's.
+  g.names = [...new Set([name, ...d.names.split(/[,;\n]/)].map(cropKey).filter(Boolean))];
+  for(const other of CROP_GUIDE){
+    if(other.id === d.orig) continue;
+    const clash = g.names.find(n=> other.names.includes(n));
+    if(clash) return {error: `“${clash}” is already a name of ${other.name}. Each name can belong to one crop only.`};
+  }
+  if(!d.orig){
+    const base = cropKey(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'crop';
+    let id = base, i = 2;
+    while(guideFor(id)) id = `${base}-${i++}`;
+    g.id = id; g.custom = true;
+  } else if(orig && orig.custom) g.custom = true;
+  else g.edited = true;
+  return {g};
+}
+
+function guideStartEdit(id){
+  const g = id ? guideFor(id) : null;
+  if(id && !g) return;
+  state.guideEdit = toDraft(g);
+  state.guideEditErr = '';
+  renderKeepingPlace();
+  window.scrollTo(0, 0);
+}
+function guideCancelEdit(){ state.guideEdit = null; state.guideEditErr = ''; render(); }
+// One field changed. A change of shape draws the form again; a figure only the preview.
+function guideSet(k, v, redraw){
+  state.guideEdit[k] = v;
+  if(redraw){ renderKeepingPlace(); const el = document.querySelector(`[data-k="${k}"]`); if(el) el.focus({preventScroll:true}); }
+  else guideEditPreview();
+}
+function guideEditPreview(){
+  const el = document.getElementById('ge-preview');
+  if(!el) return;
+  const r = fromDraft(state.guideEdit);
+  if(r.error){ el.innerHTML = `<p class="helper" style="margin:0;">${esc(r.error)}</p>`; return; }
+  const g = r.g, per = perPlantOf(g), unit = g.tree ? 'tree' : 'plant';
+  el.innerHTML = `<p class="gd-prev-line"><strong>${esc(g.name)}</strong> — ${esc(timingText(g))}. Harvest: ${esc(yieldText(g))}.</p>
+    <p class="gd-working">${icon('calc')} <span>${g.harvest.kind === 'none' ? 'No harvest within the calendar.'
+      : per == null ? `No kg figure, so each farm gives its own expected kg a ${unit}.`
+      : `${esc(perPlantWorking(g))} a ${unit} <b>× 1,000 ${unit}s = ${fmt(Math.round(per * 10000) / 10)} kg</b>`}</span></p>`;
+}
+
+function renderGuideEditor(c){
+  const d = state.guideEdit, err = state.guideEditErr;
+  const fld = (k, label, attrs, opt)=> `<div><label class="f" for="ge-${k}">${label}${opt ? ' <span class="opt">optional</span>' : ''}</label>
+    <input id="ge-${k}" data-k="${k}" value="${esc(d[k])}" ${attrs || 'type="text"'} oninput="guideSet('${k}', this.value)"></div>`;
+  const numF = (k, label, opt, step)=> fld(k, label, `type="number" min="0" step="${step || '1'}" inputmode="${step ? 'decimal' : 'numeric'}"`, opt);
+  const sel = (k, label, opts)=> `<div><label class="f" for="ge-${k}">${label}</label>
+    <select id="ge-${k}" data-k="${k}" onchange="guideSet('${k}', this.value, true)">${opts.map(([v, t])=> `<option value="${v}"${d[k] === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
+  const unit = d.start === 'tree' ? 'tree' : 'plant';
+  const per = `kg a ${unit}`;
+  const harvestFields = {
+    weekly:  numF('weeks', 'Harvest weeks') + numF('kg', `${per} each week`, true, 'any'),
+    pulses:  numF('count', 'Pickings') + numF('every', 'Weeks between pickings') + numF('kg', `${per} each picking`, true, 'any'),
+    head:    numF('kg', `Main head, ${per}`, true, 'any') + numF('sideWeeks', 'Weeks of side shoots', true) + (Number(d.sideWeeks) > 0 ? numF('sideKg', `Side shoots, ${per} a week`, true, 'any') : ''),
+    single:  numF('kg', `${per}`, true, 'any'),
+    picking: numF('seasonKg', `${per} over the season`, true, 'any'),
+    none:    '',
+  }[d.kind];
+  const nursery = d.start === 'nursery';
+  c.innerHTML = `
+    <h1 class="page-title">${d.orig ? `Edit ${esc((guideFor(d.orig) || {}).name || 'crop')}` : 'Add a crop'}</h1>
+    <p class="page-sub">Where a range is given, plans use its middle. Leave a kg figure blank and each farm gives its own.</p>
+    ${err ? `<div class="msg-banner is-error">${esc(err)}</div>` : ''}
+    <div class="card ge-form">
+      <div class="ge-sec">The crop</div>
+      <div class="ge-row">
+        ${fld('name', 'Name', 'type="text" maxlength="60" placeholder="e.g. Cucumber"')}
+        ${fld('names', 'Other names farms may type', 'type="text" placeholder="e.g. cucumbers, english cucumber"', true)}
+      </div>
+      <div class="ge-sec">Timing</div>
+      <div class="ge-row">
+        ${sel('start', 'Starts as', [['nursery','Seedlings raised in a nursery'], ['direct','Sown or planted direct'], ['tree','A tree already bearing']])}
+        ${nursery ? `${sel('nUnit', 'Nursery counted in', [['weeks','Weeks'], ['days','Days']])}
+          ${numF('nLo', `In the nursery, from (${d.nUnit})`)}${numF('nHi', `to (${d.nUnit})`)}` : ''}
+      </div>
+      ${d.start !== 'tree' && d.kind !== 'none' ? `<div class="ge-row">
+        ${nursery ? sel('basis', 'First harvest counted from', [['sowing','Sowing'], ['transplant','Transplanting']]) : ''}
+        ${!nursery || d.basis === 'sowing'
+          ? numF('dLo', `Days from ${nursery ? 'sowing' : 'planting'} to first harvest, from`) + numF('dHi', 'to')
+          : numF('dT', 'Days from transplanting to first harvest')}
+        ${nursery ? numF('flower', 'Flowering starts, weeks before harvest') : ''}
+      </div>` : ''}
+      <div class="ge-sec">Harvest</div>
+      <div class="ge-row">
+        ${sel('kind', 'Picked', Object.entries(HARVEST_KINDS))}
+        ${harvestFields}
+      </div>
+      <div class="ge-sec">Notes for farms</div>
+      <div class="ge-row ge-wide">
+        ${fld('sow', 'Usual sowing time', 'type="text" maxlength="120" placeholder="e.g. March to April"', true)}
+        ${fld('note', 'Timing note', 'type="text" maxlength="300" placeholder="e.g. dislikes root disturbance"', true)}
+      </div>
+      <div class="ge-preview" id="ge-preview"></div>
+      <div class="ge-actions">
+        <button class="btn" id="ge-save" onclick="guideSaveEdit(this)">${icon('fill')} Save</button>
+        <button class="btn ghost" onclick="guideCancelEdit()">Cancel</button>
+      </div>
+    </div>`;
+  guideEditPreview();
+}
+
+// Saving the whole guide: the database keeps one list.
+async function guideCommit(list, btn, done){
+  if(btn) btn.classList.add('is-busy');
+  try{
+    await withTimeout(saveGuide(list), 15000, 'Saving the crop guide');
+    state.guideEdit = null; state.guideEditErr = '';
+    state.guideMsg = `${CHECK_ICON} ${done}`;
+    render();
+    return true;
+  }catch(e){
+    if(btn) btn.classList.remove('is-busy');
+    const why = String((e && e.code) || '').includes('permission-denied')
+      ? 'the database’s security rules do not allow it yet. In the Firebase console, open Firestore Database → Rules, publish the latest firestore.rules (it lets approved administrators change the crop guide), wait a minute and try again.'
+      : cloudErrorText(e);
+    if(state.guideEdit){ state.guideEditErr = 'The crop guide was not saved: ' + why; renderKeepingPlace(); window.scrollTo(0, 0); }
+    else showFatal('The crop guide was not saved: ' + why);
+    return false;
+  }
+}
+function guideSaveEdit(btn){
+  const r = fromDraft(state.guideEdit);
+  if(r.error){ state.guideEditErr = r.error; renderKeepingPlace(); window.scrollTo(0, 0); return; }
+  const g = r.g, list = CROP_GUIDE.map(cloneGuide);
+  const at = list.findIndex(x=> x.id === g.id);
+  if(at >= 0) list[at] = g; else list.push(g);
+  if(state.guideCalc) state.guideCalc.id = g.id;
+  guideCommit(list, btn, `${esc(g.name)} ${at >= 0 ? 'saved' : 'added to the guide'}. Farms plan with ${at >= 0 ? 'the new figures' : 'it'} from now on.`);
+}
+function guideReset(id, btn){
+  const d = CROP_GUIDE_DEFAULT.find(x=> x.id === id), g = guideFor(id);
+  if(!d || !g || !confirm(`Put ${g.name} back to the TIPFA guide’s own figures? Your changes to it will be lost.`)) return;
+  const fresh = cloneGuide(d);
+  // A name the Secretariat gave another crop since stays with that crop.
+  const taken = new Set(CROP_GUIDE.filter(x=> x.id !== id).flatMap(x=> x.names));
+  fresh.names = fresh.names.filter(n=> !taken.has(n));
+  guideCommit(CROP_GUIDE.map(x=> x.id === id ? fresh : cloneGuide(x)), btn, `${esc(d.name)} is back to the TIPFA guide’s figures.`);
+}
+function guideDelete(id, btn){
+  const g = guideFor(id);
+  if(!g || !g.custom) return;
+  if(CROP_GUIDE.length <= 1) return showFatal('The guide needs at least one crop.');
+  if(!confirm(`Delete ${g.name} from the crop guide?\n\nPlantings already on a calendar keep their weeks; farms will colour new ones by hand.`)) return;
+  guideCommit(CROP_GUIDE.filter(x=> x.id !== id).map(cloneGuide), btn, `${esc(g.name)} was deleted from the guide.`);
+}
+
+/* ============================================================
    The journey
    A season — sown, sprouted, transplanted, in bloom, harvested — runs
    through every screen: the path at the front door, the seed that
@@ -5907,7 +6646,8 @@ function growRow(sc, id){
   if(!field || !tr || !gridView) return;
   const head = sc.querySelector('thead') ? sc.querySelector('thead').offsetHeight : 0;
   const top = tr.offsetTop;
-  if(top - head < sc.scrollTop || top + tr.offsetHeight > sc.scrollTop + sc.clientHeight) sc.scrollTop = Math.max(0, top - head - 40);
+  const rr = tr.getBoundingClientRect();
+  if(rr.top < 80 || rr.bottom > innerHeight - 20) tr.scrollIntoView({block:'center', behavior: REDUCED_MOTION ? 'auto' : 'smooth'});
   const w = gridView.L.room - gridView.L.pin;
   const cover = document.createElement('div');
   cover.className = 'cc-grow';
@@ -5951,6 +6691,7 @@ function journeyAfterRender(c){
 })();
 
 loadLocal();
+loadGuideLocal();
 render();
 initCloud().then(async ()=>{
   const restored = await restoreSession();

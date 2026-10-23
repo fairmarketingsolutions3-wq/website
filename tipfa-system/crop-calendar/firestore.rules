@@ -17,6 +17,10 @@ rules_version = '2';
  *                             again — a create rule only applies to a document
  *                             that does not exist yet.
  *
+ *   calendarSettings/cropGuide  the crop guide farms plan from, as the
+ *                             administrators last edited it. Until it exists the
+ *                             app's built-in figures are used.
+ *
  *   calendarOperators/{uid}   one document per administrator, with a status.
  *
  *   calendarFarms/{uid}       one document per farm: its details, its status,
@@ -29,8 +33,8 @@ rules_version = '2';
  *
  * A farm reads its own record at any status, so it can see where it stands,
  * but writes its calendar only while approved. Approved administrators read
- * every farm and every administrator, change nothing but status, and may
- * remove a farm altogether. Nothing else is ever deleted from the app.
+ * every farm and every administrator, change nothing but status, may
+ * remove a farm altogether, and keep the crop guide. Nothing else is ever deleted from the app.
  *
  * IMPORTANT — a Firestore database has ONE set of rules. Do not publish this
  * file into a project that runs the full TIPFA platform: it would replace the
@@ -103,6 +107,18 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && exists(operatorPath(request.auth.uid));
       allow update, delete: if false;
+    }
+
+    // The crop guide every farm plans from. Everyone signed in reads it; only
+    // an approved administrator changes it, as one list, signed with their uid.
+    match /calendarSettings/cropGuide {
+      allow read: if signedIn();
+      allow create, update: if isApprovedOperator()
+        && request.resource.data.keys().hasOnly(['crops', 'updatedAt', 'updatedBy'])
+        && request.resource.data.crops is list
+        && request.resource.data.crops.size() >= 1 && request.resource.data.crops.size() <= 300
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
     }
 
     match /calendarOperators/{uid} {

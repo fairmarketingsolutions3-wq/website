@@ -204,6 +204,24 @@ register again later. To free the email completely, also delete it under
 an administrator's document in **Firestore → `calendarOperators`** and its user
 under **Authentication → Users** in the console.
 
+### The crop guide
+Under **Crop guide**, administrators see every crop's figures and a calculator:
+pick a crop, the number of seedlings and a sowing date, and it shows what a
+plant gives, the total, each harvest week, and the working (e.g. 0.3 kg a week ×
+14 weeks = 4.2 kg a plant × 1,000 seedlings = 4,200 kg) with the dates.
+**Edit** changes any crop's timing and yield, **Add a crop** adds a new one,
+**Reset** puts a built-in crop back to the TIPFA figures, and **Delete** removes
+an added crop. The guide is kept in `calendarSettings/cropGuide` and every farm
+plans with it at once; plantings already on a calendar keep their weeks. This
+needs the `calendarSettings/cropGuide` block of `firestore.rules` published.
+
+### Archive
+A planting whose season is over shows a box button beside it (and **Archive** in
+its editor). Archiving takes it off the calendar, its totals and the Excel
+export, and keeps it under the farm's **Archive** page with its dates, plants
+and harvest, where it can be restored or deleted. Administrators see a farm's
+archived plantings, read only, under its calendar.
+
 ### Backups
 Under **Crop calendars**, **Export every farm (Excel)** downloads one workbook: the
 association's totals, then every farm's calendar. Doing this regularly (e.g.
@@ -224,8 +242,9 @@ sender name and wording can be changed under **Authentication → Templates**.
 
 ### Changing the crop guide's figures
 
-The figures behind **planned from the sowing date** are the `CROP_GUIDE` list in
-`public/index.html` (search for `const CROP_GUIDE`). For each crop:
+Administrators change them in the app, under **Crop guide** (see above). The
+built-in figures — used until someone edits the guide, and what **Reset** puts
+back — are the `CROP_GUIDE_DEFAULT` list in `public/index.html`. For each crop:
 
 | Field | Meaning | Source |
 |---|---|---|
@@ -237,8 +256,9 @@ The figures behind **planned from the sowing date** are the `CROP_GUIDE` list in
 
 Ranges use their middle. `kg: null` means the guide has no yield for that crop,
 and the farm is asked for its own expected kg a plant. Changing a figure affects
-plantings planned from then on, not ones already on a calendar. Raise the build
-number after editing.
+plantings planned from then on, not ones already on a calendar. Once an
+administrator has saved the guide in the app, the database copy is used instead
+of the built-in list.
 
 `firebase.json` serves `index.html` and `firebase-config.js` with `no-cache`, so
 browsers always check for a newer copy. Logos and the Excel library are cached
@@ -275,6 +295,8 @@ Any static host works (cPanel, Netlify, Cloudflare Pages, an S3 bucket…):
 | A new administrator is stuck waiting | Someone already owns the system; an approved administrator must approve them. If nobody can, fix ownership in the console (step 6). |
 | A farm says its change was not saved | The farm was suspended while it had the page open. Reinstate it under Members & approvals. |
 | Password reset emails don't arrive | Check spam. Check the domain is under Authorized domains (step 5). |
+| Saving the crop guide says the rules do not allow it | The published rules predate the crop guide. Publish the current `firestore.rules`. |
+| The site still looks old after a push | The version badge at the top right shows which build is open. If it is behind the `tipfa-build` number in `public/index.html`, the host has not deployed the latest commit — check Netlify's Deploys list — or the browser holds an old copy: reload. |
 
 ## The data, for reference
 
@@ -282,9 +304,11 @@ Any static host works (cPanel, Netlify, Cloudflare Pages, an S3 bucket…):
 |---|---|---|---|
 | `calendarSettings/signup` | the two sign-up codes | nobody | console only |
 | `calendarSettings/owner` | the system owner's UID | anyone signed in | the first administrator, once |
+| `calendarSettings/cropGuide` | the crop guide, as administrators last saved it | anyone signed in | approved administrators |
 | `calendarOperators/{uid}` | an administrator: name, email, status | themselves, approved administrators | themselves on registering; approved administrators change status |
 | `calendarFarms/{uid}` | a farm: details, status, units and blocks, plantings and their weeks | the farm, approved administrators | the farm (calendar, only while approved); approved administrators change status or remove the farm |
 
 A farm's whole calendar is one document. Each week is stored compactly, `"T"` for a
-transplanting week or `"H:120"` for a harvest week of 120 kg. The rules cap a farm
+transplanting week or `"H:120"` for a harvest week of 120 kg. An archived planting stays
+in the same list with an `archived` date. The rules cap a farm
 at 1,000 plantings, which keeps a document well below Firestore's 1 MiB limit.
