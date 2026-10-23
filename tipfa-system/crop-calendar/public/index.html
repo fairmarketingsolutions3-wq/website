@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v13">
+<meta name="tipfa-build" content="v14">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2130,6 +2130,44 @@ body.cc-wide .content > .grid4{display:none;}
   .cc-grid.fit thead tr.wh th{height:24px;font-size:10.5px;}
   .cc-grid.fit td.wk .kg{font-size:10px;}
 }
+
+/* ---- Stages, in days (the crop guide) ---- */
+.st-strip{display:flex;gap:4px;margin:6px 0 2px;}
+.st-seg{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.st-bar{display:block;height:14px;border-radius:5px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
+.st-name{font-size:11.5px;font-weight:600;color:var(--deep-green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.st-len{font-size:11px;color:var(--muted);white-space:nowrap;}
+.st-chips{display:flex;flex-wrap:wrap;gap:4px;}
+.st-chip{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;background:#F4F5EE;border:1px solid var(--line);border-radius:99px;padding:2px 8px 2px 6px;white-space:nowrap;}
+.st-chip i{width:9px;height:9px;border-radius:3px;display:inline-block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);}
+.ge-stages{align-items:start;}
+.ge-stage{display:flex;gap:8px;align-items:flex-start;}
+.ge-stage > div{flex:1;min-width:0;}
+.ge-stage > .sw{width:12px;height:38px;border-radius:4px;flex:none;margin-top:22px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.1);}
+.ge-hint{display:block;margin:3px 0 0;}
+
+/* ---- A farm's own timings, and planning by hand ---- */
+.gb-adj{margin-top:10px;border-top:1px dashed #CFDDB8;padding-top:8px;}
+.gb-adj summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--deep-green);display:flex;align-items:center;gap:6px;list-style:none;}
+.gb-adj summary::-webkit-details-marker{display:none;}
+.gb-adj summary svg{width:15px;height:15px;}
+.gb-adj summary b{color:var(--harvest-orange, #C9822B);font-weight:600;}
+.gb-was{display:block;margin:2px 0 0;}
+.gb-manual-link{margin:10px 0 0;}
+.gb-manual-link .gb-alt svg, .gb-head .gb-alt svg{width:14px;height:14px;vertical-align:-2px;margin-right:4px;}
+.cc-rowbtn.cc-replan{color:#fff;background:var(--harvest-orange, #E8A734);animation:replanPulse 1.8s var(--ease-in-out) infinite alternate;}
+.cc-rowbtn.cc-replan:hover{background:#C9822B;color:#fff;}
+@keyframes replanPulse{ from{ box-shadow:0 0 0 0 rgba(232,167,52,.5); } to{ box-shadow:0 0 0 5px rgba(232,167,52,0); } }
+@media (prefers-reduced-motion: reduce){ .cc-rowbtn.cc-replan{animation:none;} }
+@media (max-width: 760px){ .st-name{font-size:10.5px;} .st-len{font-size:10px;} }
+
+/* The main column never grows past the screen to fit what is in it. */
+.layout > .content{min-width:0;}
+.ge-row > *, .ge-stage > div{min-width:0;}
+.ge-row select, .ge-row input{max-width:100%;}
+@media (max-width: 760px){
+  .ge-row{grid-template-columns:1fr !important;}
+}
 </style>
 </head>
 <body>
@@ -2698,6 +2736,8 @@ function cloudListen(){
     applyGuide(d ? d.crops : null);
     GUIDE_META = d ? {updatedAt: d.updatedAt || '', updatedBy: d.updatedBy || ''} : null;
     if(state.loggedIn && state.role === 'admin' && state.tab === 'guide' && !state.guideEdit) onLiveData();
+    // A farm's calendar shows at once which plantings were planned with older figures.
+    if(state.loggedIn && state.role === 'member' && state.tab === 'calendar' && !state.editRow && !state.fillRow && isApproved()) renderKeepingPlace();
   }, quiet));
   if(CLOUD_STATE.role === 'farm'){
     CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.farms, CLOUD_STATE.uid), snap=>{
@@ -4097,6 +4137,7 @@ function rowHTML(r, ri){
         <span class="cc-now">${esc(j.text)}</span>
         <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
       ${ro ? '' : `<span class="cc-rowbtns">
+        ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed — update its weeks" aria-label="The crop guide for ${esc(r.crop)} has changed: update its weeks">${icon('refresh')}</button>` : ''}
         <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants" aria-label="Edit ${esc(r.crop)}: crop, dates and plants">${icon('pencil')}</button>
         ${j.cls === 'done' ? `<button class="cc-rowbtn cc-arch" onclick="archiveRow('${r.id}')" title="Season done — archive it" aria-label="Archive ${esc(r.crop)}">${icon('archive')}</button>`
           : mobile ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}</span>`}
@@ -4442,7 +4483,7 @@ function openEditor(rowId, unitId){
   } else {
     const last = orderedRows(f).slice(-1)[0];
     const unit = unitId || (last ? last.unit : f.units[0].id);
-    state.editRow = {id:null, unit, block:'', crop:'', area:'', notes:'', sown:'', moved:'', plants:'', kgpp:''};
+    state.editRow = {id:null, unit, block:'', crop:'', area:'', notes:'', sown:'', moved:'', plants:'', kgpp:'', adj:null, manual:false};
   }
   if(state.tab !== 'calendar'){ state.tab = 'calendar'; rememberSession(); }
   render();
@@ -4452,7 +4493,8 @@ function openEditor(rowId, unitId){
 function editState(r){
   const p = r.plan || {};
   return {id:r.id, unit:r.unit, block:r.block, crop:r.crop, area:r.area || '', notes:r.notes,
-          sown:p.sown || '', moved:p.moved || '', plants:p.plants || '', kgpp:p.kgpp != null ? p.kgpp : ''};
+          sown:p.sown || '', moved:p.moved || '', plants:p.plants || '', kgpp:p.kgpp != null ? p.kgpp : '',
+          adj: p.adj ? Object.assign({}, p.adj) : null, manual: !!p.manual};
 }
 function editorPanel(f){
   const e = state.editRow, u = unitOf(f, e.unit);
@@ -4500,20 +4542,24 @@ function saveEditor(){
   if(e.area !== '' && (isNaN(Number(e.area)) || Number(e.area) < 0)) return flagError(document.getElementById('ed-error'), 'Area must be a number of square metres.');
   const u = unitOf(f, e.unit);
   const block = u.blocks.some(b=> b.id === e.block) ? e.block : '';
-  // A crop the guide knows, with its date, is planned from the guide.
-  const g = guideMatch(e.crop);
+  // A crop the guide knows, with its date, is planned from the guide — with
+  // the farm's own timings, if it gave any — unless the farm plans it by hand.
+  const known = guideMatch(e.crop), g = known && !e.manual ? known : null;
+  if(known) e.crop = known.name;     // one spelling, so every farm's crop adds up together
   let plan = null, planned = null;
   if(g){
-    e.crop = g.name;     // one spelling, so every farm's crop adds up together
     e.sown = val('ed-sown'); e.moved = val('ed-moved'); e.plants = val('ed-plants'); e.kgpp = val('ed-kgpp');
     const err = msg=> flagError(document.getElementById('ed-error'), msg);
     if(e.plants !== '' && !(Number(e.plants) > 0)) return err(`The number of ${g.tree ? 'trees' : 'plants'} must be a whole number above nought.`);
     if(e.kgpp !== '' && !(Number(e.kgpp) >= 0)) return err('The expected kilograms a plant must be a number.');
+    if(e.adj){ const bad = stagesError(Object.assign(stagesOf(g), e.adj)); if(bad) return err(bad); }
+    const adj = cleanAdj(g, e.adj);
     if(e.sown){
-      planned = planFromGuide(g, Object.assign({until: calendarEnd()}, e));
+      planned = planFromGuide(effGuide(g, adj), Object.assign({until: calendarEnd()}, e));
       if(planned.error) return err(planned.error);
-      plan = {guide:g.id, sown:e.sown, moved:e.moved || '', plants:Number(e.plants) || 0};
+      plan = {guide:g.id, sown:e.sown, moved:e.moved || '', plants:Number(e.plants) || 0, sig: guideSig(g)};
       if(e.kgpp !== '') plan.kgpp = Number(e.kgpp);
+      if(adj) plan.adj = adj;
     }
   }
   let facts = null;                   // dates and plants kept with a crop the guide does not know
@@ -4522,7 +4568,8 @@ function saveEditor(){
     const err = msg=> flagError(document.getElementById('ed-error'), msg);
     if(e.plants !== '' && !(Number(e.plants) > 0)) return err('The number of plants must be a whole number above nought.');
     if(e.sown && e.moved && e.moved < e.sown) return err('It cannot be transplanted before it is sown.');
-    if(e.sown || e.moved || e.plants) facts = {guide:'', sown:e.sown || '', moved:e.moved || '', plants:Number(e.plants) || 0};
+    if(e.sown || e.moved || e.plants || known) facts = {guide:'', sown:e.sown || '', moved:e.moved || '', plants:Number(e.plants) || 0};
+    if(known) facts.manual = true;
   }
   const planText = ()=>{
     const p = planned, yr = p.hWeeks && p.firstH.getFullYear() !== p.lastH.getFullYear();
@@ -4536,7 +4583,9 @@ function saveEditor(){
   };
   if(e.id){
     const r = f.rows.find(x=> x.id === e.id);
-    const same = r.plan && plan && ['guide', 'sown', 'moved', 'plants', 'kgpp'].every(k=> r.plan[k] === plan[k]);
+    const same = r.plan && plan && ['guide', 'sown', 'moved', 'plants', 'kgpp'].every(k=> r.plan[k] === plan[k])
+      && JSON.stringify(r.plan.adj || null) === JSON.stringify(plan.adj || null);
+    if(same && r.plan.sig) plan.sig = r.plan.sig;    // the weeks were planned from those figures, and are kept
     if(plan && !same){
       const n = Object.keys(r.cells).length;
       if(n && !confirm(`Plan ${e.crop} again from the crop guide? Its ${n} coloured week${n===1?'':'s'} will be replaced by the new plan.`)) return;
@@ -4544,7 +4593,9 @@ function saveEditor(){
     }
     Object.assign(r, {unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes});
     if(plan) r.plan = plan; else if(facts) r.plan = facts; else delete r.plan;
-    state.calMsg = plan && !same ? `${CHECK_ICON} ${esc(e.crop)} planned again: ${planText()}` : `${CHECK_ICON} ${esc(e.crop)} saved.`;
+    state.calMsg = plan && !same ? `${CHECK_ICON} ${esc(e.crop)} planned again: ${planText()}`
+      : known && e.manual ? `${CHECK_ICON} ${esc(e.crop)} saved. Its weeks are yours to colour — pick a stage above the calendar and click or drag across them.`
+      : `${CHECK_ICON} ${esc(e.crop)} saved.`;
     if(plan && !same){ showPlanStart(f, plan.sown); state.growRow = r.id; }
     state.editRow = null;
   } else {
@@ -4789,6 +4840,31 @@ function removeBlock(unitId, blockId){
   touch(state.member); renderKeepingPlace();
 }
 
+/* ---- The crop guide changed after a planting was planned ------------------
+   Each plan keeps a fingerprint of the figures it was made from. When the
+   Secretariat changes them, the planting offers to be planned again — with
+   the same dates, plants and the farm's own timings — and nothing changes
+   until the farm says so. */
+function guideChanged(r){
+  const p = r.plan, g = p && p.guide && !p.manual ? guideFor(p.guide) : null;
+  return !!(g && p.sig && p.sown && guideSig(g) !== p.sig);
+}
+function replanRow(id){
+  const f = currentFarm(), r = f.rows.find(x=> x.id === id);
+  const g = r && r.plan ? guideFor(r.plan.guide) : null;
+  if(!g) return;
+  const p = planFromGuide(effGuide(g, r.plan.adj), Object.assign({until: calendarEnd()}, r.plan));
+  if(p.error) return showFatal(`${r.crop} could not be planned again: ${p.error}`);
+  const n = Object.keys(r.cells).length;
+  if(!confirm(`The crop guide for ${g.name} has changed since this planting was planned.\n\nPlan it again with the new figures? Its ${n} coloured week${n === 1 ? '' : 's'} will be replaced. Your dates, plants${r.plan.adj ? ' and your own timings' : ''} are kept.`)) return;
+  r.cells = p.cells;
+  r.plan.sig = guideSig(g);
+  state.growRow = r.id;
+  state.calMsg = `${CHECK_ICON} ${esc(r.crop)} planned again with the crop guide’s new figures${p.total != null ? `: ${fmt(p.total)} kg` : ''}.`;
+  touch(state.member);
+  render();
+}
+
 /* ============================================================
    The archive
    A planting whose season is over is archived: it leaves the calendar and
@@ -5000,6 +5076,102 @@ function perPlantOf(g){
     default:        return 0;
   }
 }
+/* ---- A crop as stages, in days --------------------------------------------
+   How the Secretariat and the farms see and change a crop's timing: days in
+   the nursery (sowing to transplanting), days of vegetative growth, days of
+   flowering and fruit set before the first harvest, how many weeks the
+   harvest lasts and what a plant gives in all. The guide's own figures —
+   ranges, weekly kilograms — are read as stages; stages are written back as
+   a guide entry the planner already understands. */
+function flowerDaysOf(g){ return g.flowerDays != null ? Number(g.flowerDays) : 7 * (g.flower || 0); }
+function nurseryDaysOf(g){
+  return g.tree || g.direct ? 0 : g.nurseryDays ? Math.round(midOf(g.nurseryDays)) : g.nursery ? Math.round(midOf(g.nursery) * 7) : 0;
+}
+// Days to the first harvest from transplanting — or, sown direct, from sowing.
+function toHarvestOf(g){
+  if(g.tree || g.harvest.kind === 'none') return 0;
+  if(g.direct) return g.fromSowing ? Math.round(midOf(g.fromSowing)) : 0;
+  return g.fromTransplant != null ? Number(g.fromTransplant) : Math.round(midOf(g.fromSowing)) - nurseryDaysOf(g);
+}
+function harvestWeeksOf(g){
+  const h = g.harvest;
+  switch(h.kind){
+    case 'weekly':  return h.weeks;
+    case 'pulses':  return (h.count - 1) * h.every + 1;
+    case 'head':    return 1 + (h.sideWeeks || 0);
+    case 'single':  return 1;
+    case 'picking': return g.tree ? GUIDE_SEASON_WEEKS : Math.max(1, Math.ceil((7 * GUIDE_SEASON_WEEKS - toHarvestOf(g)) / 7));
+    default:        return 0;
+  }
+}
+function stagesOf(g){
+  const h = g.harvest, per = perPlantOf(g), th = toHarvestOf(g), fl = Math.min(flowerDaysOf(g), th);
+  return {start: g.tree ? 'tree' : g.direct ? 'direct' : 'nursery',
+    nursery: nurseryDaysOf(g), veg: h.kind === 'none' ? 0 : Math.max(0, th - fl), flower: h.kind === 'none' ? 0 : fl,
+    kind: h.kind === 'picking' ? 'weekly' : h.kind, hWeeks: harvestWeeksOf(g), every: h.kind === 'pulses' ? h.every : 2,
+    total: per == null || h.kind === 'none' ? '' : Math.round(per * 1000) / 1000,
+    headKg: h.kind === 'head' && h.kg != null ? h.kg : ''};
+}
+const STAGE_KINDS = {weekly:'Every week', pulses:'Every few weeks', head:'A head, then side shoots', single:'Once', none:'No harvest within the calendar'};
+// The first thing wrong with a set of stages, or ''.
+function stagesError(s){
+  const whole = (v, lo, hi)=> v !== '' && v != null && Number.isInteger(Number(v)) && Number(v) >= lo && Number(v) <= hi;
+  if(s.start === 'nursery' && !whole(s.nursery, 1, 730)) return 'Days from sowing to transplanting: a whole number from 1 to 730.';
+  if(s.start !== 'tree' && s.kind !== 'none'){
+    if(!whole(s.veg, 0, 1500)) return 'Days of vegetative growth: a whole number, 0 or more.';
+    if(!whole(s.flower, 0, 365)) return 'Days from flowering to the first harvest: a whole number, 0 or more.';
+    if(Number(s.veg) + Number(s.flower) < 1) return 'The crop needs at least a day between ' + (s.start === 'direct' ? 'sowing' : 'transplanting') + ' and the first harvest.';
+  }
+  if(s.kind === 'weekly' || s.kind === 'pulses' || s.kind === 'head'){
+    if(!whole(s.hWeeks, 1, 60)) return 'Harvest weeks: a whole number from 1 to 60.';
+    if(s.kind === 'pulses' && !whole(s.every, 1, 12)) return 'Weeks between pickings: a whole number from 1 to 12.';
+  }
+  if(s.kind !== 'none' && s.total !== '' && s.total != null && !(Number(s.total) >= 0 && Number(s.total) <= 1000)) return 'Harvest per plant: a number of kilograms from 0 to 1000, or blank.';
+  if(s.kind === 'head' && s.headKg !== '' && s.headKg != null){
+    if(!(Number(s.headKg) >= 0)) return 'The main head is a number of kilograms.';
+    if(s.total !== '' && s.total != null && Number(s.headKg) > Number(s.total)) return 'The main head cannot weigh more than the whole harvest a plant.';
+  }
+  return '';
+}
+// A guide entry with its timing and harvest taken from stages; the rest kept.
+function guideFromStages(base, s){
+  const g = cloneGuide(base), n = v=> Number(v) || 0;
+  ['nursery', 'nurseryDays', 'fromSowing', 'fromTransplant', 'flower', 'flowerDays', 'tree', 'direct'].forEach(k=> delete g[k]);
+  if(s.start === 'tree') g.tree = true;
+  else {
+    if(s.start === 'direct') g.direct = true; else g.nurseryDays = [n(s.nursery), n(s.nursery)];
+    if(s.kind !== 'none'){
+      const to = n(s.veg) + n(s.flower);
+      if(s.start === 'direct') g.fromSowing = [to, to]; else g.fromTransplant = to;
+      g.flowerDays = n(s.flower);
+    }
+  }
+  const total = s.total === '' || s.total == null ? null : Number(s.total);
+  const w = Math.max(1, Math.round(n(s.hWeeks)) || 1);
+  switch(s.kind){
+    case 'weekly': g.harvest = {kind:'weekly', weeks:w, kg: total == null ? null : total / w}; break;
+    case 'pulses': {
+      const every = Math.max(1, n(s.every)), count = Math.floor((w - 1) / every) + 1;
+      g.harvest = {kind:'pulses', count, every, kg: total == null ? null : total / count}; break;
+    }
+    case 'head': {
+      // Without a figure for the head, three quarters of the harvest is the head.
+      const side = w - 1, head = s.headKg !== '' && s.headKg != null ? Number(s.headKg) : total == null ? null : side ? total * 0.75 : total;
+      g.harvest = {kind:'head', kg: head, sideWeeks: side, sideKg: side && total != null && head != null ? Math.max(0, total - head) / side : null}; break;
+    }
+    case 'single': g.harvest = {kind:'single', kg: total}; break;
+    default: g.harvest = {kind:'none'};
+  }
+  return g;
+}
+// The guide as one planting uses it: with that farm's own timings, if it gave any.
+function effGuide(g, adj){ return g && adj ? Object.assign(guideFromStages(g, Object.assign(stagesOf(g), adj)), {adjusted:true}) : g; }
+// A short fingerprint of a crop's figures, kept with each plan so a later change shows.
+function guideSig(g){
+  const t = JSON.stringify(stagesOf(g));
+  let h = 5381; for(let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
 function guideFor(id){ return CROP_GUIDE.find(g=> g.id === id) || null; }
 function guideMatch(crop){ const k = cropKey(crop); return k ? CROP_GUIDE.find(g=> g.names.includes(k)) || null : null; }
 // Whether the guide knows what a plant gives, or the farm is asked.
@@ -5055,7 +5227,16 @@ function planFromGuide(g, p){
     seasonEnd = addDays(base, 7 * GUIDE_SEASON_WEEKS);
     out.marks.land = addDays(sown, -7);
     put(out.marks.land, 'L');
-    if(g.direct){ put(sown, 'S'); weekly(addDays(sown, 7), firstH, 'V'); }
+    if(g.direct){
+      put(sown, 'S');
+      if(none) weekly(addDays(sown, 7), firstH, 'V');
+      else {
+        // Growing, then flowering for the days before the first harvest.
+        const fd = flowerDaysOf(g), fl = addDays(firstH, -fd), grow = addDays(sown, 7);
+        weekly(grow, fd && fl > grow ? fl : firstH, 'V');
+        if(fd){ weekly(fl > grow ? fl : grow, firstH, 'F'); out.flowerFrom = fl > sown ? fl : null; }
+      }
+    }
     else {
       weekly(sown, moved, 'S');
       out.marks.nursery = [sown, addDays(moved, -1)];
@@ -5068,9 +5249,9 @@ function planFromGuide(g, p){
       }
     }
     if(!none && !g.direct){
-      const flowering = addDays(firstH, -7 * (g.flower || 0));
+      const flowering = addDays(firstH, -flowerDaysOf(g));
       weekly(addDays(moved, 7), flowering < firstH ? flowering : firstH, 'V');
-      if(g.flower) { weekly(flowering > moved ? flowering : addDays(moved, 7), firstH, 'F'); out.flowerFrom = flowering > moved ? flowering : null; }
+      if(flowerDaysOf(g)) { weekly(flowering > moved ? flowering : addDays(moved, 7), firstH, 'F'); out.flowerFrom = flowering > moved ? flowering : null; }
     }
   }
 
@@ -5144,6 +5325,7 @@ function guideBoxHTML(){
           </div></div>`
       : `<div class="gb-pick"><span class="helper" style="margin:0;">Planned for you from the sowing date:</span> ${chips}</div>`;
   }
+  if(e.manual) return manualBoxHTML(g);
   const unit = g.tree ? 'trees' : 'plants';
   const dateLabel = g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date';
   return `<div class="gb">
@@ -5161,11 +5343,90 @@ function guideBoxHTML(){
         <input id="ed-kgpp" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.kgpp)}" placeholder="whole harvest"
           oninput="state.editRow.kgpp=this.value;guidePreviewUpdate()"></div>`}
     </div>
+    ${adjBoxHTML(g)}
     <div id="ed-plan-preview">${guidePreviewHTML(g)}</div>
+    <p class="gb-manual-link"><button type="button" class="gb-alt" onclick="setManual(true)">${icon('edit')} Not happy with the automatic plan? Colour the weeks yourself</button></p>
   </div>`;
 }
+/* The farm's own timings for one planting, over the guide's. Only what is
+   changed is kept, so the rest still follows the guide. */
+function adjBoxHTML(g){
+  const e = state.editRow, base = stagesOf(g), s = Object.assign({}, base, e.adj || {});
+  const f = (k, label, unit)=> `<div><label class="f" for="ed-adj-${k}">${label}</label>
+      <input id="ed-adj-${k}" type="number" min="0" step="${k === 'total' ? 'any' : '1'}" inputmode="${k === 'total' ? 'decimal' : 'numeric'}"
+        value="${esc(s[k])}" oninput="adjSet('${k}', this.value)">
+      <span class="helper gb-was">Guide: ${base[k] === '' ? '—' : esc(fmtNum(base[k]))} ${unit}</span></div>`;
+  const grows = !g.tree && base.kind !== 'none';
+  const fields = [
+    base.start === 'nursery' ? f('nursery', 'Sowing → transplanting', 'days') : '',
+    grows ? f('veg', base.start === 'direct' ? 'Vegetative growth after sowing' : 'Vegetative growth after transplanting', 'days') : '',
+    grows ? f('flower', 'Flowering / fruit set → first harvest', 'days') : '',
+    ['weekly', 'pulses', 'head'].includes(base.kind) ? f('hWeeks', 'Harvest lasts', 'weeks') : '',
+    base.kind !== 'none' && guideHasYield(g) ? f('total', `Harvest a ${g.tree ? 'tree' : 'plant'}, in all`, 'kg') : '',
+  ].join('');
+  return `<details class="gb-adj"${e.adj ? ' open' : ''}>
+    <summary>${icon('edit')} Change the timings for this planting${e.adj ? ' <b>· changed</b>' : ''}</summary>
+    <p class="helper" style="margin:6px 0 8px;">Your own figures for this planting only — the guide stays as it is for everyone else.</p>
+    <div class="gb-fields">${fields}</div>
+    ${e.adj ? `<button type="button" class="gb-alt" style="margin-top:8px;" onclick="adjReset()">Use the crop guide’s figures again</button>` : ''}
+  </details>`;
+}
+function fmtNum(v){ return Number(v).toLocaleString('en-GB', {maximumFractionDigits:3}); }
+function adjSet(k, v){
+  const e = state.editRow;
+  e.adj = Object.assign({}, e.adj || {}, {[k]: v});
+  const sum = document.querySelector('.gb-adj summary');
+  if(sum && !sum.querySelector('b')) sum.insertAdjacentHTML('beforeend', ' <b>· changed</b>');
+  guidePreviewUpdate();
+}
+function adjReset(){
+  state.editRow.adj = null;
+  const box = document.getElementById('ed-guide');
+  if(box) box.innerHTML = guideBoxHTML();
+}
+// The farm's figures for a planting, as numbers, with only what differs from the guide.
+function cleanAdj(g, adj){
+  if(!adj) return null;
+  const base = stagesOf(g), out = {};
+  Object.keys(adj).forEach(k=>{
+    if(adj[k] === '' || adj[k] == null) return;
+    const v = Number(adj[k]);
+    if(String(v) !== String(base[k])) out[k] = v;
+  });
+  return Object.keys(out).length ? out : null;
+}
+// Planned by hand: the crop is known, but the farm colours its own weeks.
+function manualBoxHTML(g){
+  const e = state.editRow;
+  return `<div class="gb gb-plain">
+    <div class="gb-head">${icon('edit')} <span><strong>You colour the weeks yourself</strong> — nothing is planned automatically for this planting.
+      Pick a stage above the calendar and click or drag across its weeks, or use <em>Fill weeks</em>. Your dates and plants are kept with it.
+      <button type="button" class="gb-alt" onclick="setManual(false)">Plan it from the crop guide instead</button></span></div>
+    <div class="gb-fields">
+      <div><label class="f" for="ed-sown">${g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date'} <span class="opt">optional</span></label>
+        <input id="ed-sown" type="date" value="${esc(e.sown)}" oninput="state.editRow.sown=this.value"></div>
+      ${g.tree || g.direct ? '' : `<div><label class="f" for="ed-moved">Transplanting <span class="opt">optional</span></label>
+        <input id="ed-moved" type="date" value="${esc(e.moved)}" oninput="state.editRow.moved=this.value"></div>`}
+      <div><label class="f" for="ed-plants">Number of ${g.tree ? 'trees' : 'plants'} <span class="opt">optional</span></label>
+        <input id="ed-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(e.plants)}" placeholder="e.g. 1000"
+          oninput="state.editRow.plants=this.value"></div>
+    </div></div>`;
+}
+function setManual(on){
+  state.editRow.manual = on;
+  const box = document.getElementById('ed-guide');
+  if(box) box.innerHTML = guideBoxHTML();
+}
 // Where each figure comes from, in a line under the plan.
+function stagesText(g){
+  const s = stagesOf(g), parts = [];
+  if(s.start === 'nursery') parts.push(`${s.nursery} days from sowing to transplanting`);
+  if(!g.tree && s.kind !== 'none') parts.push(`${s.veg} days of vegetative growth`, `${s.flower} days of flowering and fruit set to the first harvest`);
+  if(s.kind !== 'none') parts.push(`harvest ${s.hWeeks === 1 ? 'once' : `over ${s.hWeeks} weeks`}`);
+  return parts.join(', ');
+}
 function guideSourceText(g){
+  if(g.adjusted) return `Your timings for this planting: ${stagesText(g)}. Yield: ${yieldText(g)}.`;
   const own = g.custom || g.edited;          // the Secretariat's figures, not the published sources
   const cap = t=> t.charAt(0).toUpperCase() + t.slice(1);
   if(g.tree) return `Yield: ${yieldText(g)}${own ? '' : ' (Harvest Ledger, which assumes a tree already bearing)'}.${own ? ' Figures set by the Secretariat.' : ''}`;
@@ -5180,11 +5441,16 @@ function guideSourceText(g){
   if(g.timingNote) parts.push(cap(g.timingNote));
   parts.push(`Yield: ${yieldText(g)}${guideHasYield(g) ? (own ? '' : g.harvest.kind === 'picking' ? ' (Yield Calculator)' : ' (Harvest Ledger)') : ' — no figure in the guide, so give your own expected kg a plant'}`);
   if(g.sow) parts.push(`Usual sowing${own ? '' : ' (temperate baseline)'}: ${g.sow}`);
-  if(own) parts.push('Figures set by the Secretariat');
+  if(own) return `Timing: ${stagesText(g)}. Yield: ${yieldText(g)}${guideHasYield(g) ? '' : ' — no figure in the guide, so give your own expected kg a plant'}.${g.timingNote ? ' ' + cap(g.timingNote) + '.' : ''}${g.sow ? ` Usual sowing: ${g.sow}.` : ''} Figures set by the Secretariat.`;
   return parts.join('. ') + '.';
 }
-function guidePreviewHTML(g){
+function guidePreviewHTML(g0){
   const e = state.editRow;
+  if(e.adj){
+    const bad = stagesError(Object.assign(stagesOf(g0), e.adj));
+    if(bad) return `<p class="helper gb-hint" style="color:var(--red);">${esc(bad)}</p>`;
+  }
+  const g = effGuide(g0, cleanAdj(g0, e.adj));
   if(!e.sown) return `<p class="helper gb-hint">${esc(guideSourceText(g))}</p>`;
   const p = planFromGuide(g, Object.assign({until: calendarEnd()}, e));
   if(p.error) return `<p class="helper gb-hint" style="color:var(--red);">${esc(p.error)}</p>`;
@@ -6129,14 +6395,6 @@ function renderMembers(c){
    crop put back as it was. Farms plan from the new figures straight away;
    plantings already on a calendar keep the weeks they were given.
    ============================================================ */
-const HARVEST_KINDS = {
-  weekly:  'Every week',
-  pulses:  'Every few weeks',
-  head:    'A head, then side shoots',
-  single:  'Once',
-  picking: 'Cut every week to the end of the season',
-  none:    'No harvest within the calendar',
-};
 const guideNum = v=> v === null || v === undefined || v === '' ? null : Number(v);
 const kgText = kg=> `${Number(kg).toLocaleString('en-GB', {maximumFractionDigits:3})} kg`;
 const isBuiltIn = id=> CROP_GUIDE_DEFAULT.some(d=> d.id === id);
@@ -6145,6 +6403,7 @@ function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${String(d
 // How long a crop takes, in words.
 function timingText(g){
   if(g.tree) return 'A bearing tree: the harvest starts on the date entered';
+  if(g.custom || g.edited) return stagesText(g);
   const nur = g.direct ? 'Sown or planted direct' : g.nurseryDays ? `${rangeText(g.nurseryDays, 'days')} in the nursery` : g.nursery ? `${rangeText(g.nursery, 'weeks')} in the nursery` : '';
   if(g.harvest.kind === 'none') return nur;
   const first = g.fromTransplant != null ? `first harvest ${g.fromTransplant} days after transplanting` : g.fromSowing ? `first harvest ${rangeText(g.fromSowing, 'days')} after ${g.direct ? 'planting' : 'sowing'}` : '';
@@ -6162,6 +6421,15 @@ function perPlantWorking(g){
     case 'picking': return `${kgText(per)} over the season, cut every week`;
     default:        return 'no harvest within the calendar';
   }
+}
+// Each stage's days, as small coloured chips.
+function stageChipsHTML(g){
+  const st = stagesOf(g), chip = (s, t)=> `<span class="st-chip"><i style="background:${STAGE[s].color}"></i>${t}</span>`;
+  const out = [];
+  if(st.start === 'nursery') out.push(chip('S', `${st.nursery} d nursery`));
+  if(st.start !== 'tree' && st.kind !== 'none') out.push(chip('V', `${st.veg} d growth`), chip('F', `${st.flower} d flowering`));
+  if(st.kind !== 'none') out.push(chip('H', st.hWeeks === 1 ? 'harvest once' : `${st.hWeeks} wk harvest`));
+  return `<span class="st-chips">${out.join('')}</span>`;
 }
 function guideTag(g){
   return g.custom ? '<span class="gd-tag is-new">Added by the Secretariat</span>'
@@ -6223,7 +6491,8 @@ function guideCardHTML(g){
   return `<div class="card gd-card" data-guide="${id}">
     <div class="gd-card-head"><strong>${esc(g.name)}</strong>${guideTag(g)}</div>
     <dl class="gd-facts">
-      <dt>Timing</dt><dd>${esc(timingText(g) || '—')}${g.flower && !g.tree && !g.direct && g.harvest.kind !== 'none' ? `; flowers ${g.flower} week${g.flower === 1 ? '' : 's'} before` : ''}</dd>
+      <dt>Stages</dt><dd>${stageChipsHTML(g)}</dd>
+      <dt>Timing</dt><dd>${esc(timingText(g) || '—')}</dd>
       <dt>Harvest</dt><dd>${esc(yieldText(g))}</dd>
       <dt>A ${unit}</dt><dd>${per === null ? '—' : g.harvest.kind === 'none' ? '0 kg' : `<strong>${kgText(per)}</strong>`}</dd>
       ${g.sow ? `<dt>Usual sowing</dt><dd>${esc(g.sow)}</dd>` : ''}
@@ -6266,19 +6535,17 @@ function guideCalcUpdate(cropChanged){
   const h = g.harvest, per = p.perPlant;
   const own = !guideHasYield(g) && per != null;
   // The working, a step at a time.
-  const steps = [];
+  const steps = [], st = stagesOf(g);
   if(!g.tree){
-    if(g.direct) steps.push(['S', `${g.direct ? 'Planted' : 'Sown'} ${dayText(p.sown, true)}`, '']);
+    if(g.direct) steps.push(['S', `Planted ${dayText(p.sown, true)}`, st.kind === 'none' ? '' : `then ${st.veg} days of vegetative growth`]);
     else {
-      const nur = g.nurseryDays ? `${Math.round(midOf(g.nurseryDays))} days, the middle of ${rangeText(g.nurseryDays, 'days')}` : `${fmt(midOf(g.nursery))} weeks, the middle of ${rangeText(g.nursery, 'weeks')}`;
-      steps.push(['S', `Sown ${dayText(p.sown, true)}`, `then ${nur} in the nursery`]);
-      steps.push(['T', `Transplanted ${dayText(p.moved, true)}`, '']);
+      steps.push(['S', `Sown ${dayText(p.sown, true)}`, `${st.nursery} days in the nursery`]);
+      steps.push(['T', `Transplanted ${dayText(p.moved, true)}`, st.kind === 'none' ? '' : `then ${st.veg} days of vegetative growth`]);
     }
+    if(p.flowerFrom) steps.push(['F', `Flowering / fruit set from ${dayText(p.flowerFrom, true)}`, `${st.flower} days to the first harvest`]);
   }
   if(p.hWeeks){
-    const why = g.tree ? 'the date entered'
-      : g.fromTransplant != null ? `${g.fromTransplant} days after transplanting`
-      : `${Math.round(midOf(g.fromSowing))} days after ${g.direct ? 'planting' : 'sowing'}, the middle of ${rangeText(g.fromSowing, 'days')}`;
+    const why = g.tree ? 'the date entered' : `day ${daysBetween(p.sown, p.firstH)} after ${g.direct ? 'planting' : 'sowing'}`;
     steps.push(['H', `First harvest ${dayText(p.firstH, true)}`, why]);
     steps.push(['H', `Last harvest week ends ${dayText(p.lastH, true)}`, `${p.hWeeks} harvest week${p.hWeeks === 1 ? '' : 's'}`]);
   } else if(p.growUntil) steps.push(['V', 'Grows on to the end of the calendar', yieldText(g)]);
@@ -6299,89 +6566,31 @@ function guideCalcUpdate(cropChanged){
     <ul class="gb-plan">${steps.map(([s, a, b])=> `<li>${sw(s)}<span class="gp-n">${esc(a)}</span><span class="gp-w">${esc(b)}</span></li>`).join('')}</ul>`;
 }
 
-/* ---- Changing the guide ---------------------------------------------------- */
+/* ---- Changing the guide ----------------------------------------------------
+   A crop is edited as its stages, in days, and its harvest: how long it is
+   picked for and what a plant gives in all. The weekly kilograms the planner
+   uses are worked out from those. */
+const DRAFT_NEW = {start:'nursery', nursery:28, veg:35, flower:21, kind:'weekly', hWeeks:8, every:2, total:'', headKg:''};
 function toDraft(g){
-  const h = g ? g.harvest : {kind:'weekly', weeks:10, kg:''};
-  const s = v=> v === null || v === undefined ? '' : String(v);
-  const nr = g && (g.nurseryDays || g.nursery);
-  return {
-    orig: g ? g.id : null,
-    name: g ? g.name : '',
+  const st = g ? stagesOf(g) : DRAFT_NEW, s = v=> v === null || v === undefined ? '' : String(v);
+  const d = {orig: g ? g.id : null, name: g ? g.name : '',
     names: g ? g.names.filter(n=> n !== cropKey(g.name)).join(', ') : '',
-    start: !g ? 'nursery' : g.tree ? 'tree' : g.direct ? 'direct' : 'nursery',
-    nUnit: g && g.nurseryDays ? 'days' : 'weeks',
-    nLo: nr ? s(nr[0]) : '', nHi: nr ? s(nr[1]) : '',
-    basis: g && g.fromTransplant != null ? 'transplant' : 'sowing',
-    dLo: g && g.fromSowing ? s(g.fromSowing[0]) : '', dHi: g && g.fromSowing ? s(g.fromSowing[1]) : '',
-    dT: g && g.fromTransplant != null ? s(g.fromTransplant) : '',
-    flower: g ? s(g.flower || 0) : '3',
-    kind: h.kind,
-    weeks: s(h.weeks), kg: s(h.kg), count: s(h.count), every: s(h.every),
-    sideWeeks: s(h.sideWeeks), sideKg: s(h.sideKg), seasonKg: s(h.seasonKg),
-    sow: g && g.sow || '', note: g && g.timingNote || '',
-  };
+    sow: g && g.sow || '', note: g && g.timingNote || ''};
+  Object.keys(st).forEach(k=> d[k] = s(st[k]));
+  if(d.kind === 'single') d.hWeeks = '1';
+  return d;
 }
 // The draft as a guide entry, or the first thing wrong with it.
 function fromDraft(d){
   const name = d.name.trim();
   if(!name) return {error: 'Give the crop a name.'};
   if(name.length > 60) return {error: 'Keep the name to 60 characters.'};
-  const whole = (v, lo, hi)=> v !== '' && Number.isInteger(Number(v)) && Number(v) >= lo && Number(v) <= hi;
-  const kgOk = v=> v === '' || (Number(v) >= 0 && Number(v) <= 1000);
+  const bad = stagesError(d);
+  if(bad) return {error: bad};
   const orig = d.orig ? guideFor(d.orig) : null;
-  const g = {id: d.orig || '', name, names: [], flower: 0};
-  if(orig && orig.alt) g.alt = orig.alt;
-  if(d.start === 'tree') g.tree = true;
-  if(d.start === 'direct') g.direct = true;
-  if(d.start === 'nursery'){
-    const max = d.nUnit === 'days' ? 730 : 104;
-    if(!whole(d.nLo, 1, max) || !whole(d.nHi, 1, max)) return {error: `Give the time in the nursery as whole ${d.nUnit}, from and to (the same number twice if it is exact).`};
-    if(Number(d.nLo) > Number(d.nHi)) return {error: 'The nursery time runs from the smaller number to the larger.'};
-    g[d.nUnit === 'days' ? 'nurseryDays' : 'nursery'] = [Number(d.nLo), Number(d.nHi)];
-  }
-  if(d.start !== 'tree' && d.kind !== 'none'){
-    if(d.start === 'direct' || d.basis === 'sowing'){
-      if(!whole(d.dLo, 1, 1500) || !whole(d.dHi, 1, 1500)) return {error: `Give the days from ${d.start === 'direct' ? 'planting' : 'sowing'} to the first harvest, from and to.`};
-      if(Number(d.dLo) > Number(d.dHi)) return {error: 'The days to the first harvest run from the smaller number to the larger.'};
-      g.fromSowing = [Number(d.dLo), Number(d.dHi)];
-      if(d.start === 'nursery'){
-        const nurDays = g.nurseryDays ? midOf(g.nurseryDays) : midOf(g.nursery) * 7;
-        if(midOf(g.fromSowing) <= nurDays) return {error: 'The first harvest has to come after transplanting: the days from sowing must be more than the time in the nursery.'};
-      }
-    } else {
-      if(!whole(d.dT, 1, 1500)) return {error: 'Give the days from transplanting to the first harvest.'};
-      g.fromTransplant = Number(d.dT);
-    }
-    if(d.start === 'nursery'){
-      if(!whole(d.flower, 0, 20)) return {error: 'Flowering is a whole number of weeks before the first harvest, 0 to 20.'};
-      g.flower = Number(d.flower);
-    }
-  }
-  const kg = v=> v === '' ? null : Number(v);
-  switch(d.kind){
-    case 'weekly':
-      if(!whole(d.weeks, 1, 60)) return {error: 'Give the number of harvest weeks, 1 to 60.'};
-      if(!kgOk(d.kg)) return {error: 'The kg a week is a number from 0 to 1000, or blank.'};
-      g.harvest = {kind:'weekly', weeks:Number(d.weeks), kg:kg(d.kg)}; break;
-    case 'pulses':
-      if(!whole(d.count, 1, 30)) return {error: 'Give the number of pickings, 1 to 30.'};
-      if(!whole(d.every, 1, 12)) return {error: 'Give the weeks between pickings, 1 to 12.'};
-      if(!kgOk(d.kg)) return {error: 'The kg a picking is a number from 0 to 1000, or blank.'};
-      g.harvest = {kind:'pulses', count:Number(d.count), every:Number(d.every), kg:kg(d.kg)}; break;
-    case 'head':
-      if(!kgOk(d.kg) || !kgOk(d.sideKg)) return {error: 'The kilograms are numbers from 0 to 1000, or blank.'};
-      if(d.sideWeeks !== '' && !whole(d.sideWeeks, 0, 20)) return {error: 'Side shoots are picked for 0 to 20 weeks.'};
-      g.harvest = {kind:'head', kg:kg(d.kg), sideWeeks:Number(d.sideWeeks || 0), sideKg:kg(d.sideKg)};
-      if(!g.harvest.sideWeeks) g.harvest.sideKg = null;
-      break;
-    case 'single':
-      if(!kgOk(d.kg)) return {error: 'The kg a plant is a number from 0 to 1000, or blank.'};
-      g.harvest = {kind:'single', kg:kg(d.kg)}; break;
-    case 'picking':
-      if(!kgOk(d.seasonKg)) return {error: 'The season’s kg a plant is a number from 0 to 1000, or blank.'};
-      g.harvest = {kind:'picking', seasonKg:kg(d.seasonKg)}; break;
-    default: g.harvest = {kind:'none'};
-  }
+  const g = guideFromStages(orig || {id:'', name, names:[], harvest:{kind:'none'}}, d);
+  g.name = name;
+  delete g.sow; delete g.timingNote; delete g.yieldNote; delete g.edited; delete g.custom;
   if(d.sow.trim()) g.sow = d.sow.trim().slice(0, 120);
   if(d.note.trim()) g.timingNote = d.note.trim().slice(0, 300);
   // Every name a farm might type, none of them another crop's.
@@ -6412,67 +6621,76 @@ function guideStartEdit(id){
 function guideCancelEdit(){ state.guideEdit = null; state.guideEditErr = ''; render(); }
 // One field changed. A change of shape draws the form again; a figure only the preview.
 function guideSet(k, v, redraw){
-  state.guideEdit[k] = v;
+  const d = state.guideEdit;
+  d[k] = v;
+  if(k === 'kind' && v === 'single') d.hWeeks = '1';
   if(redraw){ renderKeepingPlace(); const el = document.querySelector(`[data-k="${k}"]`); if(el) el.focus({preventScroll:true}); }
   else guideEditPreview();
+}
+// The stages as a strip, each as long as its days.
+function stageStripHTML(st){
+  const n = v=> Math.max(0, Number(v) || 0);
+  const seg = [];
+  if(st.start === 'nursery') seg.push(['S', n(st.nursery), `Sowing → transplanting`, `${n(st.nursery)} days`]);
+  if(st.start !== 'tree' && st.kind !== 'none'){
+    seg.push(['V', n(st.veg), st.start === 'direct' ? 'Vegetative growth' : 'Transplanting → flowering', `${n(st.veg)} days`]);
+    if(n(st.flower)) seg.push(['F', n(st.flower), 'Flowering / fruit set → harvest', `${n(st.flower)} days`]);
+  }
+  if(st.start !== 'tree' && st.kind === 'none') seg.push(['V', 120, 'Grows on', 'no harvest in the calendar']);
+  if(st.kind !== 'none') seg.push(['H', 7 * (n(st.hWeeks) || 1), 'Harvest', st.kind === 'single' ? 'once' : `${n(st.hWeeks) || 1} weeks`]);
+  const total = seg.reduce((t, x)=> t + x[1], 0) || 1;
+  return `<div class="st-strip">${seg.map(([s, days, name, len])=>
+    `<div class="st-seg" style="flex:${Math.max(days, total * 0.09)}"><span class="st-bar" style="background:${STAGE[s].color}"></span>
+      <span class="st-name">${esc(name)}</span><span class="st-len">${esc(len)}</span></div>`).join('')}</div>
+    ${st.start === 'tree' ? '' : `<p class="helper" style="margin:4px 0 0;">${st.start === 'nursery' ? `Transplanted on day ${n(st.nursery)}. ` : ''}${st.kind !== 'none'
+      ? `First harvest on day ${n(st.nursery) * (st.start === 'nursery') + n(st.veg) + n(st.flower)} after ${st.start === 'direct' ? 'planting' : 'sowing'}.` : ''}</p>`}`;
 }
 function guideEditPreview(){
   const el = document.getElementById('ge-preview');
   if(!el) return;
   const r = fromDraft(state.guideEdit);
-  if(r.error){ el.innerHTML = `<p class="helper" style="margin:0;">${esc(r.error)}</p>`; return; }
-  const g = r.g, per = perPlantOf(g), unit = g.tree ? 'tree' : 'plant';
-  el.innerHTML = `<p class="gd-prev-line"><strong>${esc(g.name)}</strong> — ${esc(timingText(g))}. Harvest: ${esc(yieldText(g))}.</p>
+  if(r.error){ el.innerHTML = `<p class="helper" style="margin:0;color:var(--red);">${esc(r.error)}</p>`; return; }
+  const g = r.g, per = perPlantOf(g), unit = g.tree ? 'tree' : 'plant', many = g.tree ? 'trees' : g.direct ? 'plants' : 'seedlings';
+  el.innerHTML = `${stageStripHTML(stagesOf(g))}
     <p class="gd-working">${icon('calc')} <span>${g.harvest.kind === 'none' ? 'No harvest within the calendar.'
       : per == null ? `No kg figure, so each farm gives its own expected kg a ${unit}.`
-      : `${esc(perPlantWorking(g))} a ${unit} <b>× 1,000 ${unit}s = ${fmt(Math.round(per * 10000) / 10)} kg</b>`}</span></p>`;
+      : `${esc(perPlantWorking(g))} a ${unit} <b>× 1,000 ${many} = ${fmt(Math.round(per * 10000) / 10)} kg</b>`}</span></p>`;
 }
 
 function renderGuideEditor(c){
   const d = state.guideEdit, err = state.guideEditErr;
-  const fld = (k, label, attrs, opt)=> `<div><label class="f" for="ge-${k}">${label}${opt ? ' <span class="opt">optional</span>' : ''}</label>
-    <input id="ge-${k}" data-k="${k}" value="${esc(d[k])}" ${attrs || 'type="text"'} oninput="guideSet('${k}', this.value)"></div>`;
-  const numF = (k, label, opt, step)=> fld(k, label, `type="number" min="0" step="${step || '1'}" inputmode="${step ? 'decimal' : 'numeric'}"`, opt);
+  const fld = (k, label, attrs, opt, hint)=> `<div><label class="f" for="ge-${k}">${label}${opt ? ' <span class="opt">optional</span>' : ''}</label>
+    <input id="ge-${k}" data-k="${k}" value="${esc(d[k])}" ${attrs || 'type="text"'} oninput="guideSet('${k}', this.value)">${hint ? `<span class="helper ge-hint">${hint}</span>` : ''}</div>`;
+  const numF = (k, label, hint, opt, step)=> fld(k, label, `type="number" min="0" step="${step || '1'}" inputmode="${step ? 'decimal' : 'numeric'}"`, opt, hint);
   const sel = (k, label, opts)=> `<div><label class="f" for="ge-${k}">${label}</label>
     <select id="ge-${k}" data-k="${k}" onchange="guideSet('${k}', this.value, true)">${opts.map(([v, t])=> `<option value="${v}"${d[k] === v ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></div>`;
   const unit = d.start === 'tree' ? 'tree' : 'plant';
-  const per = `kg a ${unit}`;
-  const harvestFields = {
-    weekly:  numF('weeks', 'Harvest weeks') + numF('kg', `${per} each week`, true, 'any'),
-    pulses:  numF('count', 'Pickings') + numF('every', 'Weeks between pickings') + numF('kg', `${per} each picking`, true, 'any'),
-    head:    numF('kg', `Main head, ${per}`, true, 'any') + numF('sideWeeks', 'Weeks of side shoots', true) + (Number(d.sideWeeks) > 0 ? numF('sideKg', `Side shoots, ${per} a week`, true, 'any') : ''),
-    single:  numF('kg', `${per}`, true, 'any'),
-    picking: numF('seasonKg', `${per} over the season`, true, 'any'),
-    none:    '',
-  }[d.kind];
-  const nursery = d.start === 'nursery';
+  const nursery = d.start === 'nursery', grows = d.start !== 'tree' && d.kind !== 'none';
+  const sw = s=> `<span class="sw" style="background:${STAGE[s].color}"></span>`;
   c.innerHTML = `
     <h1 class="page-title">${d.orig ? `Edit ${esc((guideFor(d.orig) || {}).name || 'crop')}` : 'Add a crop'}</h1>
-    <p class="page-sub">Where a range is given, plans use its middle. Leave a kg figure blank and each farm gives its own.</p>
+    <p class="page-sub">Each stage in days, then the harvest. Farms plan with these from the moment you save; a farm’s plantings already planned show an update button.</p>
     ${err ? `<div class="msg-banner is-error">${esc(err)}</div>` : ''}
     <div class="card ge-form">
       <div class="ge-sec">The crop</div>
       <div class="ge-row">
         ${fld('name', 'Name', 'type="text" maxlength="60" placeholder="e.g. Cucumber"')}
         ${fld('names', 'Other names farms may type', 'type="text" placeholder="e.g. cucumbers, english cucumber"', true)}
-      </div>
-      <div class="ge-sec">Timing</div>
-      <div class="ge-row">
         ${sel('start', 'Starts as', [['nursery','Seedlings raised in a nursery'], ['direct','Sown or planted direct'], ['tree','A tree already bearing']])}
-        ${nursery ? `${sel('nUnit', 'Nursery counted in', [['weeks','Weeks'], ['days','Days']])}
-          ${numF('nLo', `In the nursery, from (${d.nUnit})`)}${numF('nHi', `to (${d.nUnit})`)}` : ''}
       </div>
-      ${d.start !== 'tree' && d.kind !== 'none' ? `<div class="ge-row">
-        ${nursery ? sel('basis', 'First harvest counted from', [['sowing','Sowing'], ['transplant','Transplanting']]) : ''}
-        ${!nursery || d.basis === 'sowing'
-          ? numF('dLo', `Days from ${nursery ? 'sowing' : 'planting'} to first harvest, from`) + numF('dHi', 'to')
-          : numF('dT', 'Days from transplanting to first harvest')}
-        ${nursery ? numF('flower', 'Flowering starts, weeks before harvest') : ''}
-      </div>` : ''}
+      ${d.start === 'tree' ? '' : `<div class="ge-sec">Stages, in days</div>
+      <div class="ge-row ge-stages">
+        ${nursery ? `<div class="ge-stage">${sw('S')}${numF('nursery', 'Sowing → transplanting', 'days in the nursery')}</div>` : ''}
+        ${grows ? `<div class="ge-stage">${sw('V')}${numF('veg', nursery ? 'Transplanting → flowering' : 'Sowing → flowering', 'days of vegetative growth')}</div>
+          <div class="ge-stage">${sw('F')}${numF('flower', 'Flowering / fruit set → harvest', 'days to the first harvest')}</div>` : ''}
+      </div>`}
       <div class="ge-sec">Harvest</div>
-      <div class="ge-row">
-        ${sel('kind', 'Picked', Object.entries(HARVEST_KINDS))}
-        ${harvestFields}
+      <div class="ge-row ge-stages">
+        <div class="ge-stage">${sw('H')}${sel('kind', 'Picked', Object.entries(STAGE_KINDS))}</div>
+        ${['weekly', 'pulses', 'head'].includes(d.kind) ? numF('hWeeks', 'Harvest lasts', 'weeks, from the first harvest to the last') : ''}
+        ${d.kind === 'pulses' ? numF('every', 'Picked every', 'weeks') : ''}
+        ${d.kind !== 'none' ? numF('total', `Harvest per ${unit}, in all`, `kg — leave blank and each farm gives its own`, true, 'any') : ''}
+        ${d.kind === 'head' ? numF('headKg', 'Of which the main head', 'kg; the rest is side shoots', true, 'any') : ''}
       </div>
       <div class="ge-sec">Notes for farms</div>
       <div class="ge-row ge-wide">
@@ -6481,7 +6699,7 @@ function renderGuideEditor(c){
       </div>
       <div class="ge-preview" id="ge-preview"></div>
       <div class="ge-actions">
-        <button class="btn" id="ge-save" onclick="guideSaveEdit(this)">${icon('fill')} Save</button>
+        <button class="btn" id="ge-save" onclick="guideSaveEdit(this)">${CHECK_ICON} Save</button>
         <button class="btn ghost" onclick="guideCancelEdit()">Cancel</button>
       </div>
     </div>`;

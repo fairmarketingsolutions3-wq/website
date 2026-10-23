@@ -209,11 +209,26 @@ Under **Crop guide**, administrators see every crop's figures and a calculator:
 pick a crop, the number of seedlings and a sowing date, and it shows what a
 plant gives, the total, each harvest week, and the working (e.g. 0.3 kg a week ×
 14 weeks = 4.2 kg a plant × 1,000 seedlings = 4,200 kg) with the dates.
-**Edit** changes any crop's timing and yield, **Add a crop** adds a new one,
+**Edit** changes a crop as its stages, in days — sowing to transplanting,
+transplanting to flowering (vegetative growth), flowering / fruit set to the
+first harvest — then how it is picked, how many weeks the harvest lasts and
+the total kg a plant gives; the weekly kilograms are worked out from those.
+**Add a crop** adds a new one,
 **Reset** puts a built-in crop back to the TIPFA figures, and **Delete** removes
 an added crop. The guide is kept in `calendarSettings/cropGuide` and every farm
-plans with it at once; plantings already on a calendar keep their weeks. This
-needs the `calendarSettings/cropGuide` block of `firestore.rules` published.
+plans with it at once. Plantings already on a calendar keep their weeks; each
+one planned with older figures shows an orange update button beside it, and
+the farm decides whether to plan it again. This needs the
+`calendarSettings/cropGuide` block of `firestore.rules` published.
+
+### A farm planning its own way
+In the planting editor, a farm can open **Change the timings for this
+planting** and give its own days for each stage, harvest weeks and kg a plant
+— for that planting only. Or it can choose **Colour the weeks yourself**, which
+switches the automatic plan off for that planting: its dates and plants are
+kept and the weeks are coloured by hand (pick a stage and click or drag across
+the weeks, or use Fill weeks). Any week of any planting can always be changed
+by hand.
 
 ### Archive
 A planting whose season is over shows a box button beside it (and **Archive** in
@@ -249,6 +264,7 @@ back — are the `CROP_GUIDE_DEFAULT` list in `public/index.html`. For each crop
 | Field | Meaning | Source |
 |---|---|---|
 | `nursery: [6, 8]` | weeks from sowing to transplant size (`nurseryDays: [180, 210]` gives it in days) | sowing table, avocado sprouting timeline |
+| `flowerDays: 14` | days of flowering / fruit set before the first harvest (written by the in-app editor; `flower` gives it in weeks) | the Secretariat |
 | `fromSowing: [85, 100]` | days from sowing to the first harvest | sowing table |
 | `fromTransplant: 70` | days from transplanting to the first harvest, for crops not in the sowing table | Harvest Ledger week |
 | `flower: 3` | weeks of flowering / fruit set before the first harvest | standard |
