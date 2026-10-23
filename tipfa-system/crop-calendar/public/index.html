@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v11">
+<meta name="tipfa-build" content="v12">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2075,6 +2075,14 @@ body.cc-wide .content > .grid4{display:none;}
   .cc-rowbtn{padding:4px;}
   .cc-rowbtn svg{width:15px;height:15px;}
 }
+
+/* On a phone the figures sit two by two, so the calendar comes sooner. */
+@media (max-width: 760px){
+  .content > .grid4{grid-template-columns:1fr 1fr;gap:8px;}
+  .content > .grid4 .metric{padding:10px 12px;min-height:0;}
+  .content > .grid4 .metric .val{font-size:20px;}
+  .content > .grid4 .metric .lbl{font-size:9.5px;}
+}
 </style>
 </head>
 <body>
@@ -3856,12 +3864,12 @@ function gridLayout(months){
 let gridView = null;     // the months and layout the grid on screen was drawn for
 
 /* ---- How much of the three years is on screen ----------------------- */
-const SPANS = [{n:36, label:'3 years'}, {n:12, label:'1 year'}, {n:6, label:'6 months'}];
-// Unless someone has chosen, a year on a computer and half a year on a phone:
+const SPANS = [{n:36, label:'3 years', short:'3 yrs'}, {n:12, label:'1 year', short:'1 yr'}, {n:6, label:'6 months', short:'6 mo'}, {n:3, label:'3 months', short:'3 mo'}];
+// Unless someone has chosen, a year on a computer and three months on a phone:
 // big enough to read, with three years one tap away.
 function viewSpan(){
   if(!state.span){
-    const dflt = isMobile() ? 6 : 12;
+    const dflt = isMobile() ? 3 : 12;
     let s = dflt;
     try{ s = Number(localStorage.getItem('tipfa-cc-span')) || dflt; }catch(e){}
     state.span = SPANS.some(x=> x.n === s) ? s : dflt;
@@ -3909,14 +3917,14 @@ function stepView(d, shiftFn){
 function viewNavHTML(shown, shiftFn){
   const a = shown[0], b = shown[shown.length - 1];
   const label = a.y === b.y && a.m === 1 && b.m === 12 ? String(a.y) : `${MONTH_ABBR[a.m-1]} ${a.y} – ${MONTH_ABBR[b.m-1]} ${b.y}`;
-  const n = viewSpan(), unit = n === 36 ? 'One year' : n === 12 ? 'One year' : 'Six months';
+  const n = viewSpan(), unit = n >= 12 ? 'One year' : n === 6 ? 'Six months' : 'Three months';
   return `<div class="cc-window" role="group" aria-label="Calendar dates">
       <button onclick="stepView(-1,'${shiftFn}')" aria-label="${unit} earlier" title="${unit} earlier">${icon('chevL')}</button>
       <span class="cw-label">${label}</span>
       <button onclick="stepView(1,'${shiftFn}')" aria-label="${unit} later" title="${unit} later">${icon('chevR')}</button>
     </div>
     <div class="cc-span" role="group" aria-label="How much to show at once">${SPANS.map(s=>
-      `<button class="${s.n === n ? 'on' : ''}" aria-pressed="${s.n === n}" onclick="setSpan(${s.n})">${s.label}</button>`).join('')}</div>`;
+      `<button class="${s.n === n ? 'on' : ''}" aria-pressed="${s.n === n}" onclick="setSpan(${s.n})" title="Show ${s.label}">${isMobile() ? s.short : s.label}</button>`).join('')}</div>`;
 }
 
 /* A big farm is a big table — 150 plantings over three years is 21,600
