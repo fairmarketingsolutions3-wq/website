@@ -204,6 +204,16 @@ register again later. To free the email completely, also delete it under
 an administrator's document in **Firestore → `calendarOperators`** and its user
 under **Authentication → Users** in the console.
 
+### Days and Weeks
+The calendar opens in **Days**: every planting drawn at its dates, from land
+preparation to its last harvest, with its dates written under it. The days on
+screen fit every planting from its first day to its last — across the turn of
+a year when a season runs on — so nothing has to be paged through (**1 year**,
+**6 months** and **3 months** zoom in when wanted). A planting planned from the
+crop guide is drawn to the day; one coloured by hand is drawn by its weeks.
+**Weeks** is the TIPFA template's grid, where weeks are coloured by hand; it is
+also what is stored, exported to Excel and added up.
+
 ### The crop guide
 Under **Crop guide**, administrators see every crop's figures and a calculator:
 pick a crop, the number of seedlings and a sowing date, and it shows what a

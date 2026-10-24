@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v14">
+<meta name="tipfa-build" content="v15">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2168,6 +2168,131 @@ body.cc-wide .content > .grid4{display:none;}
 @media (max-width: 760px){
   .ge-row{grid-template-columns:1fr !important;}
 }
+
+/* ============================================================
+   The calendar in days
+   ============================================================ */
+.cc-viewswitch{display:inline-flex;background:var(--deep-green);border-radius:99px;padding:3px;gap:2px;}
+.cc-viewswitch button{border:none;background:none;cursor:pointer;border-radius:99px;padding:6px 14px;font:600 12.5px 'Poppins',sans-serif;color:#E4EBD8;}
+.cc-viewswitch button:hover{color:#fff;}
+.cc-viewswitch button.on{background:var(--field-cream, #F6F3E7);color:var(--deep-green);}
+.cw-label.cw-static{font-family:'Poppins',sans-serif;font-weight:600;font-size:12.5px;color:var(--deep-green);background:#F4F3EA;border-radius:99px;padding:7px 14px;}
+
+.dv{position:relative;}
+.dv-head{display:flex;position:sticky;top:0;z-index:6;background:var(--deep-green);color:var(--field-cream, #F6F3E7);}
+.dv-corner{width:var(--pin);flex:none;padding:10px 14px;display:flex;flex-direction:column;justify-content:center;
+  border-right:2px solid var(--harvest-orange);font:600 12px 'Poppins',sans-serif;letter-spacing:.1em;text-transform:uppercase;}
+.dv-axis{position:relative;width:var(--track);flex:none;}
+.dv-years, .dv-months, .dv-days{position:relative;}
+.dv-years{height:26px;background:#2B4224;}
+.dv-months{height:38px;}
+.dv-days{height:26px;background:#E4EBD8;color:var(--deep-green);}
+.dv-days.none{height:6px;}
+.dv-years span, .dv-months span, .dv-days span{position:absolute;top:0;bottom:0;display:flex;align-items:center;justify-content:center;
+  overflow:hidden;white-space:nowrap;font-family:'Poppins',sans-serif;}
+.dv-years span{font-size:12.5px;font-weight:600;letter-spacing:.16em;border-left:2px solid var(--harvest-orange);}
+.dv-months span{font-size:13px;font-weight:600;letter-spacing:.06em;border-left:1px solid rgba(255,255,255,.18);}
+.dv-months span.ystart{border-left:2px solid var(--harvest-orange);}
+.dv-months span.cur{background:linear-gradient(180deg, #3B5C30, var(--deep-green));box-shadow:inset 0 -3px 0 var(--harvest-orange);color:#fff;}
+.dv-days span{font-size:11px;font-weight:600;justify-content:flex-start;padding-left:3px;border-left:1px solid rgba(64,94,53,.22);}
+.dv-days span.now{background:var(--harvest-orange);color:#fff;}
+
+.dv-body{position:relative;}
+.dv-lines{position:absolute;top:0;bottom:0;left:var(--pin);width:var(--track);pointer-events:none;z-index:0;}
+.dv-lines i{position:absolute;top:0;bottom:0;width:1px;background:rgba(35,40,31,.05);}
+.dv-lines i.m{background:rgba(64,94,53,.2);}
+.dv-lines i.today{width:2px;margin-left:-1px;background:var(--harvest-orange);opacity:.9;z-index:3;}
+.dv-lines i.today b{position:absolute;top:4px;left:50%;transform:translateX(-50%);background:var(--harvest-orange);color:#fff;
+  font:700 10px/1 'Poppins',sans-serif;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:99px;white-space:nowrap;
+  box-shadow:0 3px 10px -2px rgba(232,167,52,.7);}
+
+.dv-unit{position:relative;z-index:1;height:44px;display:flex;align-items:center;gap:8px;padding:0 14px;font:600 15px 'Poppins',sans-serif;
+  color:var(--deep-green);background:linear-gradient(90deg, #E5EDD6, #F2F5EB 55%, rgba(242,245,235,0));border-bottom:1px solid #DCE5CC;}
+.dv-unit .u-ico svg{width:16px;height:16px;color:var(--tipfa-green);}
+.dv-unit .u-n{font:400 12.5px 'Inter',sans-serif;color:var(--muted);}
+
+.dv-row{display:flex;position:relative;z-index:1;border-bottom:1px solid #ECEBE2;min-height:100px;}
+.dv-row:hover{background:rgba(255,255,255,.45);}
+.dv-pin{width:var(--pin);flex:none;padding:10px 10px 10px 14px;display:flex;align-items:center;background:rgba(251,250,245,.92);
+  border-right:2px solid var(--harvest-orange);}
+.dv-pin .cc-crop-cell{width:100%;gap:10px;}
+.dv-pin .cn{display:flex;flex-direction:column;line-height:1.3;white-space:nowrap;min-width:0;flex:1;cursor:pointer;}
+.dv-track{position:relative;width:var(--track);flex:none;cursor:pointer;}
+.dv .readonly .dv-track, .dv-track:not([onclick]){cursor:default;}
+.dv-bar{position:absolute;left:0;right:0;top:18px;height:46px;}
+.dv-seg{position:absolute;top:0;bottom:0;border-radius:4px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.07);
+  transform-origin:0 50%;animation:dvGrow .7s var(--ease-out) both;animation-delay:var(--d,0ms);}
+.dv-row .dv-seg:first-child{border-radius:10px 4px 4px 10px;}
+.dv-row .dv-seg:last-child{border-radius:4px 10px 10px 4px;}
+.dv-row .dv-seg:only-child{border-radius:10px;}
+.dv-seg.pin{z-index:2;border-radius:3px !important;box-shadow:0 0 0 2px #fff, 0 2px 6px rgba(0,0,0,.25);}
+.dv-seg b{position:absolute;inset:0;display:flex;align-items:center;padding:0 9px;font:600 12.5px 'Poppins',sans-serif;
+  white-space:nowrap;overflow:hidden;text-shadow:0 1px 2px rgba(0,0,0,.22);}
+.dv-seg.s-S b, .dv-seg.s-L b{text-shadow:none;}
+.dv-seg.s-L{background-image:repeating-linear-gradient(135deg, rgba(27,53,80,.16) 0 1.5px, transparent 1.5px 6px);}
+.dv-seg.s-S{background-image:radial-gradient(circle at 30% 30%, rgba(74,69,0,.30) 1.1px, transparent 1.8px);background-size:7px 7px;}
+.dv-seg.s-V{background-image:repeating-linear-gradient(60deg, rgba(255,255,255,.18) 0 1px, transparent 1px 7px);}
+.dv-seg.s-F{background-image:radial-gradient(circle, rgba(255,255,255,.34) 1.3px, transparent 2px);background-size:7px 7px;}
+.dv-seg.s-H{background-image:linear-gradient(180deg, rgba(255,255,255,.24), transparent 55%);}
+.dv-seg.s-R{background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.16) 0 2px, transparent 2px 6px);}
+.dv-seg:hover{filter:brightness(1.08) saturate(1.1);}
+@keyframes dvGrow{ from{ transform:scaleX(0); opacity:.3; } to{ transform:none; opacity:1; } }
+.content.settled .dv-seg{animation:none;}
+.content.settled .dv-row.grow .dv-seg{animation:dvGrow .7s var(--ease-out) both;}
+.dv-dates{position:absolute;top:70px;font-size:12.5px;color:var(--ink);opacity:.85;white-space:nowrap;max-width:var(--track);
+  overflow:hidden;text-overflow:ellipsis;padding:0 2px;}
+.dv-wk{display:inline-block;font-size:10.5px;background:#F2F1E8;border:1px solid var(--line);border-radius:99px;padding:0 6px;margin-left:4px;color:var(--muted);}
+.dv-empty{position:absolute;left:10px;top:0;bottom:0;display:flex;align-items:center;font-size:12.5px;color:var(--muted);}
+
+.dv-foot{border-top:2px solid var(--deep-green);}
+.dv-frow{display:flex;}
+.dv-frow.tot{background:var(--deep-green);color:#fff;min-height:58px;}
+.dv-frow.crop{min-height:40px;border-bottom:1px solid #ECEBE2;background:#FFFBF0;}
+.dv-fl{width:var(--pin);flex:none;padding:8px 14px;display:flex;align-items:center;gap:6px;font:700 12.5px 'Poppins',sans-serif;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dv-frow.tot .dv-fl{letter-spacing:.08em;}
+.dv-fl small{font:400 11px 'Inter',sans-serif;opacity:.75;letter-spacing:0;text-transform:none;}
+.dv-frow.crop .dv-fl{font-weight:600;color:var(--deep-green);}
+.dv-fc{position:relative;width:var(--track);flex:none;}
+.dv-fc span{position:absolute;top:0;bottom:0;display:flex;align-items:flex-end;justify-content:center;padding-bottom:7px;
+  border-left:1px solid rgba(0,0,0,.08);overflow:hidden;}
+.dv-frow.tot .dv-fc span{border-left-color:rgba(255,255,255,.14);}
+.dv-fc em{position:relative;z-index:1;font-style:normal;font-weight:700;font-size:13px;font-variant-numeric:tabular-nums;}
+.dv-frow.tot .dv-fc em{font-size:14.5px;text-shadow:0 1px 2px rgba(0,0,0,.3);}
+.dv-fc span.zero em{opacity:.45;font-weight:500;}
+.dv-frow.crop .sky{background:linear-gradient(180deg, rgba(126,155,63,.38), rgba(126,155,63,.08));box-shadow:none;border-radius:4px 4px 0 0;}
+@media (prefers-reduced-motion: reduce){ .dv-seg{animation:none !important;} }
+
+/* On a phone: each planting across the whole width — its name above, its
+   days below, its dates under that. */
+.dv.is-mobile .dv-head{top:56px;}
+.dv.is-mobile .dv-corner{display:none;}
+.dv.is-mobile .dv-months{height:34px;}
+.dv.is-mobile .dv-months span{font-size:12px;}
+.dv.is-mobile .dv-row{display:block;min-height:0;}
+.dv.is-mobile .dv-pin{width:auto;padding:12px 12px 2px;background:none;border-right:none;}
+.dv.is-mobile .dv-pin .cc-ico{display:flex;width:32px;height:32px;}
+.dv.is-mobile .cn-name{font-size:16px;}
+.dv.is-mobile .cc-now, .dv.is-mobile .dv-pin .sub{font-size:11.5px;}
+.dv.is-mobile .cc-rowbtns{flex-direction:row;gap:6px;}
+.dv.is-mobile .cc-rowbtn{padding:7px;}
+.dv.is-mobile .cc-rowbtn svg{width:17px;height:17px;}
+.dv.is-mobile .dv-track{height:auto;padding:54px 0 12px;}
+.dv.is-mobile .dv-bar{top:6px;height:42px;}
+.dv.is-mobile .dv-seg b{font-size:11.5px;padding:0 6px;}
+.dv.is-mobile .dv-dates{position:static;left:auto !important;right:auto !important;text-align:left !important;max-width:none;
+  font-size:12.5px;white-space:normal;line-height:1.4;padding:0 12px;}
+.dv.is-mobile .dv-lines{left:0;}
+.dv.is-mobile .dv-lines i.today b{top:auto;bottom:6px;}
+.dv.is-mobile .dv-frow{flex-wrap:wrap;}
+.dv.is-mobile .dv-fl{width:100%;padding:8px 12px 0;}
+.dv.is-mobile .dv-fc{height:36px;}
+.dv.is-mobile .dv-frow.tot .dv-fc{height:40px;}
+.dv.is-mobile .dv-fc em{font-size:11.5px;}
+.dv.is-mobile .dv-frow.tot .dv-fc em{font-size:12px;}
+.dv.is-mobile .dv-unit{height:40px;font-size:14px;}
+.dv.is-mobile .dv-lines i.today{opacity:.5;}
+.dv.is-mobile .dv-lines i.today b{display:none;}
 </style>
 </head>
 <body>
@@ -3814,11 +3939,13 @@ function renderCalendar(c){
   const ys = f.startYear;
   const msg = state.calMsg; state.calMsg = '';
 
+  const dv = calView() === 'days';
   const toolbar = `
     <div class="card cc-toolbar">
       <div class="cc-row">
-        ${viewNavHTML(spanMonths(months), 'shiftWindow')}
-        <button class="btn small ghost" onclick="goToToday()">${icon('today')} This week</button>
+        ${viewSwitchHTML()}
+        ${dv ? dayNavHTML(dayRange(orderedRows(f).map(r=> rowDays(f, r)))) : `${viewNavHTML(spanMonths(months), 'shiftWindow')}
+        <button class="btn small ghost" onclick="goToToday()">${icon('today')} This week</button>`}
         <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}">${icon(state.wide ? 'shrink' : 'expand')} ${state.wide ? 'Exit full screen' : 'Full screen'}</button>
         <span class="grow"></span>
         <button class="btn small" onclick="openEditor(null)">${icon('plus')} Add a planting</button>
@@ -3826,7 +3953,8 @@ function renderCalendar(c){
         <span class="btn small ghost cc-file">${icon('up')} Import from Excel
           <input type="file" accept=".xlsx" onchange="importFarmExcel(this)" aria-label="Import a filled-in crop calendar template"></span>
       </div>
-      ${toolsRow()}
+      ${dv ? `<div class="cc-hint">${isMobile() ? 'Every planting at its dates, from the nursery to the last harvest. Tap one to change its dates or timings.'
+          : 'Every planting at its dates, from the nursery to the last harvest — the whole season, even into the next year. Click a planting to change its dates or timings; to colour weeks by hand, switch to <a href="#" onclick="setCalView(\'weeks\');return false;">Weeks</a>.'}</div>` : toolsRow()}
       ${state.importMsg ? `<div class="import-result${state.importBad ? ' bad' : ''}">${state.importMsg}</div>` : ''}
     </div>`;
   state.importMsg = '';
@@ -3849,7 +3977,7 @@ function renderCalendar(c){
 
   c.innerHTML = `
     <h1 class="page-title">Crop calendar</h1>
-    <p class="page-sub">${esc(f.name)} · ${MONTH_ABBR[0]} ${ys} – ${MONTH_ABBR[11]} ${ys+2} · one row for every planting, one column for every week</p>
+    <p class="page-sub">${esc(f.name)} · ${dv ? 'every planting from its first day to its last harvest' : `${MONTH_ABBR[0]} ${ys} – ${MONTH_ABBR[11]} ${ys+2} · one row for every planting, one column for every week`}</p>
     ${layoutLine(f)}
     <div class="grid4">
       <div class="metric"><div class="lbl">Plantings</div><div class="val" id="m-plantings" data-count="${fig.plantings}">0</div></div>
@@ -3861,7 +3989,8 @@ function renderCalendar(c){
     ${state.editRow ? editorPanel(f) : ''}
     ${state.fillRow ? fillPanel(f) : ''}
     ${toolbar}
-    <div class="card cc-card">${gridHTML(f, spanMonths(months), {readOnly:false})}</div>`;
+    <div class="card cc-card${dv ? ' dv-card' : ''}">${dv ? daysHTML(f, {readOnly:false}) : gridHTML(f, spanMonths(months), {readOnly:false})}</div>`;
+  if(dv) return;
   bindGrid(c.querySelector('.cc-grid'), f);
   bindTooltips(c.querySelector('.cc-grid'), f);
 }
@@ -5513,6 +5642,297 @@ function showPlanStart(f, sown){
 }
 
 /* ============================================================
+   The calendar in days
+   Each planting as one line across the days it takes, from land preparation
+   to its last harvest, every stage at its own dates. The days shown fit
+   every planting from its first day to its last — across the turn of a year
+   if a season runs on — so a season is never cut in two and nothing has to
+   be paged through. A planting planned from the crop guide and not changed
+   by hand since is drawn to the day; one coloured by hand is drawn by its
+   weeks (the template's fourth week running to the month's end).
+   The weeks themselves are still what is stored, exported and added up, as
+   in the TIPFA template; the Weeks view shows and colours them.
+   ============================================================ */
+const DAY_MS = 864e5;
+// Whole days since 1970, free of clock changes.
+function dayNo(d){ return Math.round(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / DAY_MS); }
+function dayOf(n){ const d = new Date(n * DAY_MS); return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()); }
+function weekSpan(k){
+  const {y, m, w} = parseWeekKey(k);
+  return [new Date(y, m - 1, 1 + 7 * (w - 1)), w < 4 ? new Date(y, m - 1, 7 * w) : new Date(y, m, 0)];
+}
+
+function calView(){
+  if(!state.calView){
+    let v = 'days';
+    try{ v = localStorage.getItem('tipfa-cc-view') || 'days'; }catch(e){}
+    state.calView = v === 'weeks' ? 'weeks' : 'days';
+  }
+  return state.calView;
+}
+function setCalView(v){
+  state.calView = v;
+  try{ localStorage.setItem('tipfa-cc-view', v); }catch(e){}
+  state.tool = null; closePop(); state.scroll = null;
+  renderKeepingPlace();
+}
+function viewSwitchHTML(){
+  const v = calView();
+  return `<div class="cc-viewswitch" role="group" aria-label="Show the calendar in">
+    <button class="${v === 'days' ? 'on' : ''}" aria-pressed="${v === 'days'}" onclick="setCalView('days')" title="Every planting at its dates, the whole season at once">Days</button>
+    <button class="${v === 'weeks' ? 'on' : ''}" aria-pressed="${v === 'weeks'}" onclick="setCalView('weeks')" title="The template's weeks, to colour by hand">Weeks</button></div>`;
+}
+
+/* ---- A planting's stages, as days ----------------------------------------- */
+function sameCells(a, b){ const ka = Object.keys(a), kb = Object.keys(b); return ka.length === kb.length && ka.every(k=> a[k] === b[k]); }
+function rowDays(f, r){
+  const p = r.plan, g = p && p.guide && !p.manual ? guideFor(p.guide) : null;
+  if(g && p.sown){
+    const ge = effGuide(g, p.adj);
+    const P = planFromGuide(ge, Object.assign({}, p, {until: new Date((f.startYear || DEFAULT_START_YEAR) + 3, 0, 1)}));
+    if(!P.error && sameCells(P.cells, r.cells)) return exactDays(ge, P, r);
+  }
+  return weekDays(r);
+}
+function harvestKg(r){
+  let kg = 0, any = false;
+  Object.values(r.cells).forEach(v=>{ const c = readCell(v); if(c && c.s === 'H' && c.kg != null){ kg += c.kg; any = true; } });
+  return any ? kg : null;
+}
+function exactDays(g, P, r){
+  const segs = [], less = d=> addDays(d, -1);
+  const add = (s, a, b, kg)=>{ if(a && b && b >= a) segs.push({s, a: dayNo(a), b: dayNo(b), kg: kg == null ? null : kg}); };
+  if(!g.tree){
+    add('L', P.marks.land, less(P.sown));
+    if(g.direct) add('S', P.sown, P.sown);
+    else { add('S', P.sown, less(P.moved)); add('T', P.moved, P.moved); }
+    const vFrom = addDays(g.direct ? P.sown : P.moved, 1);
+    if(P.hWeeks){ add('V', vFrom, less(P.flowerFrom || P.firstH)); if(P.flowerFrom) add('F', P.flowerFrom, less(P.firstH)); }
+    else if(P.growUntil) add('V', vFrom, P.growUntil);
+  }
+  if(P.hWeeks) add('H', P.firstH, P.lastH, harvestKg(r));
+  return {segs, exact: true, sown: P.sown, moved: g.direct || g.tree ? null : P.moved, direct: !!g.direct, tree: !!g.tree};
+}
+function weekDays(r){
+  const ks = Object.keys(r.cells).filter(k=> readCell(r.cells[k])).sort(weekOrder);
+  const segs = [];
+  let cur = null, last = -9;
+  ks.forEach(k=>{
+    const c = readCell(r.cells[k]), wi = weekIndex(k), [a, b] = weekSpan(k);
+    if(cur && cur.s === c.s && wi === last + 1){ cur.b = dayNo(b); if(c.kg) cur.kg = (cur.kg || 0) + c.kg; }
+    else { cur = {s: c.s, a: dayNo(a), b: dayNo(b), kg: c.s === 'H' && c.kg ? c.kg : null}; segs.push(cur); }
+    last = wi;
+  });
+  const p = r.plan || {};
+  return {segs, exact: false, sown: parseDay(p.sown), moved: parseDay(p.moved)};
+}
+
+/* ---- Which days are on screen ------------------------------------------------ */
+const DAY_ZOOMS = [{n:0, label:'Whole season', short:'All'}, {n:12, label:'1 year', short:'1 yr'}, {n:6, label:'6 months', short:'6 mo'}, {n:3, label:'3 months', short:'3 mo'}];
+function dayZoom(){
+  if(state.dayZoom == null){
+    let z = 0;
+    try{ z = Number(localStorage.getItem('tipfa-cc-dayzoom')) || 0; }catch(e){}
+    state.dayZoom = DAY_ZOOMS.some(x=> x.n === z) ? z : 0;
+  }
+  return state.dayZoom;
+}
+function setDayZoom(n){
+  state.dayZoom = n; state.dayAt = null;
+  try{ localStorage.setItem('tipfa-cc-dayzoom', String(n)); }catch(e){}
+  renderKeepingPlace();
+}
+function stepDays(d){ state.dayAt = (state.dayAt || 0) + d * dayZoom(); renderKeepingPlace(); }
+// From the first of the month the earliest planting starts in, to the end of
+// the month the last one finishes in; or the months asked for.
+function dayRange(all){
+  let lo = Infinity, hi = -Infinity;
+  all.forEach(x=> x.segs.forEach(s=>{ if(s.a < lo) lo = s.a; if(s.b > hi) hi = s.b; }));
+  const today = dayNo(new Date());
+  if(lo === Infinity){ lo = today; hi = today + 90; }
+  const a = dayOf(lo), b = dayOf(hi);
+  let start = new Date(a.getFullYear(), a.getMonth(), 1), end = new Date(b.getFullYear(), b.getMonth() + 1, 0);
+  const z = dayZoom();
+  if(z){
+    if(state.dayAt == null){
+      // Open on the months holding today, if any planting is under way; else the first.
+      const t = new Date();
+      const live = today >= lo && today <= hi;
+      const from = live ? new Date(t.getFullYear(), t.getMonth(), 1) : start;
+      state.dayAt = (from.getFullYear() - start.getFullYear()) * 12 + from.getMonth() - start.getMonth();
+    }
+    start = new Date(start.getFullYear(), start.getMonth() + state.dayAt, 1);
+    end = new Date(start.getFullYear(), start.getMonth() + z, 0);
+  } else {
+    // Never less than three months, so a short crop is not drawn huge.
+    const months = (end.getFullYear() - start.getFullYear()) * 12 + end.getMonth() - start.getMonth() + 1;
+    if(months < 3) end = new Date(start.getFullYear(), start.getMonth() + 3, 0);
+  }
+  const months = [];
+  for(let d = new Date(start); d <= end; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)){
+    const y = d.getFullYear(), m = d.getMonth() + 1;
+    months.push({y, m, a: dayNo(d), b: dayNo(new Date(y, m, 0)), keys:[1, 2, 3, 4].map(w=> weekKey(y, m, w))});
+  }
+  return {a: dayNo(start), b: dayNo(end), months};
+}
+function dayNavHTML(range){
+  const z = dayZoom(), m = range.months, first = m[0], last = m[m.length - 1];
+  const label = `${MONTH_ABBR[first.m - 1]} ${first.y} – ${MONTH_ABBR[last.m - 1]} ${last.y}`;
+  return `${z ? `<div class="cc-window" role="group" aria-label="Calendar dates">
+      <button onclick="stepDays(-1)" aria-label="Earlier" title="Earlier">${icon('chevL')}</button>
+      <span class="cw-label">${label}</span>
+      <button onclick="stepDays(1)" aria-label="Later" title="Later">${icon('chevR')}</button></div>`
+    : `<span class="cw-label cw-static" title="Every planting, from its first day to its last">${label}</span>`}
+    <div class="cc-span" role="group" aria-label="How much to show at once">${DAY_ZOOMS.map(s=>
+      `<button class="${s.n === z ? 'on' : ''}" aria-pressed="${s.n === z}" onclick="setDayZoom(${s.n})" title="Show ${s.label}">${isMobile() ? s.short : s.label}</button>`).join('')}</div>`;
+}
+
+/* ---- Drawing it ------------------------------------------------------------- */
+function shortDay(n, withYear){ return dayText(dayOf(n), withYear); }
+function spanText(a, b){
+  if(a === b) return shortDay(a, false);
+  const ya = dayOf(a).getFullYear() !== dayOf(b).getFullYear();
+  return `${shortDay(a, ya)} – ${shortDay(b, ya)}`;
+}
+const DAY_STAGE_NAME = {L:'Land prep', S:'Nursery', T:'Transplanting', V:'Growing', F:'Flowering', H:'Harvest', R:'Rotation'};
+function segText(s, w, mobile){
+  const per = mobile ? 6.2 : 7.1, fits = t=> t.length * per + 12 <= w;
+  const name = s.s === 'S' && s.a === s.b ? 'Sown' : DAY_STAGE_NAME[s.s];
+  const when = spanText(s.a, s.b);
+  const opts = s.s === 'H'
+    ? (s.kg ? [`Harvest · ${fmt(Math.round(s.kg))} kg · ${when}`, `Harvest · ${fmt(Math.round(s.kg))} kg`, `${kgShort(s.kg)} kg`, 'Harvest'] : [`Harvest · ${when}`, 'Harvest'])
+    : [`${name} · ${when}`, name, name.slice(0, 4)];
+  return opts.find(fits) || '';
+}
+// The dates of a planting, in a line under its bar.
+function datesLine(x){
+  const parts = [], segOf = s=> x.segs.find(g=> g.s === s), H = x.segs.filter(g=> g.s === 'H');
+  const S = segOf('S'), T = segOf('T');
+  if(S) parts.push(`${x.direct ? 'Planted' : 'Sown'} ${shortDay(S.a, true)}`);
+  if(T) parts.push(`transplanted ${shortDay(T.a, false)}`);
+  const F = segOf('F'); if(F && x.exact) parts.push(`flowering ${shortDay(F.a, false)}`);
+  if(H.length){
+    const a = H[0].a, b = H[H.length - 1].b, kg = H.reduce((t, g)=> t + (g.kg || 0), 0);
+    parts.push(`harvest ${spanText(a, b)}${kg ? ` · ${fmt(Math.round(kg))} kg` : ''}`);
+  }
+  return parts.join(' → ');
+}
+function dayLayout(nDays){
+  const room = gridRoom(), mobile = isMobile();
+  const pin = mobile ? 0 : room > 1300 ? 300 : room > 1100 ? 270 : 230;
+  return {room, pin, track: room - pin, px: (room - pin) / nDays, mobile};
+}
+function daysHTML(f, opts){
+  const ro = opts.readOnly, rows = orderedRows(f);
+  const all = rows.map(r=> ({r, x: rowDays(f, r)}));
+  const R = dayRange(all.map(o=> o.x));
+  const n = R.b - R.a + 1, L = dayLayout(n), px = L.px;
+  dayRoom = L.room;
+  const X = d=> (d - R.a) * px;
+  const today = dayNo(new Date());
+
+  // Headings: years when the months cannot carry them, the months, and the days.
+  const mW = mo=> (mo.b - mo.a + 1) * px;
+  const monthName = mo=> { const w = mW(mo);
+    return w >= 120 ? `${MONTHS[mo.m - 1]} ${mo.y}` : w >= 76 ? `${MONTH_ABBR[mo.m - 1]} ${mo.y}` : w >= 30 ? MONTH_ABBR[mo.m - 1] : w >= 11 ? MONTH_ABBR[mo.m - 1][0] : ''; };
+  const yearsRow = R.months.some(mo=> mW(mo) < 76);
+  let years = '';
+  if(yearsRow){
+    const ys = [];
+    R.months.forEach(mo=>{ const l = ys[ys.length - 1]; if(l && l.y === mo.y) l.b = mo.b; else ys.push({y: mo.y, a: mo.a, b: mo.b}); });
+    years = `<div class="dv-years">${ys.map(y=> `<span style="left:${X(y.a).toFixed(1)}px;width:${((y.b - y.a + 1) * px).toFixed(1)}px">${(y.b - y.a + 1) * px >= 34 ? y.y : ''}</span>`).join('')}</div>`;
+  }
+  const months = `<div class="dv-months">${R.months.map(mo=> `<span class="${mo.a <= today && today <= mo.b ? 'cur' : ''}${mo.m === 1 ? ' ystart' : ''}" style="left:${X(mo.a).toFixed(1)}px;width:${mW(mo).toFixed(1)}px">${monthName(mo)}</span>`).join('')}</div>`;
+  const step = px >= 17 ? 1 : px >= 8.5 ? 2 : px >= 3.2 ? 7 : px >= 1.6 ? 14 : 0;
+  let ticks = '';
+  if(step){
+    for(let d = R.a; d <= R.b; d++){
+      const dd = dayOf(d).getDate();
+      if(step === 7 ? [1, 8, 15, 22].includes(dd) : step === 14 ? [1, 15].includes(dd) : (dd - 1) % step === 0 && dd <= 29 + (step === 1 ? 2 : 0))
+        ticks += `<span class="${d === today ? 'now' : ''}" style="left:${X(d).toFixed(1)}px;width:${(px * Math.min(step, 7)).toFixed(1)}px">${dd}</span>`;
+    }
+  }
+  const days = `<div class="dv-days${step ? '' : ' none'}">${ticks}</div>`;
+  // Lines down the field: each month, and each week's start where there is room.
+  let lines = R.months.map(mo=> `<i class="m" style="left:${X(mo.a).toFixed(1)}px"></i>`).join('');
+  if(px * 7 >= 14) R.months.forEach(mo=> [8, 15, 22].forEach(dd=>{ const d = mo.a + dd - 1; if(d <= mo.b) lines += `<i style="left:${X(d).toFixed(1)}px"></i>`; }));
+  const now = today >= R.a && today <= R.b ? `<i class="today" style="left:${(X(today) + px / 2).toFixed(1)}px"><b>Today</b></i>` : '';
+
+  // The plantings, under their greenhouse where there is more than one.
+  const units = showUnits(f);
+  let body = '', lastUnit = null;
+  all.forEach(({r, x}, ri)=>{
+    if(units && r.unit !== lastUnit){
+      lastUnit = r.unit;
+      const u = unitOf(f, r.unit), cnt = all.filter(o=> o.r.unit === u.id).length;
+      body += `<div class="dv-unit"><span class="u-ico">${icon(u.type === 'Open field' ? 'leaf' : 'house')}</span>${esc(u.name)} <span class="u-n">· ${cnt} planting${cnt === 1 ? '' : 's'}</span></div>`;
+    }
+    body += dayRowHTML(f, r, x, ri, {ro, px, X, L, R});
+  });
+
+  // Totals by month, under the plantings.
+  const per = monthTotals(rows, R.months), top = Math.max(1, ...per);
+  const crops = cropTotals(rows, R.months);
+  const cell = (v, mo, i, t)=> `<span class="${v ? '' : 'zero'}" style="left:${X(mo.a).toFixed(1)}px;width:${mW(mo).toFixed(1)}px" title="${MONTHS[mo.m - 1]} ${mo.y}: ${fmt(v)} kg">${v && t ? `<i class="sky" style="--h:${(v / t).toFixed(3)};--d:${i * 40}ms"></i>` : ''}<em>${v ? (mW(mo) >= 46 ? fmt(Math.round(v)) : kgShort(v)) : (mW(mo) >= 16 ? '0' : '')}</em></span>`;
+  const foot = `<div class="dv-foot">
+    <div class="dv-frow tot"><div class="dv-fl">${L.mobile ? 'Total harvest' : 'TOTAL HARVEST'} <small>kg a month</small></div><div class="dv-fc">${per.map((v, i)=> cell(v, R.months[i], i, top)).join('')}</div></div>
+    ${crops.map(gc=>{ const t = Math.max(1, ...gc.per); return `<div class="dv-frow crop"><div class="dv-fl" title="${esc(gc.crop)}">${esc(gc.crop)}</div><div class="dv-fc">${gc.per.map((v, i)=> cell(v, R.months[i], i, t)).join('')}</div></div>`; }).join('')}
+  </div>`;
+
+  const key = `${opts.key || state.member}|days|${R.a}|${R.b}`;
+  return `<div class="dv${L.mobile ? ' is-mobile' : ''}" style="--pin:${L.pin}px;--track:${L.track.toFixed(1)}px;width:${L.room}px" data-key="${esc(key)}">
+    <div class="dv-head">
+      <div class="dv-corner"><span class="cc-corner-name">${esc(f.name)}</span><span class="cc-corner-sub">${rows.length} planting${rows.length === 1 ? '' : 's'} · in days</span></div>
+      <div class="dv-axis">${years}${months}${days}</div>
+    </div>
+    <div class="dv-body"><div class="dv-lines" aria-hidden="true">${lines}${now}</div>${body}</div>
+    ${foot}
+  </div>`;
+}
+function dayRowHTML(f, r, x, ri, v){
+  const {ro, px, X, L} = v, mobile = L.mobile;
+  const g = r.plan && r.plan.guide ? guideFor(r.plan.guide) : null;
+  const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${g && g.tree ? 'trees' : 'plants'}` : '';
+  const sub = [locationText(f, r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const j = rowJourney(r);
+  const open = ro ? '' : `onclick="openEditor('${r.id}')"`;
+  const btns = ro ? '' : `<span class="cc-rowbtns">
+      ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed — update its days" aria-label="The crop guide for ${esc(r.crop)} has changed: update it">${icon('refresh')}</button>` : ''}
+      <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants, timings" aria-label="Edit ${esc(r.crop)}">${icon('pencil')}</button>
+      ${j.cls === 'done' ? `<button class="cc-rowbtn cc-arch" onclick="archiveRow('${r.id}')" title="Season done — archive it" aria-label="Archive ${esc(r.crop)}">${icon('archive')}</button>` : ''}</span>`;
+  const segs = x.segs.map(s=>{
+    const w = Math.max((s.b - s.a + 1) * px, s.s === 'T' || s.a === s.b ? 6 : 2), lab = s.s === 'T' ? '' : segText(s, w, mobile);
+    const tip = `${STAGE[s.s] ? STAGE[s.s].name : s.s}: ${spanText(s.a, s.b)}${s.a !== s.b ? ` (${s.b - s.a + 1} days)` : ''}${s.kg ? ` · ${fmt(Math.round(s.kg))} kg` : ''}`;
+    return `<span class="dv-seg s-${s.s}${s.s === 'T' ? ' pin' : ''}" style="left:${X(s.a).toFixed(1)}px;width:${w.toFixed(1)}px;background-color:${STAGE[s.s] ? STAGE[s.s].color : '#ccc'};color:${STAGE[s.s] ? STAGE[s.s].ink : '#222'}" title="${esc(tip)}">${lab ? `<b>${esc(lab)}</b>` : ''}</span>`;
+  }).join('');
+  const first = x.segs.length ? X(x.segs[0].a) : 0, lastR = x.segs.length ? X(x.segs[x.segs.length - 1].b + 1) : 0;
+  const dl = datesLine(x);
+  // The dates sit under the bar, from its start — or ending at its end, when it starts late.
+  const dpos = first > L.track * 0.55 ? `right:${Math.max(0, L.track - lastR).toFixed(1)}px;text-align:right;` : `left:${first.toFixed(1)}px;`;
+  return `<div class="dv-row${state.growRow === r.id ? ' grow' : ''}" data-row="${r.id}" style="--d:${Math.min(ri, 24) * 45}ms">
+    <div class="dv-pin"><div class="cc-crop-cell">
+      <span class="cc-ico ${j.cls}" aria-hidden="true">${jIcon(j.icon, 17)}</span>
+      <span class="cn" ${open} title="${esc([r.crop, sub, j.text, r.notes].filter(Boolean).join(' — '))}"><span class="cn-name">${esc(r.crop || '—')}</span>
+        ${sub ? `<span class="sub">${esc(sub)}</span>` : ''}
+        <span class="cc-now">${esc(j.text)}</span>
+        <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
+      ${btns}</div></div>
+    <div class="dv-track" ${open}>
+      <div class="dv-bar">${segs || `<span class="dv-empty">No days yet — ${ro ? 'nothing planned' : 'tap to add its dates'}</span>`}</div>
+      ${dl ? `<div class="dv-dates" style="${dpos}">${esc(dl)}${x.exact ? '' : ' <span class="dv-wk" title="Coloured by hand: drawn by its weeks">by week</span>'}</div>` : ''}
+    </div>
+  </div>`;
+}
+let dayResizeTimer = null, dayRoom = 0;
+window.addEventListener('resize', ()=>{
+  clearTimeout(dayResizeTimer);
+  dayResizeTimer = setTimeout(()=>{
+    if(!document.querySelector('.dv')) return;
+    if(Math.abs(gridRoom() - dayRoom) > 1) renderKeepingPlace();
+  }, 160);
+});
+
+/* ============================================================
    Excel, in and out, in the template's own layout
    A calendar exported from here is the master template filled in: the
    same title, columns, colours, key, live totals and the orange mark
@@ -5925,7 +6345,7 @@ function farmIds(){
 }
 // The association's figures count approved farms only.
 function countedIds(){ return farmIds().filter(id=> FARMS[id].status === 'approved'); }
-function openAdminFarm(id){ state.viewFarm = id; state.scroll = null; render(); window.scrollTo(0, 0); }
+function openAdminFarm(id){ state.viewFarm = id; state.scroll = null; state.dayAt = null; render(); window.scrollTo(0, 0); }
 function updatedText(iso){
   if(!iso) return '—';
   const d = new Date(iso);
@@ -5966,7 +6386,8 @@ function renderCalendarsAdmin(c){
       <div style="margin-bottom:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
         <button class="btn small ghost" onclick="state.viewFarm=null;state.scroll=null;render();">&larr; All crop calendars</button>
         <span style="flex:1"></span>
-        ${viewNavHTML(spanMonths(months), 'shiftAdminYear')}
+        ${viewSwitchHTML()}
+        ${calView() === 'days' ? dayNavHTML(dayRange(orderedRows(f).map(r=> rowDays(f, r)))) : viewNavHTML(spanMonths(months), 'shiftAdminYear')}
         <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}">${icon(state.wide ? 'shrink' : 'expand')} ${state.wide ? 'Exit full screen' : 'Full screen'}</button>
         <button class="btn small gold" onclick="exportFarmExcelWindow('${esc(id)}')">${icon('down')} Export to Excel</button>
       </div>
@@ -5986,11 +6407,12 @@ function renderCalendarsAdmin(c){
         <div class="metric"><div class="lbl">Planned harvest</div><div class="val" style="color:var(--leaf-green);"><span data-count="${Math.round(fig.total)}">0</span><span style="font-size:14px;color:var(--muted);"> kg</span></div></div>
         <div class="metric"><div class="lbl">Busiest month</div><div class="val" style="font-size:20px;">${esc(fig.peak)}</div></div>
       </div>
-      ${liveRows(f).length ? `<div class="card cc-card">${gridHTML(f, spanMonths(months), {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
+      ${liveRows(f).length ? `<div class="card cc-card${calView() === 'days' ? ' dv-card' : ''}">${calView() === 'days' ? daysHTML(f, {readOnly:true, key:id})
+          : gridHTML(f, spanMonths(months), {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
         : emptyState('Nothing planned yet', `${esc(f.name)} has not added a planting to its calendar.`)}
       ${archivedRows(f).length ? `<div class="section-label">Archived plantings</div>
         <div class="card" style="overflow-x:auto;">${archiveTableHTML(f, archivedRows(f).sort((a, b)=> String(b.archived).localeCompare(String(a.archived))), true)}</div>` : ''}`;
-    bindTooltips(c.querySelector('.cc-grid'), f);
+    if(calView() !== 'days') bindTooltips(c.querySelector('.cc-grid'), f);
     return;
   }
 
