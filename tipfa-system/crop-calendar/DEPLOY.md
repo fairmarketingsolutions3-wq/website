@@ -231,6 +231,31 @@ one planned with older figures shows an orange update button beside it, and
 the farm decides whether to plan it again. This needs the
 `calendarSettings/cropGuide` block of `firestore.rules` published.
 
+### Where the built-in figures come from
+The built-in crop guide is the **Rijk Zwaan crop guide for East Africa
+(Tanzania), October 2026**: days for each stage and how long the harvest lasts,
+for the varieties Rijk Zwaan sells here, with each variety's own days where it
+differs (e.g. ABALE, the determinate tomato; MOSCATEL truss cherry tomato;
+Galia, Harper and Piel de Sapo melons; KARIBA and TAHOE broccoli). As that guide
+says, Rijk Zwaan does not publish stage days for its African varieties: they
+are standard ranges for warm East African conditions matched to each variety
+type, with Rijk Zwaan's published figures quoted where they exist; the middle
+of each range is used. It gives no yields, so kg a plant stays the TIPFA
+Harvest Ledger's (per harvest week) or the farm's own. Onion, herbs and avocado
+are its general guidance; paprika, habanero and garlic keep the TIPFA figures.
+
+A guide saved before this edition is brought up to it automatically: crops
+nobody changed take the new figures, crops the Secretariat changed or added are
+kept, and **Crop guide** offers the new figures for the changed ones.
+
+### Varieties
+In the planting editor a farm picks its variety from the crop's list (with
+what the seed company says of it and its resistances) or types another. A
+variety with its own days is planned with them. The variety shows on the
+calendar and goes to Excel in the notes column (`Variety: …`), and comes back
+from it on import. The Secretariat edits each crop's varieties under
+**Crop guide → Edit**.
+
 ### A farm planning its own way
 In the planting editor, a farm can open **Change the timings for this
 planting** and give its own days for each stage, harvest weeks and kg a plant

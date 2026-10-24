@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v15">
+<meta name="tipfa-build" content="v16">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2293,6 +2293,29 @@ body.cc-wide .content > .grid4{display:none;}
 .dv.is-mobile .dv-unit{height:40px;font-size:14px;}
 .dv.is-mobile .dv-lines i.today{opacity:.5;}
 .dv.is-mobile .dv-lines i.today b{display:none;}
+
+/* ---- Varieties ---- */
+.gb-variety{display:grid;grid-template-columns:repeat(auto-fill, minmax(240px, 1fr));gap:10px 14px;margin:10px 0 4px;align-items:end;}
+.gb-variety select, .gb-variety input{width:100%;margin:0;}
+.gb-variety-info{grid-column:1 / -1;display:flex;flex-direction:column;gap:3px;background:#fff;border:1px solid #DCE5CC;border-left:4px solid var(--leaf-green);
+  border-radius:10px;padding:9px 12px;font-size:12.5px;line-height:1.45;animation:riseIn var(--dur-3) var(--ease-out) both;}
+.gb-variety-info strong{color:var(--deep-green);font-size:13.5px;}
+.gb-variety-info .gv-res{color:var(--muted);font-size:11.5px;}
+.gb-variety-info .gv-note{color:var(--deep-green);font-weight:500;}
+.gb-variety-info .gv-note svg{width:13px;height:13px;vertical-align:-2px;}
+.gd-tag.is-rz{background:#E7F1DC;color:#3D6B1F;font-weight:600;}
+.gd-vars{display:flex;flex-wrap:wrap;gap:4px;}
+.gd-vars span{font-size:11px;background:#F4F5EE;border:1px solid var(--line);border-radius:99px;padding:1px 7px;white-space:nowrap;}
+.gd-vars i{color:var(--harvest-orange);font-style:normal;font-weight:700;}
+.gd-stale{display:flex;gap:12px;align-items:flex-start;border-left:4px solid var(--harvest-orange);font-size:13px;line-height:1.5;}
+.gd-stale > svg{flex:none;width:20px;height:20px;color:var(--harvest-orange);margin-top:2px;}
+.gd-about{margin:0 0 14px;max-width:980px;}
+.ge-sec-note{text-transform:none;letter-spacing:0;font-weight:400;}
+.ge-vars{display:flex;flex-direction:column;gap:10px;align-items:flex-start;}
+.ge-var{align-self:stretch;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:#FBFAF5;display:flex;flex-direction:column;gap:8px;}
+.ge-var-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.ge-var-head strong{color:var(--deep-green);}
+@media (max-width: 760px){ .gb-variety{grid-template-columns:1fr;} }
 </style>
 </head>
 <body>
@@ -3857,6 +3880,8 @@ function layoutSummary(f){
 
 // The plantings still in their season. Archived ones are kept with the farm,
 // under Archive, but leave the calendar, its totals and its exports.
+// A variety, short enough for the calendar's crop column.
+function varietyShort(r){ return r.variety ? r.variety.replace(/ RZ F1/, '') : ''; }
 function liveRows(f){ return f.rows.filter(r=> !r.archived); }
 function archivedRows(f){ return f.rows.filter(r=> r.archived); }
 
@@ -4256,7 +4281,7 @@ function rowHTML(r, ri){
   const {f, L, keys, base, ro} = gridView;
   const mobile = isMobile();
   const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${guideFor(r.plan.guide) && guideFor(r.plan.guide).tree ? 'trees' : 'plants'}` : '';
-  const sub = [locationText(f, r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const sub = [locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
   const j = rowJourney(r);
   const tip = [r.crop || '(no crop named)', sub, j.text, r.notes].filter(Boolean).join(' — ');
   const cropInner = `<div class="cc-crop-cell">
@@ -4612,7 +4637,7 @@ function openEditor(rowId, unitId){
   } else {
     const last = orderedRows(f).slice(-1)[0];
     const unit = unitId || (last ? last.unit : f.units[0].id);
-    state.editRow = {id:null, unit, block:'', crop:'', area:'', notes:'', sown:'', moved:'', plants:'', kgpp:'', adj:null, manual:false};
+    state.editRow = {id:null, unit, block:'', crop:'', area:'', notes:'', sown:'', moved:'', plants:'', kgpp:'', adj:null, manual:false, variety:''};
   }
   if(state.tab !== 'calendar'){ state.tab = 'calendar'; rememberSession(); }
   render();
@@ -4623,7 +4648,7 @@ function editState(r){
   const p = r.plan || {};
   return {id:r.id, unit:r.unit, block:r.block, crop:r.crop, area:r.area || '', notes:r.notes,
           sown:p.sown || '', moved:p.moved || '', plants:p.plants || '', kgpp:p.kgpp != null ? p.kgpp : '',
-          adj: p.adj ? Object.assign({}, p.adj) : null, manual: !!p.manual};
+          adj: p.adj ? Object.assign({}, p.adj) : null, manual: !!p.manual, variety: r.variety || ''};
 }
 function editorPanel(f){
   const e = state.editRow, u = unitOf(f, e.unit);
@@ -4671,6 +4696,7 @@ function saveEditor(){
   if(e.area !== '' && (isNaN(Number(e.area)) || Number(e.area) < 0)) return flagError(document.getElementById('ed-error'), 'Area must be a number of square metres.');
   const u = unitOf(f, e.unit);
   const block = u.blocks.some(b=> b.id === e.block) ? e.block : '';
+  const variety = (e.variety && e.variety !== '__other' ? e.variety : '').slice(0, 80);
   // A crop the guide knows, with its date, is planned from the guide — with
   // the farm's own timings, if it gave any — unless the farm plans it by hand.
   const known = guideMatch(e.crop), g = known && !e.manual ? known : null;
@@ -4681,12 +4707,13 @@ function saveEditor(){
     const err = msg=> flagError(document.getElementById('ed-error'), msg);
     if(e.plants !== '' && !(Number(e.plants) > 0)) return err(`The number of ${g.tree ? 'trees' : 'plants'} must be a whole number above nought.`);
     if(e.kgpp !== '' && !(Number(e.kgpp) >= 0)) return err('The expected kilograms a plant must be a number.');
-    if(e.adj){ const bad = stagesError(Object.assign(stagesOf(g), e.adj)); if(bad) return err(bad); }
-    const adj = cleanAdj(g, e.adj);
+    const gv = effGuide(g, null, e.variety);         // with its variety's days
+    if(e.adj){ const bad = stagesError(Object.assign(stagesOf(gv), e.adj)); if(bad) return err(bad); }
+    const adj = cleanAdj(gv, e.adj);
     if(e.sown){
-      planned = planFromGuide(effGuide(g, adj), Object.assign({until: calendarEnd()}, e));
+      planned = planFromGuide(effGuide(g, adj, e.variety), Object.assign({until: calendarEnd()}, e));
       if(planned.error) return err(planned.error);
-      plan = {guide:g.id, sown:e.sown, moved:e.moved || '', plants:Number(e.plants) || 0, sig: guideSig(g)};
+      plan = {guide:g.id, sown:e.sown, moved:e.moved || '', plants:Number(e.plants) || 0, sig: guideSig(gv)};
       if(e.kgpp !== '') plan.kgpp = Number(e.kgpp);
       if(adj) plan.adj = adj;
     }
@@ -4713,7 +4740,7 @@ function saveEditor(){
   if(e.id){
     const r = f.rows.find(x=> x.id === e.id);
     const same = r.plan && plan && ['guide', 'sown', 'moved', 'plants', 'kgpp'].every(k=> r.plan[k] === plan[k])
-      && JSON.stringify(r.plan.adj || null) === JSON.stringify(plan.adj || null);
+      && JSON.stringify(r.plan.adj || null) === JSON.stringify(plan.adj || null) && (r.variety || '') === variety;
     if(same && r.plan.sig) plan.sig = r.plan.sig;    // the weeks were planned from those figures, and are kept
     if(plan && !same){
       const n = Object.keys(r.cells).length;
@@ -4721,6 +4748,7 @@ function saveEditor(){
       r.cells = planned.cells;
     }
     Object.assign(r, {unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes});
+    if(variety) r.variety = variety; else delete r.variety;
     if(plan) r.plan = plan; else if(facts) r.plan = facts; else delete r.plan;
     state.calMsg = plan && !same ? `${CHECK_ICON} ${esc(e.crop)} planned again: ${planText()}`
       : known && e.manual ? `${CHECK_ICON} ${esc(e.crop)} saved. Its weeks are yours to colour — pick a stage above the calendar and click or drag across them.`
@@ -4729,6 +4757,7 @@ function saveEditor(){
     state.editRow = null;
   } else {
     const r = {id:uid('r'), unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes, cells: plan ? planned.cells : {}};
+    if(variety) r.variety = variety;
     if(plan) r.plan = plan; else if(facts) r.plan = facts;
     f.rows.push(r);
     state.editRow = null;
@@ -4976,18 +5005,18 @@ function removeBlock(unitId, blockId){
    until the farm says so. */
 function guideChanged(r){
   const p = r.plan, g = p && p.guide && !p.manual ? guideFor(p.guide) : null;
-  return !!(g && p.sig && p.sown && guideSig(g) !== p.sig);
+  return !!(g && p.sig && p.sown && guideSig(effGuide(g, null, r.variety)) !== p.sig);
 }
 function replanRow(id){
   const f = currentFarm(), r = f.rows.find(x=> x.id === id);
   const g = r && r.plan ? guideFor(r.plan.guide) : null;
   if(!g) return;
-  const p = planFromGuide(effGuide(g, r.plan.adj), Object.assign({until: calendarEnd()}, r.plan));
+  const p = planFromGuide(effGuide(g, r.plan.adj, r.variety), Object.assign({until: calendarEnd()}, r.plan));
   if(p.error) return showFatal(`${r.crop} could not be planned again: ${p.error}`);
   const n = Object.keys(r.cells).length;
   if(!confirm(`The crop guide for ${g.name} has changed since this planting was planned.\n\nPlan it again with the new figures? Its ${n} coloured week${n === 1 ? '' : 's'} will be replaced. Your dates, plants${r.plan.adj ? ' and your own timings' : ''} are kept.`)) return;
   r.cells = p.cells;
-  r.plan.sig = guideSig(g);
+  r.plan.sig = guideSig(effGuide(g, null, r.variety));
   state.growRow = r.id;
   state.calMsg = `${CHECK_ICON} ${esc(r.crop)} planned again with the crop guide’s new figures${p.total != null ? `: ${fmt(p.total)} kg` : ''}.`;
   touch(state.member);
@@ -5046,7 +5075,7 @@ function archiveTableHTML(f, rows, ro){
     <thead><tr><th>Crop</th><th>Sown</th><th>Harvest</th><th>Plants</th><th>Harvest kg</th><th>Archived</th>${ro ? '' : '<th></th>'}</tr></thead>
     <tbody>${rows.map(r=>{ const s = seasonFacts(r), where = locationText(f, r);
       return `<tr>
-        <td><strong>${esc(r.crop || '—')}</strong>${where || r.area ? `<div class="helper" style="margin:2px 0 0;">${esc([where, r.area ? fmt(r.area) + ' m²' : ''].filter(Boolean).join(' · '))}</div>` : ''}</td>
+        <td><strong>${esc(r.crop || '—')}</strong>${r.variety ? ` <span class="helper" style="margin:0;">${esc(r.variety)}</span>` : ''}${where || r.area ? `<div class="helper" style="margin:2px 0 0;">${esc([where, r.area ? fmt(r.area) + ' m²' : ''].filter(Boolean).join(' · '))}</div>` : ''}</td>
         <td>${esc(s.sown)}${s.moved ? `<div class="helper" style="margin:2px 0 0;">transplanted ${esc(s.moved)}</div>` : ''}</td>
         <td>${esc(s.harvest)}</td>
         <td>${s.plants ? fmt(s.plants) : '—'}</td>
@@ -5076,74 +5105,181 @@ function renderArchive(c){
 }
 
 /* ============================================================
-   The TIPFA crop guide: a planting planned from its sowing date
-   Two sources, each used for what it covers:
-   · WHEN — the sowing and growth timelines: how long the seedlings take to
-     reach transplant size, and how many days from sowing to the first
-     harvest. Where a range is given, its middle is used.
-   · HOW MUCH — the TIPFA Harvest Ledger (per plant, 24-week season): what
-     a harvest week gives one plant, how often it is picked and for how many
-     weeks; for herbs, the Greenhouse Yield Calculator's season figure.
-   A crop missing from one source keeps the other's figure, and the farm can
-   give its own kilograms where neither has them. Every week planned can
-   still be changed by hand.
+   The crop guide: a planting planned from its sowing date
+   The built-in figures are the Rijk Zwaan crop guide for East Africa
+   (Tanzania), October 2026: how many days each stage takes — nursery,
+   transplanting to first flowers, flowering and fruit set to the first
+   harvest — and how long the harvest lasts, for the varieties Rijk Zwaan
+   sells here. Where a range is given, its middle is used, and each variety
+   can carry its own days. As the guide itself says, Rijk Zwaan does not
+   publish stage days for its African varieties: these are standard ranges
+   for warm East African conditions matched to each variety type, with
+   Rijk Zwaan's own figures quoted where it has published them. Cool
+   highlands (Iringa in June–August) run to the upper end, or 10–25% longer.
+   The guide gives no yields: what a plant gives stays the TIPFA Harvest
+   Ledger's (per harvest week), or the farm's own figure. Onion, herbs and
+   avocado are not Rijk Zwaan crops; their timings are the guide's general
+   ones. Paprika, habanero and garlic are not in it, and keep the TIPFA
+   figures. The Secretariat can change any of it under Crop guide.
    ============================================================ */
-const GUIDE_SEASON_WEEKS = 24;      // the ledger's and the calculator's season, from transplanting
+const GUIDE_SEASON_WEEKS = 24;      // the Harvest Ledger's season, from transplanting
+const GUIDE_EDITION = 'rz-ea-2026-10';
+const RZ = 'rz', GENERAL = 'general', TIPFA = 'tipfa';
 const CROP_GUIDE_DEFAULT = [
-  {id:'cherry-tomato', name:'Cherry tomato', names:['cherry tomato', 'cherry tomatoes'],
-   nursery:[6, 8], fromSowing:[85, 100], flower:3, sow:'Late February to mid-March',
-   harvest:{kind:'weekly', weeks:14, kg:0.3}, yieldNote:'300 g a plant every week for 14 weeks'},
-  {id:'tomato', name:'Tomato', names:['tomato', 'tomatoes', 'tomatoes (standard)', 'standard tomato', 'tomato (standard)'],
-   nursery:[6, 8], fromSowing:[100, 120], flower:3, sow:'Late February to mid-March',
-   harvest:{kind:'weekly', weeks:14, kg:null}, yieldNote:'picked every week for 14 weeks, as cherry tomatoes are'},
-  {id:'capsicum', name:'Capsicum', names:['capsicum', 'capsicum (bell pepper)', 'capsicum (red & yellow)', 'bell pepper', 'sweet pepper', 'capsicum (sweet pepper)', 'red capsicum', 'yellow capsicum'],
-   nursery:[6, 8], fromSowing:[110, 130], flower:3, sow:'Early February to March',
-   timingNote:'red and yellow fruit; green is picked 2–3 weeks sooner',
-   harvest:{kind:'weekly', weeks:10, kg:0.2}, yieldNote:'200 g a plant every week for 10 weeks'},
-  {id:'paprika', name:'Paprika', names:['paprika'],
+  {id:'tomato', name:'Tomato', src:RZ,
+   names:['tomato', 'tomatoes', 'tomatoes (standard)', 'standard tomato', 'tomato (standard)', 'plum tomato', 'round tomato', 'beef tomato', 'beefsteak tomato'],
+   nurseryDays:[28, 28], fromTransplant:80, flowerDays:55,
+   ranges:{nursery:'25–30 days', veg:'20–30 days', flower:'50–60 days', first:'75–90 days after transplanting', window:'4–8+ months'},
+   timingNote:'indeterminate types, staked or in a greenhouse; grafted seedlings add about 10–14 days in the nursery',
+   harvest:{kind:'weekly', weeks:26, kg:null},
+   varieties:[
+     {name:'ABALE RZ F1', type:'Plum · determinate · open field', traits:'Short compact plant; large, very firm fruit 120–150 g; adaptable to wet or dry seasons',
+      res:'HR: ToMV:0-2/Fol:0,1/Sbl/Va:0/Vd:0 · IR: TYLCV/Pst/Ma/Mi/Mj', adj:{veg:23, flower:50, hWeeks:6},
+      note:'The only determinate: a short, single-flush open-field crop — first flowers 20–25 days after transplanting, first ripe fruit 65–75, harvest 4–8 weeks'},
+     {name:'UWEZO RZ F1', type:'Oval plum · indeterminate · loose', traits:'Good plant habit, good continuation, very productive, attractive colour', res:'HR: ToMV:0-2/Fol:0-2/Lt/Va:0/Vd:0 · IR: TSWV/TYLCV/Ma/Mi/Mj'},
+     {name:'JARRAH RZ F1', type:'Plum · loose', traits:'Plum type for loose harvest', res:'HR: ToMV:0-2/Fol:0,1/Va:0/Vd:0 · IR: TYLCV/For'},
+     {name:'AMBURANA RZ F1', type:'Elongated plum', traits:'Elongated plum type', res:'HR: ToMV:0-2/Pst/Fol:0-2/Sbl/Va:0/Vd:0 · IR: TSWV/TYLCV'},
+     {name:'GAMHAR RZ F1', type:'Plum · loose', traits:'Plum type for loose harvest', res:'HR: ToMV:0-2/Fol:0,1/For/Va:0/Vd:0 · IR: Ma/Mi/Mj'},
+     {name:'TRONUS RZ F1', type:'Intermediate round · indeterminate', traits:'Open field or protected; firm 200–250 g fruit; keeps size through the crop; excellent shelf life', res:'HR: ToMV:0-2/Fol:0,1/Pf:A-E,H/Sbl/Va:0/Vd:0 · IR: TSWV/Ma/Mi/Mj'},
+     {name:'VALOURO RZ F1', type:'Beefsteak · loose', traits:'Large beef type', res:'HR: ToMV:0-2/Fol:0,1/For/Pf:A-E/Sbl/Va:0/Vd:0 · IR: TSWV/TYLCV/Ma/Mi/Mj',
+      adj:{flower:60}, note:'Beefsteak runs at the slower end: first ripe fruit about 60 days after set'},
+   ]},
+  {id:'cherry-tomato', name:'Cherry tomato', src:RZ, names:['cherry tomato', 'cherry tomatoes'],
+   nurseryDays:[28, 28], fromTransplant:65, flowerDays:43,
+   ranges:{nursery:'25–30 days', veg:'18–25 days', flower:'40–45 days', first:'60–70 days after transplanting', window:'5–9 months'},
+   timingNote:'a new truss roughly every 7 days; pick 2–3 times a week',
+   harvest:{kind:'weekly', weeks:30, kg:0.3}, kgSrc:'Harvest Ledger',
+   varieties:[
+     {name:'FORTESA RZ F1', type:'Cherry · loose · indeterminate', traits:'Compact plant type, easy fruit set, good continuation, long harvest period', res:'HR: ToMV:0-2/Fol:0,1/Pf:A-E/Va:0/Vd:0/Si · IR: TSWV/TYLCV/Ma/Mi/Mj'},
+     {name:'NANCY RZ F1', type:'Cherry · loose · indeterminate', traits:'Continuous harvest, balanced vigour, resists cracking, uniform red, high brix', res:'HR: ToMV:0-2 · IR: TYLCV/Ma/Mi/Mj'},
+     {name:'MOSCATEL RZ F1', type:'Cherry · truss', traits:'Harvested as whole trusses', res:'HR: ToMV:0-2/Fol:0,1/Pf:A-E/Va:0/Vd:0/Si · IR: TSWV/TYLCV/Ma/Mi/Mj',
+      adj:{flower:53}, note:'Cut whole trusses when the tip fruit has coloured: 40–50 days from set, first harvest 70–80 days after transplanting'},
+   ]},
+  {id:'capsicum', name:'Capsicum', src:RZ,
+   names:['capsicum', 'capsicum (bell pepper)', 'capsicum (red & yellow)', 'bell pepper', 'sweet pepper', 'capsicum (sweet pepper)', 'red capsicum', 'yellow capsicum'],
+   nurseryDays:[40, 40], fromTransplant:90, flowerDays:60,
+   ranges:{nursery:'35–45 days', veg:'25–35 days', flower:'35–45 days to mature green, then 15–25 more to full colour', first:'85–100 days after transplanting (coloured); green 65–75', window:'4–7 months'},
+   timingNote:'red and yellow fruit at full colour; peppers need a longer nursery than tomato and set poorly above about 32 °C by day or below 15 °C at night',
+   harvest:{kind:'weekly', weeks:24, kg:0.2}, kgSrc:'Harvest Ledger',
+   varieties:[
+     {name:'RED JET RZ F1', type:'Red blocky · Lt Defense', traits:'Deep red; suitable for green harvest; easy fruit setting; compact plant; early production and reliable set in heat', res:'HR: PVY:0,1,1.2/Tm:0-2/X spp:1-3 · IR: Lt'},
+     {name:'RED JET RZ F1 — picked green', type:'Red blocky, harvested mature green', traits:'RED JET is suitable for green harvest', res:'HR: PVY:0,1,1.2/Tm:0-2/X spp:1-3 · IR: Lt',
+      adj:{flower:40}, note:'Picked mature green: 35–45 days from set, first harvest 65–75 days after transplanting'},
+     {name:'STARLET RZ F1', type:'Red blocky · indoor', traits:'About 240 g fruit; easy setting; balanced plant; relatively longer crop; performs in cold and hot conditions', res:'HR: PVY:0,1/Tm:0/X spp:1-3 · IR: TSWV:0'},
+     {name:'ILANGA RZ F1', type:'Yellow blocky · indoor', traits:'220–250 g; easy fruit setting; good shape and colour; medium-long plant', res:'HR: PVY:0/Tm:0-3 · IR: TSWV:0'},
+     {name:'PASARELLA RZ F1', type:'Blocky', traits:'Blocky sweet pepper', res:'HR: PVY:0,1/Tm:0-2 · IR: TSWV:0'},
+     {name:'REGGAETON RZ F1', type:'Sweet pepper', traits:'', res:'HR: Tm:0-3 · IR: TSWV:0'},
+   ]},
+  {id:'paprika', name:'Paprika', src:TIPFA, names:['paprika'],
    nursery:[6, 8], fromTransplant:126, flower:3,
-   timingNote:'not in the sowing table: nursery as capsicum, first harvest in the ledger’s week 19',
-   harvest:{kind:'weekly', weeks:6, kg:0.4}, yieldNote:'400 g a plant every week for 6 weeks'},
-  {id:'habanero', name:'Habanero (Loleza)', names:['habanero', 'habanero (loleza)', 'habanero pepper', 'habanero peppers', 'loleza'],
-   nursery:[8, 10], fromSowing:[130, 150], flower:3, sow:'Early to mid-February',
-   timingNote:'a very slow starter, and needs long heat to ripen',
-   harvest:{kind:'weekly', weeks:11, kg:0.15}, yieldNote:'150 g a plant every week for 11 weeks'},
-  {id:'sweet-melon', name:'Sweet melon', names:['sweet melon', 'melon', 'sweet melons', 'rock melon', 'muskmelon', 'cantaloupe'],
-   nursery:[3, 4], fromSowing:[110, 130], flower:3, sow:'Late March to April',
-   timingNote:'dislikes root disturbance — transplant young',
-   harvest:{kind:'pulses', count:4, every:3, kg:1.5}, yieldNote:'1.5 kg a plant every 3 weeks, 4 pickings'},
-  {id:'broccoli', name:'Broccoli', names:['broccoli'],
-   nursery:[4, 4], fromTransplant:70, flower:0,
-   timingNote:'not in the sowing table: a 4-week nursery, main head in the ledger’s week 11',
-   harvest:{kind:'head', kg:0.75, sideWeeks:4, sideKg:0.25}, yieldNote:'a 750 g head, then 250 g of side shoots a week for 4 weeks'},
-  {id:'cauliflower', name:'Cauliflower', names:['cauliflower'],
-   nursery:[4, 4], fromTransplant:70, flower:0,
-   timingNote:'not in the sowing table: a 4-week nursery, head in the ledger’s week 11',
-   harvest:{kind:'head', kg:1.15, sideWeeks:0}, yieldNote:'one 1.15 kg head'},
-  {id:'onion', name:'Onion', names:['onion', 'onions', 'red onion', 'red onions', 'bulb onion'],
-   nursery:[8, 10], fromSowing:[140, 170], flower:0, sow:'Late January to February',
-   timingNote:'up to 250 days if sown direct',
-   harvest:{kind:'single', kg:null}, yieldNote:'lifted once'},
-  {id:'garlic', name:'Garlic', names:['garlic'],
-   direct:true, fromSowing:[240, 270], flower:0, sow:'October to November, outdoors, as cloves',
-   timingNote:'planted as cloves; overwinters, lifted mid-summer',
-   harvest:{kind:'single', kg:null}, yieldNote:'lifted once'},
-  {id:'herbs', name:'Herbs (basil, coriander)', names:['herbs', 'herbs (basil, coriander)', 'herbs (annual)', 'basil', 'coriander', 'dhania', 'sweet basil'],
-   nursery:[4, 4], fromSowing:[45, 70], flower:0, sow:'March to April',
-   harvest:{kind:'picking', seasonKg:1.8}, yieldNote:'cut every week to the end of the season, 1.8 kg a plant in all (1.2–2.4 kg)'},
-  {id:'herbs-perennial', name:'Herbs (rosemary, thyme)', names:['herbs (rosemary, thyme)', 'herbs (perennial)', 'rosemary', 'thyme'],
-   nursery:[8, 10], fromSowing:[90, 120], flower:0, sow:'February to March',
-   timingNote:'slow to establish; light picking only at first',
-   harvest:{kind:'picking', seasonKg:null}, yieldNote:'picked lightly every week to the end of the season'},
-  {id:'avocado', name:'Avocado', names:['avocado', 'avocados', 'avocado (mature tree)', 'avocado (bearing tree)'],
-   tree:true, alt:'avocado-seed', harvest:{kind:'weekly', weeks:24, kg:1.5}, yieldNote:'1.5 kg a bearing tree every week for 24 weeks'},
-  // Grown from seed: the avocado sprouting timeline. A seedling tree takes
-  // years to bear, beyond the calendar's three, so no harvest is planned.
-  {id:'avocado-seed', name:'Avocado (from seed)', names:['avocado (from seed)', 'avocado from seed', 'avocado seed', 'avocado seeds', 'avocado seedling', 'avocado seedlings'],
-   nurseryDays:[180, 210], flower:0, alt:'avocado',
-   timingNote:'roots in 14–35 days, first leaves in 45–89 days (up to 90 days or more when cool or dry), a sturdy sapling at 180–210 days',
-   harvest:{kind:'none'}, yieldNote:'no fruit within the calendar — a tree grown from seed takes years to bear'},
-];
+   timingNote:'not in the Rijk Zwaan guide: nursery as capsicum, first harvest in the Harvest Ledger’s week 19',
+   harvest:{kind:'weekly', weeks:6, kg:0.4}},
+  {id:'habanero', name:'Habanero (Loleza)', src:TIPFA, names:['habanero', 'habanero (loleza)', 'habanero pepper', 'habanero peppers', 'loleza'],
+   nursery:[8, 10], fromSowing:[130, 150], flower:3,
+   timingNote:'not in the Rijk Zwaan guide: a very slow starter, and needs long heat to ripen',
+   harvest:{kind:'weekly', weeks:11, kg:0.15}},
+  {id:'sweet-melon', name:'Sweet melon', src:RZ, names:['sweet melon', 'melon', 'sweet melons', 'rock melon', 'muskmelon', 'cantaloupe'],
+   nurseryDays:[15, 15], fromTransplant:70, flowerDays:45,
+   ranges:{nursery:'12–18 days (or sown direct)', veg:'20–30 days to female flowers', flower:'35–55 days, by type', first:'65–90 days after transplanting', window:'2–4 weeks'},
+   timingNote:'roots dislike disturbance — transplant young; bees at the first female flower; thin to 2–4 fruit a plant; pick every 1–2 days at peak',
+   harvest:{kind:'weekly', weeks:3, kg:1.5}, kgSrc:'Harvest Ledger',
+   varieties:[
+     {name:'CARIBBEAN GOLD RZ F1', type:'Harper / Western shipper · long shelf life', traits:'1.4–1.8 kg; very robust, good in difficult conditions; open field or protected; golden colour change, full slip', res:'HR: Fom:0,1,2 · IR: Px:2/Ag',
+      adj:{flower:49}, note:'Harper/shipper: fruit set to harvest 40–45 days, 70–85 days after transplanting'},
+     {name:'CARIBBEAN KING RZ F1', type:'Harper / Western shipper · long shelf life', traits:'Larger fruit, about 2.2 kg; orange, high sugar; concentrated fruit set', res:'HR: Fom:0,1,2 · IR: Px:2,3,5',
+      adj:{flower:49}, note:'Harper/shipper: 70–85 days after transplanting. Published: 85–90 days to maturity (US grower trade press)'},
+     {name:'ALPES RZ F1', type:'Galia · yellowing', traits:'Galia type that turns yellow at maturity', res:'HR: Fom:0,1,2 · IR: Gc:1/Px:2,5',
+      adj:{flower:44}, note:'Galia: fruit set to harvest 35–40 days, 60–75 days after transplanting'},
+     {name:'DIBANGO RZ F1', type:'Charentais · yellowing', traits:'Charentais (orange flesh) yellowing type', res:'HR: Fom:0,1 · IR: Px:2,3,5,3.5/Ag',
+      adj:{flower:44}, note:'Charentais: 60–75 days after transplanting'},
+     {name:'ETCHABI RZ F1', type:'Charentais', traits:'Early, grouped fruit set', res:'HR: Fom:0,1,2 · IR: Fom:1.2/Px:1,2,5/Ag',
+      adj:{flower:44}, note:'Charentais: 60–75 days after transplanting'},
+     {name:'GLADIAL RZ F1', type:'Yellow (canary)', traits:'Large smooth fruit, sweet and aromatic; best in summer open field with high light', res:'HR: Fom:0,2 · IR: Gc:1/Px:1,2,5',
+      adj:{flower:56}, note:'Yellow: fruit set to harvest 45–55 days, 75–90 days after transplanting'},
+     {name:'RICURA RZ F1', type:'Piel de Sapo · Mellissimo', traits:'Spanish green-skinned type', res:'HR: MNSV/Fom:0,1 · IR: Gc:1/Px:2,5',
+      adj:{flower:56}, note:'Piel de Sapo: 75–90 days after transplanting'},
+     {name:'MESURA RZ F1', type:'Piel de Sapo', traits:'Spanish green-skinned type', res:'HR: MNSV/Fom:0,1,2 · IR: Gc:1/Px:2,5/Ag',
+      adj:{flower:56}, note:'Piel de Sapo: 75–90 days after transplanting'},
+   ]},
+  {id:'broccoli', name:'Broccoli', src:RZ, names:['broccoli'],
+   nurseryDays:[28, 28], fromTransplant:62, flowerDays:22,
+   ranges:{nursery:'25–30 days', veg:'35–45 days to head initiation', flower:'7–10 days to a visible head, then 10–15 to harvest', first:'60–75 days after transplanting', window:'1–2 weeks, then side shoots 3–4 weeks'},
+   stageWords:{veg:'to head initiation', flower:'head forming to harvest'},
+   harvest:{kind:'head', kg:0.75, sideWeeks:4, sideKg:0.25}, kgSrc:'Harvest Ledger',
+   varieties:[
+     {name:'KARIBA RZ F1', type:'Broccoli', traits:'Fast growing, uniform harvest; fine-grained, well-domed heads about 500 g; upright plant', res:'HR: Foc:1',
+      adj:{flower:30, headKg:0.5, total:1.5}, note:'Published: 65–75 days (Rijk Zwaan USA); heads about 500 g'},
+     {name:'TAHOE RZ F1', type:'Broccoli', traits:'High-domed, smooth, dense dark-green head; uniform small–medium beads; best in cool-to-warm conditions', res:'HR: Foc:1',
+      adj:{flower:25}, note:'Published: 60–70 days (Rijk Zwaan USA)'},
+   ]},
+  {id:'cauliflower', name:'Cauliflower', src:RZ, names:['cauliflower'],
+   nurseryDays:[28, 28], fromTransplant:72, flowerDays:29,
+   ranges:{nursery:'25–30 days', veg:'35–50 days to curd initiation', flower:'7–10 days to a visible curd, then 15–25 to harvest', first:'60–80 days after transplanting', window:'1–3 weeks'},
+   stageWords:{veg:'to curd initiation', flower:'curd forming to harvest'},
+   timingNote:'cool highland plantings (Iringa, Njombe) commonly take 80–100 days after transplanting; old seedlings cause buttoning',
+   harvest:{kind:'head', kg:1.15, sideWeeks:0}, kgSrc:'Harvest Ledger',
+   varieties:[
+     {name:'MONEERA RZ F1', type:'White', traits:'Fast-growing fresh-market variety; dense curd, uniform harvest; strong vigour and good self-cover', res:''},
+     {name:'CASPER RZ F1', type:'White', traits:'Very strong self-cover; stable quality in various climates; very white, dense heads; fresh market and processing', res:''},
+   ]},
+  {id:'onion', name:'Onion', src:GENERAL, names:['onion', 'onions', 'red onion', 'red onions', 'bulb onion'],
+   nurseryDays:[45, 45], fromTransplant:105, flowerDays:55,
+   ranges:{nursery:'40–50 days', veg:'40–60 days to bulbing', flower:'40–60 days of bulb fill, then 7–14 to maturity', first:'90–120 days after transplanting (130–170 after sowing)', window:'lifted once'},
+   stageWords:{veg:'leaf growth to bulbing', flower:'bulb fill to lifting'},
+   timingNote:'short-day bulb onions from transplants; stop irrigation about 2 weeks before lifting, then cure 10–14 days',
+   harvest:{kind:'single', kg:null},
+   varieties:[
+     {name:'Red Creole type', type:'Short-day bulb · not Rijk Zwaan', traits:'Widely grown in Tanzania', res:''},
+     {name:'Red Bombay type', type:'Short-day bulb · not Rijk Zwaan', traits:'Widely grown in Tanzania', res:''},
+     {name:'F1 short-day hybrid', type:'Short-day bulb · not Rijk Zwaan', traits:'From other seed companies', res:''},
+   ]},
+  {id:'garlic', name:'Garlic', src:TIPFA, names:['garlic'],
+   direct:true, fromSowing:[240, 270], flower:0,
+   timingNote:'not in the Rijk Zwaan guide: planted as cloves, lifted once',
+   harvest:{kind:'single', kg:null}},
+  {id:'herbs', name:'Basil', src:GENERAL, names:['basil', 'sweet basil', 'herbs', 'herbs (basil, coriander)', 'herbs (annual)'],
+   nurseryDays:[28, 28], fromTransplant:25, flowerDays:0,
+   ranges:{nursery:'25–30 days', veg:'3–4 weeks to the first cut', first:'45–60 days after sowing', window:'cut every 2–3 weeks; a 4–6 month crop'},
+   stageWords:{veg:'to the first cut'},
+   timingNote:'pinch out the flowers',
+   harvest:{kind:'pulses', count:5, every:3, kg:0.36}, kgSrc:'Yield Calculator'},
+  {id:'coriander', name:'Coriander (dhania)', src:GENERAL, names:['coriander', 'dhania', 'coriander (dhania)', 'cilantro'],
+   direct:true, fromSowing:[38, 38], flowerDays:0,
+   ranges:{nursery:'sown direct', first:'30–45 days after sowing (leaf)', window:'1–2 cuts before bolting at about 50–60 days'},
+   timingNote:'sow every 2–3 weeks for a steady supply; for seed, 90–110 days',
+   harvest:{kind:'pulses', count:2, every:2, kg:null}},
+  {id:'parsley', name:'Parsley', src:GENERAL, names:['parsley'],
+   nurseryDays:[45, 45], fromTransplant:30, flowerDays:0,
+   ranges:{nursery:'40–50 days (slow to germinate, 14–21 days)', veg:'about 30 days to the first cut', first:'70–80 days after sowing', window:'outer leaves cut every 3–4 weeks; a 6–12 month crop'},
+   stageWords:{veg:'to the first cut'},
+   harvest:{kind:'pulses', count:8, every:4, kg:null}},
+  {id:'mint', name:'Mint', src:GENERAL, names:['mint'],
+   direct:true, fromSowing:[75, 75], flowerDays:0,
+   ranges:{nursery:'planted as cuttings (rooting 10–14 days)', first:'60–90 days after planting', window:'cut every 4–6 weeks; perennial — planned here for a year'},
+   harvest:{kind:'pulses', count:11, every:5, kg:null}},
+  {id:'herbs-perennial', name:'Rosemary', src:GENERAL, names:['rosemary', 'herbs (rosemary, thyme)', 'herbs (perennial)'],
+   nurseryDays:[70, 70], fromTransplant:80, flowerDays:0,
+   ranges:{nursery:'8–12 weeks from cuttings (rooting 3–6 weeks)', veg:'to the first cut', first:'4–6 months from the cutting', window:'light cuts all year; perennial — planned here for a year'},
+   stageWords:{veg:'to the first cut'},
+   harvest:{kind:'weekly', weeks:52, kg:null}},
+  {id:'avocado', name:'Avocado', src:GENERAL, names:['avocado', 'avocados', 'avocado (mature tree)', 'avocado (bearing tree)', 'hass avocado'],
+   tree:true, alt:'avocado-seed', harvest:{kind:'weekly', weeks:24, kg:1.5}, kgSrc:'Harvest Ledger',
+   ranges:{first:'a light crop in year 3–4, full yield in year 5–7', window:'seasonal'},
+   timingNote:'a tree already bearing: fruit set to maturity 7–12 months for Hass, 6–8 for Fuerte; bees essential for set',
+   varieties:[
+     {name:'Hass', type:'Grafted · not Rijk Zwaan', traits:'The main commercial avocado in Tanzania; test dry matter (21–23% or more) before picking', res:''},
+     {name:'Fuerte', type:'Grafted · not Rijk Zwaan', traits:'Fruit set to maturity 6–8 months', res:''},
+     {name:'Pinkerton', type:'Grafted · not Rijk Zwaan', traits:'', res:''},
+   ]},
+  // Raised in a nursery: rootstock from seed, then grafted. A young tree takes
+  // two to three years to flower, beyond the calendar's three, so no harvest is planned.
+  {id:'avocado-seed', name:'Avocado (nursery, grafted tree)', src:GENERAL,
+   names:['avocado (from seed)', 'avocado from seed', 'avocado seed', 'avocado seeds', 'avocado seedling', 'avocado seedlings', 'grafted avocado', 'avocado (nursery, grafted tree)'],
+   nurseryDays:[225, 225], flowerDays:0, alt:'avocado',
+   ranges:{nursery:'6–9 months: seed to germination 4–6 weeks, to a graft-ready rootstock 3–5 months, to a saleable grafted plant 6–9 months', window:'first flowering 2–3 years after planting out'},
+   timingNote:'buy grafted trees from certified nurseries; remove early flowers in years 1–2 to build the tree',
+   harvest:{kind:'none'}},
+].map(g=> Object.assign(g, {ed: GUIDE_EDITION}));
 /* The guide in use: the defaults above until the Secretariat edits it, then
    the Secretariat's version — kept in the database (or, with none, in this
    browser) and read by every farm as it plans. */
@@ -5161,8 +5297,28 @@ function sanitiseGuide(list){
 }
 function applyGuide(list){
   const s = sanitiseGuide(list);
-  CROP_GUIDE = s && s.length ? s : CROP_GUIDE_DEFAULT.map(cloneGuide);
+  CROP_GUIDE = s && s.length ? upgradeGuide(s) : CROP_GUIDE_DEFAULT.map(cloneGuide);
 }
+/* A guide saved before this edition: its built-in crops nobody changed take
+   this edition's figures; crops the Secretariat changed or added stay as it
+   set them (the Crop guide page offers the new figures for those); crops new
+   to this edition are added, unless the Secretariat already added its own. */
+function upgradeGuide(list){
+  const out = list.map(g=>{
+    const d = CROP_GUIDE_DEFAULT.find(x=> x.id === g.id);
+    return !d || g.custom || g.edited || g.ed === GUIDE_EDITION ? g : cloneGuide(d);
+  });
+  const custom = new Set(out.filter(g=> g.custom).flatMap(g=> g.names));
+  CROP_GUIDE_DEFAULT.forEach(d=>{
+    if(!out.some(g=> g.id === d.id) && !d.names.some(n=> custom.has(n))) out.push(cloneGuide(d));
+  });
+  // A name belongs to one crop: an older crop gives up a name this edition uses.
+  const fresh = new Set(out.filter(g=> g.ed === GUIDE_EDITION && !g.custom).flatMap(g=> g.names));
+  out.forEach(g=>{ if(g.ed !== GUIDE_EDITION && !g.custom) g.names = g.names.filter(n=> n === cropKey(g.name) || !fresh.has(n)); });
+  return out;
+}
+// Built-in crops whose figures the Secretariat set before this edition.
+function staleEdited(){ return CROP_GUIDE.filter(g=> g.edited && g.ed !== GUIDE_EDITION && CROP_GUIDE_DEFAULT.some(d=> d.id === g.id)); }
 function loadGuideLocal(){
   if(CLOUD_CONFIGURED) return;
   try{ const d = JSON.parse(localStorage.getItem(GUIDE_KEY) || 'null'); if(d) applyGuide(d.crops || d); }catch(e){}
@@ -5293,8 +5449,17 @@ function guideFromStages(base, s){
   }
   return g;
 }
-// The guide as one planting uses it: with that farm's own timings, if it gave any.
-function effGuide(g, adj){ return g && adj ? Object.assign(guideFromStages(g, Object.assign(stagesOf(g), adj)), {adjusted:true}) : g; }
+// A variety's own days, over its crop's.
+function varietyOf(g, name){ return g && name && g.varieties ? g.varieties.find(v=> v.name === name) || null : null; }
+// The guide as one planting uses it: its variety's days, then the farm's own timings, if any.
+function effGuide(g, adj, variety){
+  const v = varietyOf(g, variety), va = v && v.adj && Object.keys(v.adj).length ? v.adj : null;
+  if(!g || (!adj && !va)) return g;
+  const out = guideFromStages(g, Object.assign(stagesOf(g), va || {}, adj || {}));
+  if(adj) out.adjusted = true;
+  if(v) out.variety = v.name;
+  return out;
+}
 // A short fingerprint of a crop's figures, kept with each plan so a later change shows.
 function guideSig(g){
   const t = JSON.stringify(stagesOf(g));
@@ -5451,15 +5616,17 @@ function guideBoxHTML(){
             <div><label class="f" for="ed-plants">Number of plants <span class="opt">optional</span></label>
               <input id="ed-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(e.plants)}" placeholder="e.g. 1000"
                 oninput="state.editRow.plants=this.value"></div>
-          </div></div>`
+          </div>${varietyFieldHTML(null)}</div>`
       : `<div class="gb-pick"><span class="helper" style="margin:0;">Planned for you from the sowing date:</span> ${chips}</div>`;
   }
   if(e.manual) return manualBoxHTML(g);
+  const gv = effGuide(g, null, e.variety);
   const unit = g.tree ? 'trees' : 'plants';
   const dateLabel = g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date';
   return `<div class="gb">
     <div class="gb-head">${icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt && guideFor(g.alt)
       ? ` <button type="button" class="gb-alt" onclick="pickGuideCrop('${g.alt}')">${g.tree ? 'Growing it from seed instead?' : 'A tree already bearing fruit instead?'}</button>` : ''}</span></div>
+    ${varietyFieldHTML(g)}
     <div class="gb-fields">
       <div><label class="f" for="ed-sown">${dateLabel}</label>
         <input id="ed-sown" type="date" value="${esc(e.sown)}" oninput="state.editRow.sown=this.value;guidePreviewUpdate()"></div>
@@ -5472,19 +5639,19 @@ function guideBoxHTML(){
         <input id="ed-kgpp" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.kgpp)}" placeholder="whole harvest"
           oninput="state.editRow.kgpp=this.value;guidePreviewUpdate()"></div>`}
     </div>
-    ${adjBoxHTML(g)}
+    ${adjBoxHTML(gv)}
     <div id="ed-plan-preview">${guidePreviewHTML(g)}</div>
     <p class="gb-manual-link"><button type="button" class="gb-alt" onclick="setManual(true)">${icon('edit')} Not happy with the automatic plan? Colour the weeks yourself</button></p>
   </div>`;
 }
 /* The farm's own timings for one planting, over the guide's. Only what is
    changed is kept, so the rest still follows the guide. */
-function adjBoxHTML(g){
+function adjBoxHTML(g){            // g: the crop with its variety's days
   const e = state.editRow, base = stagesOf(g), s = Object.assign({}, base, e.adj || {});
   const f = (k, label, unit)=> `<div><label class="f" for="ed-adj-${k}">${label}</label>
       <input id="ed-adj-${k}" type="number" min="0" step="${k === 'total' ? 'any' : '1'}" inputmode="${k === 'total' ? 'decimal' : 'numeric'}"
         value="${esc(s[k])}" oninput="adjSet('${k}', this.value)">
-      <span class="helper gb-was">Guide: ${base[k] === '' ? '—' : esc(fmtNum(base[k]))} ${unit}</span></div>`;
+      <span class="helper gb-was">${g.variety ? esc(g.variety.replace(/ RZ F1.*$/, '')) : 'Guide'}: ${base[k] === '' ? '—' : esc(fmtNum(base[k]))} ${unit}</span></div>`;
   const grows = !g.tree && base.kind !== 'none';
   const fields = [
     base.start === 'nursery' ? f('nursery', 'Sowing → transplanting', 'days') : '',
@@ -5539,7 +5706,40 @@ function manualBoxHTML(g){
       <div><label class="f" for="ed-plants">Number of ${g.tree ? 'trees' : 'plants'} <span class="opt">optional</span></label>
         <input id="ed-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(e.plants)}" placeholder="e.g. 1000"
           oninput="state.editRow.plants=this.value"></div>
-    </div></div>`;
+    </div>${varietyFieldHTML(g)}</div>`;
+}
+/* ---- Which variety ------------------------------------------------------------
+   A crop in the guide offers its varieties, each with what the seed company
+   says of it and, where it grows faster or slower, its own days. Any other
+   variety can be typed. */
+function varietyFieldHTML(g){
+  const e = state.editRow, list = g && g.varieties ? g.varieties : [];
+  const known = varietyOf(g, e.variety), other = !!e.variety && !known;
+  const v = known;
+  const info = v ? `<div class="gb-variety-info">
+      <strong>${esc(v.name)}</strong>${v.type ? ` · ${esc(v.type)}` : ''}${v.traits ? `<span>${esc(v.traits)}</span>` : ''}
+      ${v.res ? `<span class="gv-res">Resistances: ${esc(v.res)}</span>` : ''}
+      ${v.note ? `<span class="gv-note">${icon('today')} ${esc(v.note)}${v.adj ? ' — planned with these days.' : ''}</span>` : ''}</div>` : '';
+  if(!list.length) return `<div class="gb-variety"><div><label class="f" for="ed-variety-text">Variety <span class="opt">optional</span></label>
+      <input id="ed-variety-text" value="${esc(e.variety || '')}" placeholder="e.g. the name on the seed packet" oninput="state.editRow.variety=this.value.trim()"></div></div>`;
+  return `<div class="gb-variety">
+    <div><label class="f" for="ed-variety">Variety <span class="opt">optional</span></label>
+      <select id="ed-variety" onchange="setVariety(this.value)">
+        <option value="">Not chosen</option>
+        ${list.map(x=> `<option value="${esc(x.name)}"${known && known.name === x.name ? ' selected' : ''}>${esc(x.name)}${x.type ? ` — ${esc(x.type)}` : ''}</option>`).join('')}
+        <option value="__other"${other ? ' selected' : ''}>Another variety…</option>
+      </select></div>
+    ${other ? `<div><label class="f" for="ed-variety-text">Variety name</label>
+      <input id="ed-variety-text" value="${esc(e.variety === '__other' ? '' : e.variety)}" placeholder="Type the variety" oninput="state.editRow.variety=this.value.trim()||'__other'"></div>` : ''}
+    ${info}</div>`;
+}
+function setVariety(v){
+  const e = state.editRow;
+  e.variety = v;
+  e.adj = null;                    // the farm's own days were against the old variety's
+  const box = document.getElementById('ed-guide');
+  if(box) box.innerHTML = guideBoxHTML();
+  if(v === '__other'){ const t = document.getElementById('ed-variety-text'); if(t) t.focus(); }
 }
 function setManual(on){
   state.editRow.manual = on;
@@ -5554,32 +5754,37 @@ function stagesText(g){
   if(s.kind !== 'none') parts.push(`harvest ${s.hWeeks === 1 ? 'once' : `over ${s.hWeeks} weeks`}`);
   return parts.join(', ');
 }
+// Where a crop's figures come from, in words.
+const SRC_NAME = {rz:'Rijk Zwaan crop guide, East Africa', general:'Rijk Zwaan crop guide, general guidance (not a Rijk Zwaan crop)', tipfa:'TIPFA Harvest Ledger and sowing table'};
 function guideSourceText(g){
-  if(g.adjusted) return `Your timings for this planting: ${stagesText(g)}. Yield: ${yieldText(g)}.`;
-  const own = g.custom || g.edited;          // the Secretariat's figures, not the published sources
   const cap = t=> t.charAt(0).toUpperCase() + t.slice(1);
-  if(g.tree) return `Yield: ${yieldText(g)}${own ? '' : ' (Harvest Ledger, which assumes a tree already bearing)'}.${own ? ' Figures set by the Secretariat.' : ''}`;
-  if(g.harvest.kind === 'none') return `${g.timingNote ? `Timing: ${g.timingNote}${own ? '' : ' (sprouting timeline; the middle is used for the nursery)'}. ` : ''}${cap(yieldText(g))}.${own ? ' Figures set by the Secretariat.' : ''}`;
-  const parts = [];
-  if(g.fromSowing){
-    const nur = g.nursery && !g.direct ? `, ${rangeText(g.nursery, 'weeks')} to transplant size` : '';
-    parts.push(`Timing: ${rangeText(g.fromSowing, 'days')} from ${g.direct ? 'planting' : 'sowing'} to harvest${nur}${own ? '' : ' (sowing table; the middle of each range is used)'}`);
-  } else if(g.fromTransplant != null){
-    parts.push(`Timing: ${g.nursery ? rangeText(g.nursery, 'weeks') + ' in the nursery, then ' : ''}first harvest ${g.fromTransplant} days after transplanting`);
-  }
+  const kg = `Yield: ${yieldText(g)}${guideHasYield(g) ? (g.kgSrc ? ` — the Rijk Zwaan guide gives no yields; this is the ${g.kgSrc}’s` : '') : ' — no figure in the guide, so give your own expected kg a plant'}.`;
+  const v = g.variety && g.varieties ? g.varieties.find(x=> x.name === g.variety) : null;
+  if(g.adjusted) return `Your timings for this planting: ${stagesText(g)}. ${kg}`;
+  if(g.custom || g.edited) return `Timing: ${stagesText(g)}. ${kg}${g.timingNote ? ' ' + cap(g.timingNote) + '.' : ''} Figures set by the Secretariat.`;
+  const parts = [], r = g.ranges, w = g.stageWords || {};
+  if(r){
+    const t = [];
+    if(r.nursery) t.push(`nursery ${r.nursery}`);
+    if(r.veg) t.push(`transplanting ${w.veg || 'to the first flowers'} ${r.veg}`);
+    if(r.flower) t.push(`${w.flower || 'flowering and fruit set to the first harvest'} ${r.flower}`);
+    if(r.first) t.push(`first harvest ${r.first}`);
+    if(r.window) t.push(`harvest ${r.window}`);
+    parts.push(`Timing (${SRC_NAME[g.src] || 'crop guide'}; the middle of each range is used): ${t.join('; ')}`);
+  } else parts.push(`Timing (${SRC_NAME[g.src] || 'crop guide'}): ${stagesText(g)}`);
+  if(v && v.note) parts.push(`${v.name}: ${v.note}`);
   if(g.timingNote) parts.push(cap(g.timingNote));
-  parts.push(`Yield: ${yieldText(g)}${guideHasYield(g) ? (own ? '' : g.harvest.kind === 'picking' ? ' (Yield Calculator)' : ' (Harvest Ledger)') : ' — no figure in the guide, so give your own expected kg a plant'}`);
-  if(g.sow) parts.push(`Usual sowing${own ? '' : ' (temperate baseline)'}: ${g.sow}`);
-  if(own) return `Timing: ${stagesText(g)}. Yield: ${yieldText(g)}${guideHasYield(g) ? '' : ' — no figure in the guide, so give your own expected kg a plant'}.${g.timingNote ? ' ' + cap(g.timingNote) + '.' : ''}${g.sow ? ` Usual sowing: ${g.sow}.` : ''} Figures set by the Secretariat.`;
-  return parts.join('. ') + '.';
+  let out = parts.join('. ') + '. ' + kg;
+  if(g.src === 'rz' || g.src === 'general') out += ' In cool highlands (Iringa in June–August) expect the upper end of each range, or 10–25% longer.';
+  return out;
 }
 function guidePreviewHTML(g0){
-  const e = state.editRow;
+  const e = state.editRow, gv = effGuide(g0, null, e.variety);
   if(e.adj){
-    const bad = stagesError(Object.assign(stagesOf(g0), e.adj));
+    const bad = stagesError(Object.assign(stagesOf(gv), e.adj));
     if(bad) return `<p class="helper gb-hint" style="color:var(--red);">${esc(bad)}</p>`;
   }
-  const g = effGuide(g0, cleanAdj(g0, e.adj));
+  const g = effGuide(g0, cleanAdj(gv, e.adj), e.variety);
   if(!e.sown) return `<p class="helper gb-hint">${esc(guideSourceText(g))}</p>`;
   const p = planFromGuide(g, Object.assign({until: calendarEnd()}, e));
   if(p.error) return `<p class="helper gb-hint" style="color:var(--red);">${esc(p.error)}</p>`;
@@ -5688,7 +5893,7 @@ function sameCells(a, b){ const ka = Object.keys(a), kb = Object.keys(b); return
 function rowDays(f, r){
   const p = r.plan, g = p && p.guide && !p.manual ? guideFor(p.guide) : null;
   if(g && p.sown){
-    const ge = effGuide(g, p.adj);
+    const ge = effGuide(g, p.adj, r.variety);
     const P = planFromGuide(ge, Object.assign({}, p, {until: new Date((f.startYear || DEFAULT_START_YEAR) + 3, 0, 1)}));
     if(!P.error && sameCells(P.cells, r.cells)) return exactDays(ge, P, r);
   }
@@ -5893,7 +6098,7 @@ function dayRowHTML(f, r, x, ri, v){
   const {ro, px, X, L} = v, mobile = L.mobile;
   const g = r.plan && r.plan.guide ? guideFor(r.plan.guide) : null;
   const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${g && g.tree ? 'trees' : 'plants'}` : '';
-  const sub = [locationText(f, r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const sub = [locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
   const j = rowJourney(r);
   const open = ro ? '' : `onclick="openEditor('${r.id}')"`;
   const btns = ro ? '' : `<span class="cc-rowbtns">
@@ -6040,7 +6245,7 @@ function writeTemplateSheet(ws, f, months){
     const zebra = rn % 2 === 0 ? XL.zebra : XL.white;
     let unitName = '', blockName = '';
     if(r){ const u = unitOf(f, r.unit), b = blockOf(u, r.block); unitName = u.name; blockName = b ? b.name : ''; }
-    const left = [unitName, blockName, r ? tidyCrop(r.crop) : '', r && r.area ? Number(r.area) : null, r ? r.notes : ''];
+    const left = [unitName, blockName, r ? tidyCrop(r.crop) : '', r && r.area ? Number(r.area) : null, r ? [r.variety ? `Variety: ${r.variety}` : '', r.notes].filter(Boolean).join(' · ') : ''];
     left.forEach((v, j)=>{
       const c = row.getCell(j+1);
       c.value = v === '' ? null : v;
@@ -6322,7 +6527,10 @@ function applyImport(f, parsed, replace){
       if(!b){ b = {id:uid('b'), name:p.block}; u.blocks.push(b); }
       block = b.id;
     }
-    f.rows.push({id:uid('r'), unit:u.id, block, crop:p.crop, area:Number(p.area)||0, notes:p.notes, cells:p.cells});
+    const vm = /^Variety: (.+?)(?: · (.*))?$/.exec(p.notes || '');
+    const row = {id:uid('r'), unit:u.id, block, crop:p.crop, area:Number(p.area)||0, notes: vm ? (vm[2] || '') : p.notes, cells:p.cells};
+    if(vm) row.variety = vm[1].trim().slice(0, 80);
+    f.rows.push(row);
   });
   normaliseFarm(f);
   return parsed.plantings.length;
@@ -6824,8 +7032,16 @@ function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${String(d
 
 // How long a crop takes, in words.
 function timingText(g){
+  if(g.custom || g.edited) return g.tree ? 'A bearing tree: the harvest starts on the date entered' : stagesText(g);
+  if(g.ranges){
+    const r = g.ranges, w = g.stageWords || {}, t = [];
+    if(r.nursery) t.push(`nursery ${r.nursery}`);
+    if(r.veg) t.push(`${w.veg || 'to first flowers'} ${r.veg}`);
+    if(r.flower) t.push(`${w.flower || 'flower to harvest'} ${r.flower}`);
+    if(r.window) t.push(`harvest ${r.window}`);
+    return t.length ? t.join(' · ').replace(/^./, c=> c.toUpperCase()) : (g.tree ? 'A bearing tree: the harvest starts on the date entered' : '');
+  }
   if(g.tree) return 'A bearing tree: the harvest starts on the date entered';
-  if(g.custom || g.edited) return stagesText(g);
   const nur = g.direct ? 'Sown or planted direct' : g.nurseryDays ? `${rangeText(g.nurseryDays, 'days')} in the nursery` : g.nursery ? `${rangeText(g.nursery, 'weeks')} in the nursery` : '';
   if(g.harvest.kind === 'none') return nur;
   const first = g.fromTransplant != null ? `first harvest ${g.fromTransplant} days after transplanting` : g.fromSowing ? `first harvest ${rangeText(g.fromSowing, 'days')} after ${g.direct ? 'planting' : 'sowing'}` : '';
@@ -6855,7 +7071,9 @@ function stageChipsHTML(g){
 }
 function guideTag(g){
   return g.custom ? '<span class="gd-tag is-new">Added by the Secretariat</span>'
-       : g.edited ? '<span class="gd-tag is-edited">Edited</span>'
+       : g.edited ? `<span class="gd-tag is-edited">Edited${g.ed !== GUIDE_EDITION ? ' · older figures' : ''}</span>`
+       : g.src === 'rz' ? '<span class="gd-tag is-rz">Rijk Zwaan</span>'
+       : g.src === 'general' ? '<span class="gd-tag">General guidance</span>'
        : '<span class="gd-tag">TIPFA guide</span>';
 }
 
@@ -6868,7 +7086,7 @@ function renderGuideAdmin(c){
   if(!guideFor(calc.id) && list[0]) calc.id = list[0].id;
   const meta = GUIDE_META && GUIDE_META.updatedAt
     ? `Last changed ${esc(whenText(GUIDE_META.updatedAt))}${operatorName(GUIDE_META.updatedBy) ? ' by ' + esc(operatorName(GUIDE_META.updatedBy)) : ''}.`
-    : 'These are the TIPFA guide’s own figures — nobody has changed them yet.';
+    : 'These are the built-in figures — the Rijk Zwaan crop guide for East Africa — and nobody has changed them yet.';
   c.innerHTML = `
     <h1 class="page-title">Crop guide</h1>
     <p class="page-sub">The figures every farm’s plan is worked out from. Change one here and farms plan with the new figure straight away.</p>
@@ -6879,18 +7097,23 @@ function renderGuideAdmin(c){
       <div class="metric"><div class="lbl">Added</div><div class="val" data-count="${list.filter(g=> g.custom).length}">0</div></div>
     </div>
     ${msg ? `<div class="msg-banner">${msg}</div>` : ''}
+    ${staleEdited().length ? `<div class="card gd-stale">${icon('refresh')} <div><strong>The Rijk Zwaan crop guide is built in.</strong>
+      Every crop nobody had changed now uses it. ${staleEdited().map(g=> esc(g.name)).join(', ')} still ${staleEdited().length === 1 ? 'has' : 'have'} figures set here before it came in.
+      <div style="margin-top:8px;"><button class="btn small" onclick="guideUseEdition(this)">Use the Rijk Zwaan figures for ${staleEdited().length === 1 ? 'it' : 'them'} too</button></div></div></div>` : ''}
+    <p class="helper gd-about">Timings: the Rijk Zwaan crop guide for East Africa (Tanzania), October 2026 — standard stage ranges for warm East African conditions matched to each variety type, with Rijk Zwaan’s published figures quoted where it has them; the middle of each range is used. It gives no yields, so what a plant gives is still the TIPFA Harvest Ledger’s, or each farm’s own. Onion, herbs and avocado are general guidance (not Rijk Zwaan crops); paprika, habanero and garlic keep the TIPFA figures.</p>
 
     <div class="section-label">Calculator</div>
     <div class="card gd-calc">
       <div class="gd-calc-in">
         <div><label class="f" for="gc-crop">Crop</label>
-          <select id="gc-crop" onchange="state.guideCalc.id=this.value;state.guideCalc.kgpp='';guideCalcUpdate(true)">
+          <select id="gc-crop" onchange="state.guideCalc.id=this.value;state.guideCalc.kgpp='';state.guideCalc.variety='';guideCalcUpdate(true)">
             ${list.map(g=> `<option value="${esc(g.id)}"${g.id === calc.id ? ' selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>
         <div><label class="f" for="gc-plants">Seedlings</label>
           <input id="gc-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(calc.plants)}"
             oninput="state.guideCalc.plants=this.value;guideCalcUpdate()"></div>
         <div><label class="f" for="gc-sown">Sowing date</label>
           <input id="gc-sown" type="date" value="${esc(calc.sown)}" oninput="state.guideCalc.sown=this.value;guideCalcUpdate()"></div>
+        <div id="gc-variety-box"></div>
         <div id="gc-kgpp-box"></div>
       </div>
       <div id="gc-out"></div>
@@ -6917,13 +7140,13 @@ function guideCardHTML(g){
       <dt>Timing</dt><dd>${esc(timingText(g) || '—')}</dd>
       <dt>Harvest</dt><dd>${esc(yieldText(g))}</dd>
       <dt>A ${unit}</dt><dd>${per === null ? '—' : g.harvest.kind === 'none' ? '0 kg' : `<strong>${kgText(per)}</strong>`}</dd>
-      ${g.sow ? `<dt>Usual sowing</dt><dd>${esc(g.sow)}</dd>` : ''}
+      ${g.varieties && g.varieties.length ? `<dt>Varieties</dt><dd class="gd-vars">${g.varieties.map(v=> `<span title="${esc([v.type, v.traits, v.note].filter(Boolean).join(' — '))}">${esc(v.name.replace(/ RZ F1/, ''))}${v.adj ? '<i>*</i>' : ''}</span>`).join('')}</dd>` : ''}
     </dl>
     <div class="gd-out">${out}</div>
     <div class="gd-actions">
       <button class="btn small ghost" onclick="guideCalcPick('${id}')">${icon('calc')} Calculate</button>
       <button class="btn small ghost" onclick="guideStartEdit('${id}')">${icon('pencil')} Edit</button>
-      ${g.edited && isBuiltIn(g.id) ? `<button class="btn small ghost" onclick="guideReset('${id}', this)" title="Put back the TIPFA guide’s own figures">${icon('restore')} Reset</button>` : ''}
+      ${g.edited && isBuiltIn(g.id) ? `<button class="btn small ghost" onclick="guideReset('${id}', this)" title="Put back the built-in (Rijk Zwaan guide) figures">${icon('restore')} Reset</button>` : ''}
       ${g.custom ? `<button class="btn small ghost danger" onclick="guideDelete('${id}', this)">${icon('trash')} Delete</button>` : ''}
     </div>
   </div>`;
@@ -6940,8 +7163,13 @@ function guideCalcPick(id){
 }
 function guideCalcUpdate(cropChanged){
   const out = document.getElementById('gc-out'), box = document.getElementById('gc-kgpp-box');
-  const calc = state.guideCalc, g = guideFor(calc.id);
-  if(!out || !g) return;
+  const calc = state.guideCalc, g0 = guideFor(calc.id);
+  if(!out || !g0) return;
+  const g = effGuide(g0, null, calc.variety);
+  const vb = document.getElementById('gc-variety-box');
+  if(cropChanged && vb) vb.innerHTML = g0.varieties && g0.varieties.length ? `<label class="f" for="gc-variety">Variety</label>
+      <select id="gc-variety" onchange="state.guideCalc.variety=this.value;guideCalcUpdate()"><option value="">Any (the crop’s figures)</option>
+        ${g0.varieties.map(v=> `<option value="${esc(v.name)}"${v.name === calc.variety ? ' selected' : ''}>${esc(v.name)}</option>`).join('')}</select>` : '';
   const unit = g.tree ? 'tree' : 'plant', many = g.tree ? 'trees' : g.direct ? 'plants' : 'seedlings';
   if(cropChanged && box){
     box.innerHTML = guideHasYield(g) ? '' : `<label class="f" for="gc-kgpp">Expected kg a ${unit}</label>
@@ -6985,7 +7213,8 @@ function guideCalcUpdate(cropChanged){
     </div>
     <p class="gd-working">${icon('calc')} <span>${working}${per != null && plants && h.kind !== 'none' ? ` <b>× ${fmt(plants)} ${many} = ${fmt(p.total)} kg</b>` : ''}</span></p>
     ${planRibbonHTML(g, p)}
-    <ul class="gb-plan">${steps.map(([s, a, b])=> `<li>${sw(s)}<span class="gp-n">${esc(a)}</span><span class="gp-w">${esc(b)}</span></li>`).join('')}</ul>`;
+    <ul class="gb-plan">${steps.map(([s, a, b])=> `<li>${sw(s)}<span class="gp-n">${esc(a)}</span><span class="gp-w">${esc(b)}</span></li>`).join('')}</ul>
+    <p class="helper gb-src">${esc(guideSourceText(g))}</p>`;
 }
 
 /* ---- Changing the guide ----------------------------------------------------
@@ -7000,8 +7229,12 @@ function toDraft(g){
     sow: g && g.sow || '', note: g && g.timingNote || ''};
   Object.keys(st).forEach(k=> d[k] = s(st[k]));
   if(d.kind === 'single') d.hWeeks = '1';
+  d.varieties = (g && g.varieties || []).map(v=> Object.assign({name: v.name, type: v.type || '', traits: v.traits || '', res: v.res || '', vnote: v.note || ''},
+    ...VAR_DAYS.map(k=> ({[k]: v.adj && v.adj[k] != null ? String(v.adj[k]) : ''}))));
   return d;
 }
+// What a variety may change about its crop.
+const VAR_DAYS = ['veg', 'flower', 'hWeeks', 'total', 'headKg'];
 // The draft as a guide entry, or the first thing wrong with it.
 function fromDraft(d){
   const name = d.name.trim();
@@ -7012,7 +7245,7 @@ function fromDraft(d){
   const orig = d.orig ? guideFor(d.orig) : null;
   const g = guideFromStages(orig || {id:'', name, names:[], harvest:{kind:'none'}}, d);
   g.name = name;
-  delete g.sow; delete g.timingNote; delete g.yieldNote; delete g.edited; delete g.custom;
+  delete g.sow; delete g.timingNote; delete g.yieldNote; delete g.edited; delete g.custom; delete g.kgSrc;
   if(d.sow.trim()) g.sow = d.sow.trim().slice(0, 120);
   if(d.note.trim()) g.timingNote = d.note.trim().slice(0, 300);
   // Every name a farm might type, none of them another crop's.
@@ -7022,6 +7255,31 @@ function fromDraft(d){
     const clash = g.names.find(n=> other.names.includes(n));
     if(clash) return {error: `“${clash}” is already a name of ${other.name}. Each name can belong to one crop only.`};
   }
+  // Varieties: a name each, and only the days that differ from the crop's.
+  const seen = new Set();
+  g.varieties = [];
+  for(const v of d.varieties || []){
+    const vn = v.name.trim();
+    if(!vn) return {error: 'Give every variety a name, or remove it.'};
+    if(seen.has(vn.toLowerCase())) return {error: `There are two varieties called “${vn}”.`};
+    seen.add(vn.toLowerCase());
+    const adj = {};
+    VAR_DAYS.forEach(k=>{ if(v[k] !== '' && v[k] != null) adj[k] = Number(v[k]); });
+    if(Object.keys(adj).length){
+      const bad = stagesError(Object.assign({}, d, adj));
+      if(bad) return {error: `${vn}: ${bad}`};
+    }
+    const out = {name: vn.slice(0, 80)};
+    if(v.type.trim()) out.type = v.type.trim().slice(0, 120);
+    if(v.traits.trim()) out.traits = v.traits.trim().slice(0, 300);
+    if(v.res.trim()) out.res = v.res.trim().slice(0, 200);
+    if(v.vnote.trim()) out.note = v.vnote.trim().slice(0, 300);
+    if(Object.keys(adj).length) out.adj = adj;
+    g.varieties.push(out);
+  }
+  if(!g.varieties.length) delete g.varieties;
+  delete g.ranges; delete g.stageWords;        // the Secretariat's figures now, not the published ranges
+  g.ed = GUIDE_EDITION;
   if(!d.orig){
     const base = cropKey(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'crop';
     let id = base, i = 2;
@@ -7114,6 +7372,9 @@ function renderGuideEditor(c){
         ${d.kind !== 'none' ? numF('total', `Harvest per ${unit}, in all`, `kg — leave blank and each farm gives its own`, true, 'any') : ''}
         ${d.kind === 'head' ? numF('headKg', 'Of which the main head', 'kg; the rest is side shoots', true, 'any') : ''}
       </div>
+      <div class="ge-sec">Varieties <span class="ge-sec-note">— farms pick one when they plant; leave a day box blank and the variety takes the crop’s figure</span></div>
+      <div class="ge-vars">${d.varieties.map((v, i)=> varietyEditHTML(v, i, d)).join('')}
+        <button type="button" class="btn small ghost" onclick="guideVarAdd()">${icon('plus')} Add a variety</button></div>
       <div class="ge-sec">Notes for farms</div>
       <div class="ge-row ge-wide">
         ${fld('sow', 'Usual sowing time', 'type="text" maxlength="120" placeholder="e.g. March to April"', true)}
@@ -7158,13 +7419,52 @@ function guideSaveEdit(btn){
 }
 function guideReset(id, btn){
   const d = CROP_GUIDE_DEFAULT.find(x=> x.id === id), g = guideFor(id);
-  if(!d || !g || !confirm(`Put ${g.name} back to the TIPFA guide’s own figures? Your changes to it will be lost.`)) return;
+  if(!d || !g || !confirm(`Put ${g.name} back to the built-in figures (the Rijk Zwaan crop guide)? Your changes to it will be lost.`)) return;
   const fresh = cloneGuide(d);
   // A name the Secretariat gave another crop since stays with that crop.
   const taken = new Set(CROP_GUIDE.filter(x=> x.id !== id).flatMap(x=> x.names));
   fresh.names = fresh.names.filter(n=> !taken.has(n));
-  guideCommit(CROP_GUIDE.map(x=> x.id === id ? fresh : cloneGuide(x)), btn, `${esc(d.name)} is back to the TIPFA guide’s figures.`);
+  guideCommit(CROP_GUIDE.map(x=> x.id === id ? fresh : cloneGuide(x)), btn, `${esc(d.name)} is back to the built-in figures.`);
 }
+// Every crop still on figures set before the Rijk Zwaan guide came in takes its figures.
+function guideUseEdition(btn){
+  const old = staleEdited();
+  if(!old.length || !confirm(`Use the Rijk Zwaan crop guide’s figures for ${old.map(g=> g.name).join(', ')}? The figures set here for ${old.length === 1 ? 'it' : 'them'} will be replaced.`)) return;
+  const ids = new Set(old.map(g=> g.id));
+  const list = CROP_GUIDE.map(x=> ids.has(x.id) ? cloneGuide(CROP_GUIDE_DEFAULT.find(d=> d.id === x.id)) : cloneGuide(x));
+  guideCommit(list, btn, `${old.map(g=> esc(g.name)).join(', ')} now ${old.length === 1 ? 'uses' : 'use'} the Rijk Zwaan crop guide’s figures. Farms see an update button beside plantings planned with the old ones.`);
+}
+/* ---- A variety, in the crop editor ----------------------------------------- */
+function varietyEditHTML(v, i, d){
+  const f = (k, label, attrs, ph)=> `<div><label class="f" for="gv-${i}-${k}">${label}</label>
+    <input id="gv-${i}-${k}" value="${esc(v[k])}" ${attrs || 'type="text"'} placeholder="${esc(ph || '')}" oninput="guideVarSet(${i}, '${k}', this.value)"></div>`;
+  const n = (k, label, ph, step)=> f(k, label, `type="number" min="0" step="${step || '1'}" inputmode="${step ? 'decimal' : 'numeric'}"`, ph);
+  const grows = d.start !== 'tree' && d.kind !== 'none';
+  return `<div class="ge-var">
+    <div class="ge-var-head"><strong>${esc(v.name || 'New variety')}</strong>
+      <button type="button" class="btn small ghost danger" onclick="guideVarDel(${i})">${icon('trash')} Remove</button></div>
+    <div class="ge-row">
+      ${f('name', 'Name', 'type="text" maxlength="80"', 'e.g. ABALE RZ F1')}
+      ${f('type', 'Type', 'type="text" maxlength="120"', 'e.g. Plum · determinate')}
+      ${f('traits', 'What the seed company says', 'type="text" maxlength="300"', 'traits')}
+      ${f('res', 'Resistances', 'type="text" maxlength="200"', 'e.g. HR: ToMV:0-2')}
+    </div>
+    <div class="ge-row">
+      ${grows ? n('veg', 'Vegetative growth, days', d.veg) + n('flower', 'Flowering → harvest, days', d.flower) : ''}
+      ${['weekly', 'pulses', 'head'].includes(d.kind) ? n('hWeeks', 'Harvest weeks', d.hWeeks) : ''}
+      ${d.kind !== 'none' ? n('total', 'Harvest per plant, kg', d.total, 'any') : ''}
+      ${d.kind === 'head' ? n('headKg', 'Main head, kg', d.headKg, 'any') : ''}
+      ${f('vnote', 'Note for farms', 'type="text" maxlength="300"', 'e.g. published: 65–75 days')}
+    </div></div>`;
+}
+function guideVarSet(i, k, v){ state.guideEdit.varieties[i][k] = v; if(k === 'name'){ const h = document.querySelectorAll('.ge-var-head strong')[i]; if(h) h.textContent = v || 'New variety'; } guideEditPreview(); }
+function guideVarAdd(){
+  state.guideEdit.varieties.push(Object.assign({name:'', type:'', traits:'', res:'', vnote:''}, ...VAR_DAYS.map(k=> ({[k]: ''}))));
+  renderKeepingPlace();
+  const all = document.querySelectorAll('.ge-var'); const last = all[all.length - 1];
+  if(last){ last.scrollIntoView({block:'center'}); const inp = last.querySelector('input'); if(inp) inp.focus({preventScroll:true}); }
+}
+function guideVarDel(i){ state.guideEdit.varieties.splice(i, 1); renderKeepingPlace(); }
 function guideDelete(id, btn){
   const g = guideFor(id);
   if(!g || !g.custom) return;
