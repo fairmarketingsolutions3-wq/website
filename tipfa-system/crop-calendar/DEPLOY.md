@@ -244,9 +244,14 @@ of each range is used. It gives no yields, so kg a plant stays the TIPFA
 Harvest Ledger's (per harvest week) or the farm's own. Onion, herbs and avocado
 are its general guidance. Crops it does not cover are not built in (paprika,
 habanero and garlic were removed, also from guides saved earlier); the
-Secretariat can add any crop under **Crop guide → Add a crop**. A farm can
-still type another crop and colour its weeks by hand, but only the guide's
-crops are offered when adding a planting.
+Secretariat can add any crop under **Crop guide → Add a crop**.
+
+Only crops in the crop guide can be planted. A farm typing another crop is
+turned back with the guide's crops to pick from; a planting of such a crop
+cannot be copied; and an Excel import brings in only the guide's crops,
+listing the rows it left out. Plantings of other crops already on a calendar
+stay as they were, marked "not in the crop guide", with a note above the
+calendar: edit one to choose a guide crop, or archive or delete it.
 
 A guide saved before this edition is brought up to it automatically: crops
 nobody changed take the new figures, crops the Secretariat changed or added are

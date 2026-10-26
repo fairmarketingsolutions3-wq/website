@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v17">
+<meta name="tipfa-build" content="v18">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2316,6 +2316,13 @@ body.cc-wide .content > .grid4{display:none;}
 .ge-var-head{display:flex;align-items:center;justify-content:space-between;gap:8px;}
 .ge-var-head strong{color:var(--deep-green);}
 @media (max-width: 760px){ .gb-variety{grid-template-columns:1fr;} }
+
+/* ---- Crops outside the crop guide ---- */
+.gb-refuse{border-color:#F0D3CC;background:#FDF5F2;}
+.gb-refuse .gb-head svg{color:var(--red, #B5432F);}
+.gb-refuse .gb-pick{margin-top:8px;}
+.msg-banner.is-warn{background:#FBF1E2;color:#7A4A10;border-left-color:var(--harvest-orange, #E8A734);}
+.msg-banner.is-warn svg{stroke:#C9822B;}
 </style>
 </head>
 <body>
@@ -3877,6 +3884,15 @@ function layoutSummary(f){
 
 // The plantings still in their season. Archived ones are kept with the farm,
 // under Archive, but leave the calendar, its totals and its exports.
+// Plantings of crops the guide does not cover: kept as they are, and pointed out.
+function offGuide(r){ return !!r.crop && !guideMatch(r.crop); }
+function offGuideBanner(f){
+  const rows = liveRows(f).filter(offGuide);
+  if(!rows.length) return '';
+  const names = [...new Set(rows.map(r=> r.crop.trim()))];
+  return `<div class="msg-banner is-warn">${icon('close')} <span>${rows.length} planting${rows.length === 1 ? ' is' : 's are'} of ${names.length === 1 ? 'a crop' : 'crops'} not in the crop guide — ${names.map(esc).join(', ')}.
+    ${rows.length === 1 ? 'It stays' : 'They stay'} as ${rows.length === 1 ? 'it is' : 'they are'}; edit ${rows.length === 1 ? 'it' : 'each'} to choose a crop from the guide, or archive or delete ${rows.length === 1 ? 'it' : 'them'}.</span></div>`;
+}
 // A variety, short enough for the calendar's crop column.
 function varietyShort(r){ return r.variety ? r.variety.replace(/ RZ F1/, '') : ''; }
 function liveRows(f){ return f.rows.filter(r=> !r.archived); }
@@ -4008,6 +4024,7 @@ function renderCalendar(c){
       <div class="metric"><div class="lbl">Busiest month</div><div class="val" id="m-peak" style="font-size:20px;">${esc(fig.peak)}</div></div>
     </div>
     ${msg ? `<div class="msg-banner">${msg}</div>` : ''}
+    ${offGuideBanner(f)}
     ${state.editRow ? editorPanel(f) : ''}
     ${state.fillRow ? fillPanel(f) : ''}
     ${toolbar}
@@ -4278,7 +4295,7 @@ function rowHTML(r, ri){
   const {f, L, keys, base, ro} = gridView;
   const mobile = isMobile();
   const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${guideFor(r.plan.guide) && guideFor(r.plan.guide).tree ? 'trees' : 'plants'}` : '';
-  const sub = [locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const sub = [offGuide(r) ? 'not in the crop guide' : '', locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
   const j = rowJourney(r);
   const tip = [r.crop || '(no crop named)', sub, j.text, r.notes].filter(Boolean).join(' — ');
   const cropInner = `<div class="cc-crop-cell">
@@ -4689,7 +4706,8 @@ function keepEditor(){ const y = window.scrollY; render(); window.scrollTo(0, y)
 function saveEditor(){
   const f = currentFarm(), e = state.editRow;
   e.crop = val('ed-crop'); e.area = val('ed-area'); e.notes = val('ed-notes');
-  if(!e.crop) return flagError(document.getElementById('ed-error'), 'Name the crop — it is what the harvest totals are added up by.');
+  if(!e.crop) return flagError(document.getElementById('ed-error'), 'Pick the crop from the crop guide.');
+  if(!guideMatch(e.crop)) return flagError(document.getElementById('ed-error'), `${e.crop} is not in the crop guide. Pick one of its crops — or ask the Secretariat to add it under Crop guide.`);
   if(e.area !== '' && (isNaN(Number(e.area)) || Number(e.area) < 0)) return flagError(document.getElementById('ed-error'), 'Area must be a number of square metres.');
   const u = unitOf(f, e.unit);
   const block = u.blocks.some(b=> b.id === e.block) ? e.block : '';
@@ -4773,6 +4791,7 @@ function saveEditor(){
 }
 function duplicateRow(id){
   const f = currentFarm(), r = f.rows.find(x=> x.id === id);
+  if(!guideMatch(r.crop)) return showFatal(`${r.crop || 'This planting'} is not in the crop guide, so it cannot be copied. Edit it to choose a crop from the guide, or archive it.`);
   const copy = JSON.parse(JSON.stringify(r));
   copy.id = uid('r');
   f.rows.splice(f.rows.indexOf(r) + 1, 0, copy);
@@ -5590,20 +5609,12 @@ function guideBoxHTML(){
     const chips = CROP_GUIDE.map(x=> `<button type="button" class="gb-chip" onclick="pickGuideCrop('${x.id}')">${esc(x.name)}</button>`).join('');
     // A crop the guide does not know still has its dates and plants, kept with
     // the planting; only its weeks are coloured by hand.
+    // Only the guide's crops are planted: anything else is turned back, with the guide's crops to pick from.
     return e.crop.trim()
-      ? `<div class="gb gb-plain">
-          <div class="gb-head">${icon('today')} <span><strong>Dates &amp; plants</strong> — the crop guide has no figures for
-            <strong>${esc(e.crop.trim())}</strong>, so colour its weeks yourself; these are kept with the planting.
-            <span class="helper" style="display:block;margin:2px 0 0;">The guide covers: ${CROP_GUIDE.map(x=> esc(x.name)).join(', ')}.</span></span></div>
-          <div class="gb-fields">
-            <div><label class="f" for="ed-sown">Sowing date <span class="opt">optional</span></label>
-              <input id="ed-sown" type="date" value="${esc(e.sown)}" oninput="state.editRow.sown=this.value"></div>
-            <div><label class="f" for="ed-moved">Transplanting <span class="opt">optional</span></label>
-              <input id="ed-moved" type="date" value="${esc(e.moved)}" oninput="state.editRow.moved=this.value"></div>
-            <div><label class="f" for="ed-plants">Number of plants <span class="opt">optional</span></label>
-              <input id="ed-plants" type="number" min="1" step="1" inputmode="numeric" value="${esc(e.plants)}" placeholder="e.g. 1000"
-                oninput="state.editRow.plants=this.value"></div>
-          </div>${varietyFieldHTML(null)}</div>`
+      ? `<div class="gb gb-refuse">
+          <div class="gb-head">${icon('close')} <span><strong>${esc(e.crop.trim())}</strong> is not in the crop guide, so it cannot be planted here.
+            Pick one of the guide’s crops — or ask the Secretariat to add it under Crop guide.</span></div>
+          <div class="gb-pick">${chips}</div></div>`
       : `<div class="gb-pick"><span class="helper" style="margin:0;">Planned for you from the sowing date:</span> ${chips}</div>`;
   }
   if(e.manual) return manualBoxHTML(g);
@@ -6085,7 +6096,7 @@ function dayRowHTML(f, r, x, ri, v){
   const {ro, px, X, L} = v, mobile = L.mobile;
   const g = r.plan && r.plan.guide ? guideFor(r.plan.guide) : null;
   const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${g && g.tree ? 'trees' : 'plants'}` : '';
-  const sub = [locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const sub = [offGuide(r) ? 'not in the crop guide' : '', locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
   const j = rowJourney(r);
   const open = ro ? '' : `onclick="openEditor('${r.id}')"`;
   const btns = ro ? '' : `<span class="cc-rowbtns">
@@ -6475,6 +6486,11 @@ async function importFarmExcel(input){
     for(const ws of wb.worksheets){ parsed = parseTemplateSheet(ws); if(parsed) break; }
     if(!parsed) return done('That file does not look like the crop calendar template — no sheet has a CROP heading with months beside it.', true);
     if(!parsed.plantings.length) return done('The template was read, but it has no plantings in it yet.', true);
+    // Only crops in the crop guide come in, each under the guide's own name.
+    const left = [];
+    parsed.plantings = parsed.plantings.filter(p=>{ const g = guideMatch(p.crop); if(g){ p.crop = g.name; return true; } left.push(p.crop || '(no crop named)'); return false; });
+    const leftText = left.length ? ` ${left.length} planting${left.length === 1 ? ' was' : 's were'} left out — not in the crop guide: ${[...new Set(left)].map(esc).join(', ')}.` : '';
+    if(!parsed.plantings.length) return done(`None of the plantings in that file is of a crop in the crop guide, so nothing was imported.${leftText}`, true);
     const f = currentFarm();
     const replace = !liveRows(f).length ? true
       : confirm(`This file has ${parsed.plantings.length} planting${parsed.plantings.length===1?'':'s'}.\n\n` +
@@ -6483,7 +6499,7 @@ async function importFarmExcel(input){
     touch(state.member);
     state.scroll = null;
     done(`${CHECK_ICON} Imported ${n} planting${n===1?'':'s'} from “${esc(parsed.sheet)}”${replace ? ', replacing what was there' : ''}.` +
-         (parsed.unrecognised ? ` ${parsed.unrecognised} coloured week${parsed.unrecognised===1?' was':'s were'} not a colour in the key and ${parsed.unrecognised===1?'was':'were'} left blank.` : ''));
+         (parsed.unrecognised ? ` ${parsed.unrecognised} coloured week${parsed.unrecognised===1?' was':'s were'} not a colour in the key and ${parsed.unrecognised===1?'was':'were'} left blank.` : '') + leftText);
   }catch(e){ done('That file could not be read: ' + esc(e.message || e), true); }
 }
 
