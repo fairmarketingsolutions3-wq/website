@@ -242,7 +242,11 @@ are standard ranges for warm East African conditions matched to each variety
 type, with Rijk Zwaan's published figures quoted where they exist; the middle
 of each range is used. It gives no yields, so kg a plant stays the TIPFA
 Harvest Ledger's (per harvest week) or the farm's own. Onion, herbs and avocado
-are its general guidance; paprika, habanero and garlic keep the TIPFA figures.
+are its general guidance. Crops it does not cover are not built in (paprika,
+habanero and garlic were removed, also from guides saved earlier); the
+Secretariat can add any crop under **Crop guide → Add a crop**. A farm can
+still type another crop and colour its weeks by hand, but only the guide's
+crops are offered when adding a planting.
 
 A guide saved before this edition is brought up to it automatically: crops
 nobody changed take the new figures, crops the Secretariat changed or added are

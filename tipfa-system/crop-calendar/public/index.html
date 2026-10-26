@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v16">
+<meta name="tipfa-build" content="v17">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2403,9 +2403,6 @@ const STAGE = Object.fromEntries(STAGES.map(s=> [s.code, s]));
    template has two location columns: GREENHOUSE / BLOCK and SECTION. */
 const UNIT_TYPES = ['Greenhouse', 'Screenhouse', 'Open field', 'Nursery'];
 
-// The crops TIPFA farms grow, offered as suggestions. A farm can type any other.
-const COMMON_CROPS = ['Tomato', 'Cherry tomato', 'Capsicum', 'Habanero pepper', 'Cucumber',
-  'Broccoli', 'Cauliflower', 'Lettuce', 'Herbs', 'Avocado', 'Onion', 'Cabbage', 'Beans'];
 
 const MONTH_ABBR = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 const MONTHS = ['January','February','March','April','May','June','July','August','September',
@@ -4652,7 +4649,7 @@ function editState(r){
 }
 function editorPanel(f){
   const e = state.editRow, u = unitOf(f, e.unit);
-  const crops = [...new Set([...CROP_GUIDE.map(g=> g.name), ...f.rows.map(r=> r.crop.trim()).filter(Boolean), ...COMMON_CROPS])];
+  const crops = CROP_GUIDE.map(g=> g.name);         // the crop guide's crops are the ones offered
   const where = [];
   if(showUnits(f)) where.push(`<div><label class="f">${esc(unitWord(f))}</label>
       <select id="ed-unit" onchange="state.editRow.unit=this.value;state.editRow.block='';keepEditor();">
@@ -5119,12 +5116,14 @@ function renderArchive(c){
    The guide gives no yields: what a plant gives stays the TIPFA Harvest
    Ledger's (per harvest week), or the farm's own figure. Onion, herbs and
    avocado are not Rijk Zwaan crops; their timings are the guide's general
-   ones. Paprika, habanero and garlic are not in it, and keep the TIPFA
-   figures. The Secretariat can change any of it under Crop guide.
+   ones. Crops the guide does not cover are not in it. The Secretariat can
+   change any of it, or add a crop, under Crop guide.
    ============================================================ */
 const GUIDE_SEASON_WEEKS = 24;      // the Harvest Ledger's season, from transplanting
 const GUIDE_EDITION = 'rz-ea-2026-10';
-const RZ = 'rz', GENERAL = 'general', TIPFA = 'tipfa';
+const RZ = 'rz', GENERAL = 'general';
+// Crops an earlier edition had built in, which this guide does not cover.
+const GUIDE_REMOVED = ['paprika', 'habanero', 'garlic'];
 const CROP_GUIDE_DEFAULT = [
   {id:'tomato', name:'Tomato', src:RZ,
    names:['tomato', 'tomatoes', 'tomatoes (standard)', 'standard tomato', 'tomato (standard)', 'plum tomato', 'round tomato', 'beef tomato', 'beefsteak tomato'],
@@ -5170,14 +5169,6 @@ const CROP_GUIDE_DEFAULT = [
      {name:'PASARELLA RZ F1', type:'Blocky', traits:'Blocky sweet pepper', res:'HR: PVY:0,1/Tm:0-2 · IR: TSWV:0'},
      {name:'REGGAETON RZ F1', type:'Sweet pepper', traits:'', res:'HR: Tm:0-3 · IR: TSWV:0'},
    ]},
-  {id:'paprika', name:'Paprika', src:TIPFA, names:['paprika'],
-   nursery:[6, 8], fromTransplant:126, flower:3,
-   timingNote:'not in the Rijk Zwaan guide: nursery as capsicum, first harvest in the Harvest Ledger’s week 19',
-   harvest:{kind:'weekly', weeks:6, kg:0.4}},
-  {id:'habanero', name:'Habanero (Loleza)', src:TIPFA, names:['habanero', 'habanero (loleza)', 'habanero pepper', 'habanero peppers', 'loleza'],
-   nursery:[8, 10], fromSowing:[130, 150], flower:3,
-   timingNote:'not in the Rijk Zwaan guide: a very slow starter, and needs long heat to ripen',
-   harvest:{kind:'weekly', weeks:11, kg:0.15}},
   {id:'sweet-melon', name:'Sweet melon', src:RZ, names:['sweet melon', 'melon', 'sweet melons', 'rock melon', 'muskmelon', 'cantaloupe'],
    nurseryDays:[15, 15], fromTransplant:70, flowerDays:45,
    ranges:{nursery:'12–18 days (or sown direct)', veg:'20–30 days to female flowers', flower:'35–55 days, by type', first:'65–90 days after transplanting', window:'2–4 weeks'},
@@ -5233,10 +5224,6 @@ const CROP_GUIDE_DEFAULT = [
      {name:'Red Bombay type', type:'Short-day bulb · not Rijk Zwaan', traits:'Widely grown in Tanzania', res:''},
      {name:'F1 short-day hybrid', type:'Short-day bulb · not Rijk Zwaan', traits:'From other seed companies', res:''},
    ]},
-  {id:'garlic', name:'Garlic', src:TIPFA, names:['garlic'],
-   direct:true, fromSowing:[240, 270], flower:0,
-   timingNote:'not in the Rijk Zwaan guide: planted as cloves, lifted once',
-   harvest:{kind:'single', kg:null}},
   {id:'herbs', name:'Basil', src:GENERAL, names:['basil', 'sweet basil', 'herbs', 'herbs (basil, coriander)', 'herbs (annual)'],
    nurseryDays:[28, 28], fromTransplant:25, flowerDays:0,
    ranges:{nursery:'25–30 days', veg:'3–4 weeks to the first cut', first:'45–60 days after sowing', window:'cut every 2–3 weeks; a 4–6 month crop'},
@@ -5304,7 +5291,7 @@ function applyGuide(list){
    set them (the Crop guide page offers the new figures for those); crops new
    to this edition are added, unless the Secretariat already added its own. */
 function upgradeGuide(list){
-  const out = list.map(g=>{
+  const out = list.filter(g=> g.custom || !GUIDE_REMOVED.includes(g.id)).map(g=>{
     const d = CROP_GUIDE_DEFAULT.find(x=> x.id === g.id);
     return !d || g.custom || g.edited || g.ed === GUIDE_EDITION ? g : cloneGuide(d);
   });
@@ -5755,7 +5742,7 @@ function stagesText(g){
   return parts.join(', ');
 }
 // Where a crop's figures come from, in words.
-const SRC_NAME = {rz:'Rijk Zwaan crop guide, East Africa', general:'Rijk Zwaan crop guide, general guidance (not a Rijk Zwaan crop)', tipfa:'TIPFA Harvest Ledger and sowing table'};
+const SRC_NAME = {rz:'Rijk Zwaan crop guide, East Africa', general:'Rijk Zwaan crop guide, general guidance (not a Rijk Zwaan crop)'};
 function guideSourceText(g){
   const cap = t=> t.charAt(0).toUpperCase() + t.slice(1);
   const kg = `Yield: ${yieldText(g)}${guideHasYield(g) ? (g.kgSrc ? ` — the Rijk Zwaan guide gives no yields; this is the ${g.kgSrc}’s` : '') : ' — no figure in the guide, so give your own expected kg a plant'}.`;
@@ -7073,8 +7060,7 @@ function guideTag(g){
   return g.custom ? '<span class="gd-tag is-new">Added by the Secretariat</span>'
        : g.edited ? `<span class="gd-tag is-edited">Edited${g.ed !== GUIDE_EDITION ? ' · older figures' : ''}</span>`
        : g.src === 'rz' ? '<span class="gd-tag is-rz">Rijk Zwaan</span>'
-       : g.src === 'general' ? '<span class="gd-tag">General guidance</span>'
-       : '<span class="gd-tag">TIPFA guide</span>';
+       : '<span class="gd-tag">General guidance</span>';
 }
 
 /* ---- The page ------------------------------------------------------------ */
@@ -7100,7 +7086,7 @@ function renderGuideAdmin(c){
     ${staleEdited().length ? `<div class="card gd-stale">${icon('refresh')} <div><strong>The Rijk Zwaan crop guide is built in.</strong>
       Every crop nobody had changed now uses it. ${staleEdited().map(g=> esc(g.name)).join(', ')} still ${staleEdited().length === 1 ? 'has' : 'have'} figures set here before it came in.
       <div style="margin-top:8px;"><button class="btn small" onclick="guideUseEdition(this)">Use the Rijk Zwaan figures for ${staleEdited().length === 1 ? 'it' : 'them'} too</button></div></div></div>` : ''}
-    <p class="helper gd-about">Timings: the Rijk Zwaan crop guide for East Africa (Tanzania), October 2026 — standard stage ranges for warm East African conditions matched to each variety type, with Rijk Zwaan’s published figures quoted where it has them; the middle of each range is used. It gives no yields, so what a plant gives is still the TIPFA Harvest Ledger’s, or each farm’s own. Onion, herbs and avocado are general guidance (not Rijk Zwaan crops); paprika, habanero and garlic keep the TIPFA figures.</p>
+    <p class="helper gd-about">Timings: the Rijk Zwaan crop guide for East Africa (Tanzania), October 2026 — standard stage ranges for warm East African conditions matched to each variety type, with Rijk Zwaan’s published figures quoted where it has them; the middle of each range is used. It gives no yields, so what a plant gives is still the TIPFA Harvest Ledger’s, or each farm’s own. Onion, herbs and avocado are its general guidance (not Rijk Zwaan crops). Crops it does not cover are not built in; add one with Add a crop if farms need it.</p>
 
     <div class="section-label">Calculator</div>
     <div class="card gd-calc">
