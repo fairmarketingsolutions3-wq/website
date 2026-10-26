@@ -84,14 +84,19 @@ service cloud.firestore {
     function farmShape(d) {
       return d.keys().hasOnly(['name', 'contact', 'phone', 'email', 'location', 'registered',
                                'units', 'rows', 'startYear', 'updatedAt', 'signupCode',
-                               'status', 'statusBy', 'statusAt'])
+                               'status', 'statusBy', 'statusAt', 'photo'])
+        && photoOk(d)
         && d.name is string && d.name.size() > 0 && d.name.size() <= 120
         && d.units is list && d.units.size() >= 1 && d.units.size() <= 200
         && d.rows is list && d.rows.size() <= 1000;
     }
     // What a farm may change about itself: its details and its calendar.
     function farmOwnFields() {
-      return ['name', 'contact', 'phone', 'location', 'units', 'rows', 'startYear', 'updatedAt'];
+      return ['name', 'contact', 'phone', 'location', 'units', 'rows', 'startYear', 'updatedAt', 'photo'];
+    }
+    // A profile photo: a small picture, made in the browser, kept as a data URL.
+    function photoOk(d) {
+      return !('photo' in d) || (d.photo is string && d.photo.size() <= 120000 && d.photo.matches('^data:image/.*'));
     }
 
     match /calendarSettings/signup {
@@ -128,8 +133,9 @@ service cloud.firestore {
         && request.resource.data.status == 'pending'
         && request.resource.data.signupCode == calendarCodes().operatorCode;
       allow update: if
-        // the code goes the moment the account exists; a name may be corrected
-        (isSelf(uid) && changedOnly(['signupCode', 'name']) && !('signupCode' in request.resource.data))
+        // the code goes the moment the account exists; a name and a photo may be changed
+        (isSelf(uid) && changedOnly(['signupCode', 'name', 'photo']) && !('signupCode' in request.resource.data)
+            && photoOk(request.resource.data))
         // the owner approves themselves, once, on arrival
         || (isSelf(uid) && isOwnerUid(uid) && changedOnly(['status', 'statusBy', 'statusAt'])
             && request.resource.data.status == 'approved' && request.resource.data.statusBy == uid)

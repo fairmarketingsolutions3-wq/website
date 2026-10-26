@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v19">
+<meta name="tipfa-build" content="v20">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2326,6 +2326,69 @@ body.cc-wide .content > .grid4{display:none;}
 .gd-removed-list{display:flex;flex-wrap:wrap;gap:8px;}
 .gd-removed-item{display:inline-flex;align-items:center;gap:10px;border:1px dashed var(--line);border-radius:12px;padding:6px 8px 6px 12px;background:#FBFAF5;}
 .gd-removed-item strong{color:var(--muted);font-weight:600;text-decoration:line-through;text-decoration-color:rgba(0,0,0,.25);}
+
+/* ============================================================
+   Pictures: crops, and profile photos
+   ============================================================ */
+.crop-pic{display:inline-block;object-fit:contain;flex:none;vertical-align:middle;filter:drop-shadow(0 2px 3px rgba(35,40,31,.18));}
+.crop-pic.xs{width:22px;height:22px;margin-right:6px;}
+.crop-pic.chip{width:22px;height:22px;margin:-3px 6px -3px -4px;}
+.crop-pic.head{width:40px;height:40px;margin:-6px 2px -6px -2px;}
+.crop-pic.card{width:52px;height:52px;margin:-6px 4px -6px -4px;}
+.crop-pic.calc{width:86px;height:86px;}
+.gd-card-head{justify-content:flex-start;}
+.gd-card-head .gd-tag{margin-left:auto;}
+.gd-figs.has-pic{grid-template-columns:auto repeat(3, 1fr);}
+.gd-fig.gd-pic{align-items:center;justify-content:center;padding:4px 10px;background:radial-gradient(circle at 50% 60%, #F3F7EA, #fff 70%);}
+.gb-chip{display:inline-flex;align-items:center;}
+.gb-head > .crop-pic{flex:none;}
+td.stk .crop-pic.xs, .dv-fl .crop-pic.xs{width:24px;height:24px;}
+.ass-table td.stk{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+/* The crop column's badge: its picture on a soft disc, today's stage in a dot. */
+.cc-ico.has-pic{position:relative;background:radial-gradient(circle at 50% 55%, #FFFFFF, #EEF2E4 72%);overflow:visible;}
+.cc-ico.has-pic > img{width:115%;height:115%;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(35,40,31,.22));}
+.cc-ico.has-pic .cc-stage{position:absolute;right:-5px;bottom:-5px;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);color:inherit;}
+.cc-ico.has-pic.s-L .cc-stage{background:#E8EFF7;} .cc-ico.has-pic.s-S .cc-stage{background:#FFF7BF;}
+.cc-ico.has-pic.s-T .cc-stage{background:#DDF5E6;} .cc-ico.has-pic.s-V .cc-stage{background:#DCF2FB;}
+.cc-ico.has-pic.s-F .cc-stage{background:#EFE3F7;} .cc-ico.has-pic.s-H .cc-stage{background:#FFE3E0;}
+.cc-ico.has-pic.done .cc-stage{background:#FFF1D2;}
+.dv-pin .cc-ico.has-pic{width:50px;height:50px;border-radius:16px;}
+.dv.is-mobile .dv-pin .cc-ico.has-pic{width:40px;height:40px;display:flex;}
+/* Profile photos. */
+.farm-logo.has-photo{background:#fff;overflow:hidden;}
+.farm-logo.has-photo img{width:100%;height:100%;object-fit:cover;padding:0;}
+.session-me{display:flex;align-items:center;gap:10px;background:none;border:none;padding:4px 8px 4px 4px;border-radius:12px;cursor:pointer;color:inherit;text-align:left;font:inherit;}
+.session-me:hover{background:rgba(255,255,255,.12);}
+.session-me > span:last-child{display:flex;flex-direction:column;}
+button.nd-acct{width:100%;background:none;border:none;cursor:pointer;text-align:left;font:inherit;color:inherit;padding:0;}
+.pf-overlay{position:fixed;inset:0;z-index:200;background:rgba(23,30,20,.45);display:flex;align-items:center;justify-content:center;padding:16px;
+  animation:bannerIn .25s var(--ease-out) both;}
+.pf-card{position:relative;background:var(--card, #fff);border-radius:20px;padding:26px 24px 20px;width:min(380px, 100%);text-align:center;
+  box-shadow:0 24px 60px -12px rgba(0,0,0,.4);}
+.pf-card.is-busy{opacity:.6;pointer-events:none;}
+.pf-card h3{margin:12px 0 2px;}
+.pf-avatar{display:flex;justify-content:center;}
+.pf-avatar .farm-logo.xl{width:112px;height:112px;border-radius:28px;}
+.pf-actions{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;}
+.pf-actions .btn svg{width:15px;height:15px;}
+.pf-close{position:absolute;top:10px;right:10px;border:none;background:none;cursor:pointer;color:var(--muted);padding:6px;border-radius:8px;}
+.pf-close:hover{background:#F2F1E8;}
+.pf-msg{margin:12px 0 0;}
+.pf-msg.bad{color:var(--red, #B5432F);}
+.pf-msg svg{vertical-align:-3px;}
+/* A crop's picture in the crop editor. */
+.ge-pic{display:flex;gap:16px;align-items:center;flex-wrap:wrap;}
+.ge-pic-prev{width:96px;height:96px;border-radius:18px;border:1px dashed var(--line);display:flex;align-items:center;justify-content:center;
+  font-size:11.5px;color:var(--muted);background:radial-gradient(circle at 50% 55%, #fff, #F2F5EB 75%);flex:none;}
+.ge-pic-prev img{width:88px;height:88px;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(35,40,31,.2));}
+.ge-pic-side{flex:1;min-width:200px;}
+.ge-pic-btns{display:flex;flex-wrap:wrap;gap:8px;}
+@media (max-width: 760px){
+  .gd-figs.has-pic{grid-template-columns:1fr;}
+  .crop-pic.calc{width:64px;height:64px;}
+  .crop-pic.card{width:44px;height:44px;}
+}
 </style>
 </head>
 <body>
@@ -2655,7 +2718,7 @@ function operatorList(){
   if(cloudOn()) return Object.keys(OPERATORS).map(id=> Object.assign({id, owner: id === OWNER_ID}, OPERATORS[id]));
   const seen = {};
   Object.values(ACCOUNTS).forEach(a=>{ if(a.role === 'operator' && !seen[a.id]) seen[a.id] = {id:a.id, name:a.name, email:a.email||'',
-    since:a.since||'', status:a.status, statusBy:a.statusBy||'', statusAt:a.statusAt||'', owner:!!a.owner}; });
+    since:a.since||'', status:a.status, statusBy:a.statusBy||'', statusAt:a.statusAt||'', owner:!!a.owner, photo:a.photo||''}; });
   return Object.values(seen);
 }
 function operatorName(id){
@@ -3151,8 +3214,7 @@ function farmInitials(name){
 }
 function farmLogo(f, size){
   if(!f) return '';
-  return `<span class="farm-logo is-missing${size ? ' '+size : ''}" title="${esc(f.name)}">
-    <span class="farm-initials">${esc(farmInitials(f.name))}</span></span>`;
+  return personAvatar(f.name, f.photo, size);
 }
 function emptyState(title, body, action){
   return `<div class="card empty-state">
@@ -3681,9 +3743,10 @@ function renderTopbarRight(){
   if(!state.loggedIn){ el.innerHTML = ''; return; }
   const isMember = state.role === 'member', f = currentFarm();
   el.innerHTML = `<div class="session">
-      ${isMember ? farmLogo(f) : ''}
-      <div><div class="who">${esc(isMember ? f.name : (state.adminName || 'Secretariat operator'))}</div>
-        <div class="role-tag" style="font-size:11px;">${isMember ? 'Farm member' : (state.isOwner ? 'System owner' : 'Administrator')} access</div></div>
+      <button class="session-me" onclick="openProfile()" title="Your profile — add or change your photo">
+        ${myAvatar()}
+        <span><span class="who">${esc(isMember ? f.name : (state.adminName || 'Secretariat operator'))}</span>
+          <span class="role-tag" style="font-size:11px;">${isMember ? 'Farm member' : (state.isOwner ? 'System owner' : 'Administrator')} access</span></span></button>
       <button onclick="logout()">Log out</button>
     </div>`;
 }
@@ -3714,10 +3777,10 @@ function navAccount(){
   const who = isMember ? (f ? f.name : '') : (state.adminName || 'TIPFA Secretariat operator');
   const sub = isMember ? (f && f.location ? f.location : 'Farm member access') : (state.isOwner ? 'System owner' : 'Administrator access');
   return `<div class="nd-foot">
-      <div class="nd-acct">
-        ${isMember && f ? farmLogo(f,'sm') : `<span class="nd-initials">${esc((who||'?').slice(0,2).toUpperCase())}</span>`}
-        <div class="nd-who"><div class="nd-name">${esc(who)}</div><div class="nd-sub">${esc(sub)}</div></div>
-      </div>
+      <button class="nd-acct" onclick="openProfile()" title="Your profile — add or change your photo">
+        ${myAvatar('sm')}
+        <div class="nd-who"><div class="nd-name">${esc(who)}</div><div class="nd-sub">${esc(sub)} · <u>profile photo</u></div></div>
+      </button>
       <div class="nd-tools">${refreshButton()}${cloudBadge()}</div>
       <button class="nd-out" onclick="logout()">Log out</button>
     </div>`;
@@ -4352,7 +4415,7 @@ function rowHTML(r, ri){
   const j = rowJourney(r);
   const tip = [r.crop || '(no crop named)', sub, j.text, r.notes].filter(Boolean).join(' — ');
   const cropInner = `<div class="cc-crop-cell">
-      <span class="cc-ico ${j.cls}" aria-hidden="true">${jIcon(j.icon, 17)}</span>
+      ${cropIcoHTML(r, j)}
       <span class="cn" ${ro ? '' : `onclick="openEditor('${r.id}')"`} title="${esc(tip)}"><span class="cn-name">${esc(r.crop || '—')}</span>
         ${sub && !mobile ? `<span class="sub">${esc(sub)}</span>` : ''}
         <span class="cc-now">${esc(j.text)}</span>
@@ -4406,7 +4469,7 @@ function footHTML(f, view){
   return `<tfoot>
     <tr class="tot"><th class="stk" title="Total harvest, kg per ${unit}">${isMobile() ? 'TOTAL' : 'TOTAL HARVEST'} <span class="per">kg</span></th>${cells(sumOf(per))}</tr>
     <tr class="bych"><th class="stk">${isMobile() ? 'By crop' : 'Harvest by crop'}</th><td colspan="${nW}" class="per-note">kg per ${unit}</td></tr>
-    ${crops.length ? crops.map(gc=> `<tr class="crop"><th class="stk" title="${esc(gc.crop)}">${esc(gc.crop)}</th>${cells(sumOf(gc.per))}</tr>`).join('')
+    ${crops.length ? crops.map(gc=> `<tr class="crop"><th class="stk" title="${esc(gc.crop)}">${cropPic(guideMatch(gc.crop), 'xs')}${esc(gc.crop)}</th>${cells(sumOf(gc.per))}</tr>`).join('')
       : `<tr class="crop"><th class="stk" style="font-weight:400;color:var(--muted);">No harvest kilograms yet</th><td colspan="${nW}"></td></tr>`}
   </tfoot>`;
 }
@@ -5144,7 +5207,7 @@ function archiveTableHTML(f, rows, ro){
     <thead><tr><th>Crop</th><th>Sown</th><th>Harvest</th><th>Plants</th><th>Harvest kg</th><th>Archived</th>${ro ? '' : '<th></th>'}</tr></thead>
     <tbody>${rows.map(r=>{ const s = seasonFacts(r), where = locationText(f, r);
       return `<tr>
-        <td><strong>${esc(r.crop || '—')}</strong>${r.variety ? ` <span class="helper" style="margin:0;">${esc(r.variety)}</span>` : ''}${where || r.area ? `<div class="helper" style="margin:2px 0 0;">${esc([where, r.area ? fmt(r.area) + ' m²' : ''].filter(Boolean).join(' · '))}</div>` : ''}</td>
+        <td>${cropPic(guideMatch(r.crop), 'xs')}<strong>${esc(r.crop || '—')}</strong>${r.variety ? ` <span class="helper" style="margin:0;">${esc(r.variety)}</span>` : ''}${where || r.area ? `<div class="helper" style="margin:2px 0 0;">${esc([where, r.area ? fmt(r.area) + ' m²' : ''].filter(Boolean).join(' · '))}</div>` : ''}</td>
         <td>${esc(s.sown)}${s.moved ? `<div class="helper" style="margin:2px 0 0;">transplanted ${esc(s.moved)}</div>` : ''}</td>
         <td>${esc(s.harvest)}</td>
         <td>${s.plants ? fmt(s.plants) : '—'}</td>
@@ -5667,7 +5730,7 @@ function calendarEnd(){ const f = currentFarm(); return new Date((f && f.startYe
 function guideBoxHTML(){
   const e = state.editRow, g = guideMatch(e.crop);
   if(!g){
-    const chips = CROP_GUIDE.map(x=> `<button type="button" class="gb-chip" onclick="pickGuideCrop('${x.id}')">${esc(x.name)}</button>`).join('');
+    const chips = CROP_GUIDE.map(x=> `<button type="button" class="gb-chip" onclick="pickGuideCrop('${x.id}')">${cropPic(x, 'chip')}${esc(x.name)}</button>`).join('');
     // A crop the guide does not know still has its dates and plants, kept with
     // the planting; only its weeks are coloured by hand.
     // Only the guide's crops are planted: anything else is turned back, with the guide's crops to pick from.
@@ -5683,7 +5746,7 @@ function guideBoxHTML(){
   const unit = g.tree ? 'trees' : 'plants';
   const dateLabel = g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date';
   return `<div class="gb">
-    <div class="gb-head">${icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt && guideFor(g.alt)
+    <div class="gb-head">${cropPic(g, 'head') || icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt && guideFor(g.alt)
       ? ` <button type="button" class="gb-alt" onclick="pickGuideCrop('${g.alt}')">${g.tree ? 'Growing it from seed instead?' : 'A tree already bearing fruit instead?'}</button>` : ''}</span></div>
     ${varietyFieldHTML(g)}
     <div class="gb-fields">
@@ -5825,8 +5888,9 @@ function guideSourceText(g){
   if(r){
     const t = [];
     if(r.nursery) t.push(`nursery ${r.nursery}`);
-    if(r.veg) t.push(`transplanting ${w.veg || 'to the first flowers'} ${r.veg}`);
-    if(r.flower) t.push(`${w.flower || 'flowering and fruit set to the first harvest'} ${r.flower}`);
+    // A range that names its own end ("35–45 days to head initiation") is not named twice.
+    if(r.veg) t.push(w.veg ? `after transplanting, ${r.veg}` : `transplanting to the first flowers ${r.veg}`);
+    if(r.flower) t.push(w.flower ? `then ${r.flower}` : `flowering and fruit set to the first harvest ${r.flower}`);
     if(r.first) t.push(`first harvest ${r.first}`);
     if(r.window) t.push(`harvest ${r.window}`);
     parts.push(`Timing (${SRC_NAME[g.src] || 'crop guide'}; the middle of each range is used): ${t.join('; ')}`);
@@ -6140,7 +6204,7 @@ function daysHTML(f, opts){
   const cell = (v, mo, i, t)=> `<span class="${v ? '' : 'zero'}" style="left:${X(mo.a).toFixed(1)}px;width:${mW(mo).toFixed(1)}px" title="${MONTHS[mo.m - 1]} ${mo.y}: ${fmt(v)} kg">${v && t ? `<i class="sky" style="--h:${(v / t).toFixed(3)};--d:${i * 40}ms"></i>` : ''}<em>${v ? (mW(mo) >= 46 ? fmt(Math.round(v)) : kgShort(v)) : (mW(mo) >= 16 ? '0' : '')}</em></span>`;
   const foot = `<div class="dv-foot">
     <div class="dv-frow tot"><div class="dv-fl">${L.mobile ? 'Total harvest' : 'TOTAL HARVEST'} <small>kg a month</small></div><div class="dv-fc">${per.map((v, i)=> cell(v, R.months[i], i, top)).join('')}</div></div>
-    ${crops.map(gc=>{ const t = Math.max(1, ...gc.per); return `<div class="dv-frow crop"><div class="dv-fl" title="${esc(gc.crop)}">${esc(gc.crop)}</div><div class="dv-fc">${gc.per.map((v, i)=> cell(v, R.months[i], i, t)).join('')}</div></div>`; }).join('')}
+    ${crops.map(gc=>{ const t = Math.max(1, ...gc.per); return `<div class="dv-frow crop"><div class="dv-fl" title="${esc(gc.crop)}">${cropPic(guideMatch(gc.crop), 'xs')}${esc(gc.crop)}</div><div class="dv-fc">${gc.per.map((v, i)=> cell(v, R.months[i], i, t)).join('')}</div></div>`; }).join('')}
   </div>`;
 
   const key = `${opts.key || state.member}|days|${R.a}|${R.b}`;
@@ -6175,7 +6239,7 @@ function dayRowHTML(f, r, x, ri, v){
   const dpos = first > L.track * 0.55 ? `right:${Math.max(0, L.track - lastR).toFixed(1)}px;text-align:right;` : `left:${first.toFixed(1)}px;`;
   return `<div class="dv-row${state.growRow === r.id ? ' grow' : ''}" data-row="${r.id}" style="--d:${Math.min(ri, 24) * 45}ms">
     <div class="dv-pin"><div class="cc-crop-cell">
-      <span class="cc-ico ${j.cls}" aria-hidden="true">${jIcon(j.icon, 17)}</span>
+      ${cropIcoHTML(r, j)}
       <span class="cn" ${open} title="${esc([r.crop, sub, j.text, r.notes].filter(Boolean).join(' — '))}"><span class="cn-name">${esc(r.crop || '—')}</span>
         ${sub ? `<span class="sub">${esc(sub)}</span>` : ''}
         <span class="cc-now">${esc(j.text)}</span>
@@ -6782,7 +6846,7 @@ function associationTable(ass, months, perMonth, total){
   return `<table class="ass-table fit">
     <colgroup><col style="width:${fixed.crop}px"><col style="width:${fixed.farms}px">${'<col>'.repeat(groups.length)}<col style="width:${fixed.total}px"></colgroup>
     <thead><tr><th class="stk">Crop</th><th>Farms</th>${groups.map(gr=> `<th class="${gr[0].m===1?'ystart':''}">${label(gr)}</th>`).join('')}<th>Total</th></tr></thead>
-    <tbody>${ass.map(e=> `<tr><td class="stk" title="${esc(e.crop)}">${esc(e.crop)}</td><td class="v">${e.farms.size}</td>
+    <tbody>${ass.map(e=> `<tr><td class="stk" title="${esc(e.crop)}">${cropPic(guideMatch(e.crop), 'xs')}${esc(e.crop)}</td><td class="v">${e.farms.size}</td>
         ${sum(e.per).map((v, i)=> `<td class="v ${v?'':'zero'}${bar(v)}" title="${esc(label(groups[i]))}: ${fmt(v)} kg">${num(v)}</td>`).join('')}<td class="v"><strong>${fixed.total < 80 ? kgShort(e.total) : fmt(e.total)}</strong></td></tr>`).join('')}
       <tr class="tot"><th class="stk">All crops</th><td></td>${sum(perMonth).map(v=> `<td class="v">${num(v)}</td>`).join('')}<td class="v">${fixed.total < 80 ? kgShort(total) : fmt(total)}</td></tr>
     </tbody></table>`;
@@ -7036,7 +7100,7 @@ function renderMembers(c){
         <div class="wc-actions">${decisionButtons('farm', f)}</div>
       </div>`).join('')}
       ${waitingOps.map(o=> `<div class="card wait-card is-admin">
-        <div class="wc-head"><span class="nd-initials">${esc((o.name||'?').slice(0,2).toUpperCase())}</span><div><strong>${esc(o.name)}</strong><div class="helper" style="margin:0;">Administrator · since ${esc(whenText(o.since) || o.since || '')}</div></div></div>
+        <div class="wc-head">${personAvatar(o.name, o.photo, 'sm')}<div><strong>${esc(o.name)}</strong><div class="helper" style="margin:0;">Administrator · since ${esc(whenText(o.since) || o.since || '')}</div></div></div>
         <dl class="status-facts">${o.email ? `<dt>Email</dt><dd>${esc(o.email)}</dd>` : ''}</dl>
         <p class="helper" style="margin:0 0 10px;">Approving gives them every member's calendar and the power to approve others.</p>
         <div class="wc-actions">${decisionButtons('operator', o)}</div>
@@ -7071,7 +7135,7 @@ function renderMembers(c){
       <table class="grid-table">
         <thead><tr><th>Name</th><th>Email</th><th>Since</th><th>Status</th><th></th></tr></thead>
         <tbody>${ops.sort((a, b)=> (b.owner - a.owner) || (order[a.status]-order[b.status]) || (a.name||'').localeCompare(b.name||'')).map(o=> `<tr>
-          <td><strong>${esc(o.name)}</strong>${o.owner ? ' <span class="owner-tag">System owner</span>' : ''}${o.id === state.adminId ? ' <span class="helper" style="margin:0;">(you)</span>' : ''}</td>
+          <td><span class="farm-cell">${personAvatar(o.name, o.photo, 'sm')}<strong>${esc(o.name)}</strong></span>${o.owner ? ' <span class="owner-tag">System owner</span>' : ''}${o.id === state.adminId ? ' <span class="helper" style="margin:0;">(you)</span>' : ''}</td>
           <td>${esc(o.email || '—')}</td>
           <td>${esc(whenText(o.since) || o.since || '—')}</td>
           <td>${statusPill(o.status)}${decidedText(o) && !o.owner ? `<div class="helper" style="margin:4px 0 0;">${decidedText(o)}</div>` : ''}</td>
@@ -7198,7 +7262,7 @@ function guideCardHTML(g){
     : per === null ? `<span class="gd-missing">No kg figure — farms give their own</span>`
     : `${fmt(plants)} ${unit}s → <strong>${fmt(Math.round(per * plants * 10) / 10)} kg</strong>`;
   return `<div class="card gd-card" data-guide="${id}">
-    <div class="gd-card-head"><strong>${esc(g.name)}</strong>${guideTag(g)}</div>
+    <div class="gd-card-head">${cropPic(g, 'card')}<strong>${esc(g.name)}</strong>${guideTag(g)}</div>
     <dl class="gd-facts">
       <dt>Stages</dt><dd>${stageChipsHTML(g)}</dd>
       <dt>Timing</dt><dd>${esc(timingText(g) || '—')}</dd>
@@ -7270,7 +7334,7 @@ function guideCalcUpdate(cropChanged){
     : perPlantWorking(g);
   const weekly = per != null && plants && p.hWeeks ? Math.round(per * plants / p.hWeeks * 10) / 10 : null;
   out.innerHTML = `
-    <div class="gd-figs">
+    <div class="gd-figs${cropImgSrc(g0) ? ' has-pic' : ''}">${cropImgSrc(g0) ? `<div class="gd-fig gd-pic">${cropPic(g0, 'calc')}</div>` : ''}
       <div class="gd-fig"><span class="lbl">A ${unit} gives</span><span class="val">${per == null ? '—' : kgText(per)}</span></div>
       <div class="gd-fig is-main"><span class="lbl">${plants ? fmt(plants) : 'No'} ${many} give</span><span class="val">${per == null || !plants ? '—' : fmt(p.total) + ' kg'}</span></div>
       <div class="gd-fig"><span class="lbl">${h.kind === 'weekly' || h.kind === 'picking' ? 'Each harvest week' : 'A harvest week, on average'}</span><span class="val">${weekly == null ? '—' : fmt(weekly) + ' kg'}</span></div>
@@ -7293,6 +7357,7 @@ function toDraft(g){
     sow: g && g.sow || '', note: g && g.timingNote || ''};
   Object.keys(st).forEach(k=> d[k] = s(st[k]));
   if(d.kind === 'single') d.hWeeks = '1';
+  d.image = g && g.image || '';
   d.varieties = (g && g.varieties || []).map(v=> Object.assign({name: v.name, type: v.type || '', traits: v.traits || '', res: v.res || '', vnote: v.note || ''},
     ...VAR_DAYS.map(k=> ({[k]: v.adj && v.adj[k] != null ? String(v.adj[k]) : ''}))));
   return d;
@@ -7343,6 +7408,7 @@ function fromDraft(d){
   }
   if(!g.varieties.length) delete g.varieties;
   delete g.ranges; delete g.stageWords;        // the Secretariat's figures now, not the published ranges
+  if(d.image) g.image = d.image; else delete g.image;
   g.ed = GUIDE_EDITION;
   if(!d.orig){
     const base = cropKey(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'crop';
@@ -7439,6 +7505,8 @@ function renderGuideEditor(c){
       <div class="ge-sec">Varieties <span class="ge-sec-note">— farms pick one when they plant; leave a day box blank and the variety takes the crop’s figure</span></div>
       <div class="ge-vars">${d.varieties.map((v, i)=> varietyEditHTML(v, i, d)).join('')}
         <button type="button" class="btn small ghost" onclick="guideVarAdd()">${icon('plus')} Add a variety</button></div>
+      <div class="ge-sec">Picture</div>
+      ${guidePicHTML(d)}
       <div class="ge-sec">Notes for farms</div>
       <div class="ge-row ge-wide">
         ${fld('sow', 'Usual sowing time', 'type="text" maxlength="120" placeholder="e.g. March to April"', true)}
@@ -7521,6 +7589,30 @@ function varietyEditHTML(v, i, d){
       ${f('vnote', 'Note for farms', 'type="text" maxlength="300"', 'e.g. published: 65–75 days')}
     </div></div>`;
 }
+/* ---- A crop's picture, in the crop editor --------------------------------- */
+function guidePicHTML(d){
+  const builtIn = d.orig && isBuiltIn(d.orig);
+  const src = d.image || (builtIn ? `assets/crops/${d.orig}.webp` : '');
+  return `<div class="ge-pic">
+    <span class="ge-pic-prev">${src ? `<img src="${esc(src)}" alt="" onerror="this.replaceWith(document.createTextNode('No picture'))">` : 'No picture'}</span>
+    <div class="ge-pic-side">
+      <div class="ge-pic-btns">
+        <label class="btn small ghost">${icon('up')} ${src ? 'Upload another picture' : 'Upload a picture'}
+          <input type="file" accept="image/*" onchange="guidePicSet(this)" hidden></label>
+        ${d.image ? `<button type="button" class="btn small ghost" onclick="guidePicClear()">${builtIn ? `${icon('restore')} Use the built-in picture` : `${icon('trash')} Remove the picture`}</button>` : ''}
+      </div>
+      <span class="helper" id="ge-pic-msg" style="margin:6px 0 0;">Best as a single crop with no background (a cut-out PNG or WebP). It is shown small, beside the crop’s name.</span>
+    </div></div>`;
+}
+async function guidePicSet(input){
+  const file = input.files && input.files[0];
+  if(!file) return;
+  try{
+    state.guideEdit.image = await pictureDataURL(file, 192, 'contain');
+    renderKeepingPlace();
+  }catch(e){ const m = document.getElementById('ge-pic-msg'); if(m){ m.style.color = 'var(--red)'; m.textContent = (e && e.message) || String(e); } }
+}
+function guidePicClear(){ state.guideEdit.image = ''; renderKeepingPlace(); }
 function guideVarSet(i, k, v){ state.guideEdit.varieties[i][k] = v; if(k === 'name'){ const h = document.querySelectorAll('.ge-var-head strong')[i]; if(h) h.textContent = v || 'New variety'; } guideEditPreview(); }
 function guideVarAdd(){
   state.guideEdit.varieties.push(Object.assign({name:'', type:'', traits:'', res:'', vnote:''}, ...VAR_DAYS.map(k=> ({[k]: ''}))));
@@ -7563,6 +7655,141 @@ function removedCropsHTML(){
     <div class="card gd-removed"><p class="helper" style="margin:0 0 10px;">Built-in crops taken out of the guide. Farms cannot plant them; put one back to offer it again.</p>
       <div class="gd-removed-list">${list.map(d=> `<span class="gd-removed-item"><strong>${esc(d.name)}</strong>
         <button class="btn small ghost" onclick="guideRestore('${esc(d.id)}', this)">${icon('restore')} Put back</button></span>`).join('')}</div></div>`;
+}
+
+/* ============================================================
+   Pictures
+   Each crop in the guide has a picture, cut out with no background: the
+   built-in crops' are files in assets/crops, and the Secretariat can give any
+   crop its own (kept in the crop guide, small enough to travel with it).
+   Farms and administrators can add a profile photo, shown wherever their
+   initials were. Pictures are made small in the browser before they are
+   saved: a square of 192 pixels, a few kilobytes.
+   ============================================================ */
+function cropImgSrc(g){
+  if(!g) return '';
+  if(g.image) return g.image;
+  return CROP_GUIDE_DEFAULT.some(d=> d.id === g.id) ? `assets/crops/${g.id}.webp` : '';
+}
+// A crop's picture; nothing when it has none, or when the file cannot be loaded.
+function cropPic(g, cls){
+  const s = cropImgSrc(g);
+  return s ? `<img class="crop-pic${cls ? ' ' + cls : ''}" src="${esc(s)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '';
+}
+// The crop column's round badge: the crop's picture, with where it stands today in a small dot.
+function cropIcoHTML(r, j){
+  const s = cropImgSrc(guideMatch(r.crop));
+  if(!s) return `<span class="cc-ico ${j.cls}" aria-hidden="true">${jIcon(j.icon, 17)}</span>`;
+  return `<span class="cc-ico has-pic ${j.cls}" aria-hidden="true"><img src="${esc(s)}" alt="" loading="lazy" decoding="async"
+      onerror="this.parentNode.classList.remove('has-pic');this.remove()"><i class="cc-stage">${jIcon(j.icon, 11)}</i></span>`;
+}
+
+/* ---- Making a picture small ---------------------------------------------------
+   'cover' fills the square (a profile photo); 'contain' fits the whole picture
+   in it and keeps a transparent background transparent (a crop). */
+async function pictureDataURL(file, size, fit){
+  if(!file) throw new Error('No picture was chosen.');
+  if(!/^image\//.test(file.type || '')) throw new Error('That file is not a picture. Choose a photo (JPG, PNG or WebP).');
+  if(file.size > 15e6) throw new Error('That picture is too large — choose one under 15 MB.');
+  let img;
+  try{ img = await createImageBitmap(file); }
+  catch(e){
+    img = await new Promise((resolve, reject)=>{
+      const im = new Image();
+      im.onload = ()=> resolve(im);
+      im.onerror = ()=> reject(new Error('That picture could not be read. Try a JPG or PNG.'));
+      im.src = URL.createObjectURL(file);
+    });
+  }
+  const w = img.width, h = img.height, c = document.createElement('canvas');
+  c.width = c.height = size;
+  const x = c.getContext('2d');
+  x.imageSmoothingQuality = 'high';
+  if(fit === 'cover'){ const s = Math.min(w, h); x.drawImage(img, (w - s) / 2, (h - s) / 2, s, s, 0, 0, size, size); }
+  else { const k = size / Math.max(w, h), dw = w * k, dh = h * k; x.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh); }
+  let url = c.toDataURL('image/webp', 0.82);
+  if(!url.startsWith('data:image/webp')) url = fit === 'cover' ? c.toDataURL('image/jpeg', 0.85) : c.toDataURL('image/png');
+  if(url.length > 110000) url = c.toDataURL('image/jpeg', 0.7);
+  return url;
+}
+
+/* ---- Avatars --------------------------------------------------------------- */
+function personAvatar(name, photo, size){
+  return photo
+    ? `<span class="farm-logo has-photo${size ? ' ' + size : ''}" title="${esc(name || '')}"><img src="${esc(photo)}" alt=""></span>`
+    : `<span class="farm-logo is-missing${size ? ' ' + size : ''}" title="${esc(name || '')}"><span class="farm-initials">${esc(farmInitials(name || '?'))}</span></span>`;
+}
+function myOperator(){ return operatorList().find(o=> o.id === state.adminId) || {}; }
+function myProfile(){
+  if(state.role === 'member'){
+    const f = currentFarm() || {};
+    return {name: f.name || '', photo: f.photo || '', sub: [f.location, 'Farm member'].filter(Boolean).join(' · ')};
+  }
+  const o = myOperator();
+  return {name: state.adminName || o.name || '', photo: o.photo || '', sub: state.isOwner ? 'System owner' : 'Administrator'};
+}
+function myAvatar(size){ const me = myProfile(); return personAvatar(me.name, me.photo, size); }
+
+/* ---- Your profile -------------------------------------------------------------- */
+function openProfile(){
+  closeProfile();
+  if(state.navOpen) closeNav();
+  const el = document.createElement('div');
+  el.id = 'profile-modal'; el.className = 'pf-overlay';
+  el.innerHTML = profileHTML();
+  el.addEventListener('click', e=>{ if(e.target === el) closeProfile(); });
+  document.body.appendChild(el);
+  const first = el.querySelector('.pf-pick');
+  if(first) first.focus();
+}
+function closeProfile(){ const el = document.getElementById('profile-modal'); if(el) el.remove(); }
+document.addEventListener('keydown', e=>{ if(e.key === 'Escape') closeProfile(); });
+function profileHTML(msg, bad){
+  const me = myProfile();
+  return `<div class="pf-card" role="dialog" aria-modal="true" aria-labelledby="pf-title">
+    <button class="pf-close" onclick="closeProfile()" aria-label="Close">${icon('close')}</button>
+    <div class="pf-avatar">${personAvatar(me.name, me.photo, 'xl')}</div>
+    <h3 id="pf-title">${esc(me.name)}</h3>
+    <p class="helper" style="margin:0 0 14px;">${esc(me.sub)}</p>
+    <div class="pf-actions">
+      <label class="btn pf-pick" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.querySelector('input').click();}">
+        ${icon('up')} ${me.photo ? 'Change photo' : 'Add a profile photo'}
+        <input type="file" accept="image/*" onchange="setProfilePhoto(this)" hidden></label>
+      ${me.photo ? `<button class="btn ghost" onclick="setProfilePhoto(null, this)">${icon('trash')} Remove photo</button>` : ''}
+    </div>
+    <p class="helper pf-msg${bad ? ' bad' : ''}" id="pf-msg">${msg || `Shown beside your name${state.role === 'member' ? ', and to the Secretariat' : ' and to other administrators'}. It is cropped to a square.`}</p>
+  </div>`;
+}
+async function cloudSavePhoto(kind, id, url){
+  const { doc, updateDoc, deleteField } = CLOUD.fs;
+  await updateDoc(doc(CLOUD.db, kind === 'farm' ? COL.farms : COL.operators, id), {photo: url || deleteField()});
+}
+async function setProfilePhoto(input, btn){
+  const card = document.querySelector('#profile-modal');
+  const say = (m, bad)=>{ if(card) card.innerHTML = profileHTML(m, bad); };
+  try{
+    const file = input && input.files && input.files[0];
+    if(input && !file) return;
+    if(card) card.querySelector('.pf-card').classList.add('is-busy');
+    const url = file ? await pictureDataURL(file, 192, 'cover') : null;
+    if(state.role === 'member'){
+      const f = currentFarm();
+      if(cloudOn()) await withTimeout(cloudSavePhoto('farm', state.member, url), 15000, 'Saving the photo');
+      if(url) f.photo = url; else delete f.photo;
+    } else if(cloudOn()){
+      await withTimeout(cloudSavePhoto('operator', state.adminId, url), 15000, 'Saving the photo');
+      const o = Object.assign({}, OPERATORS[state.adminId]);
+      if(url) o.photo = url; else delete o.photo;
+      OPERATORS[state.adminId] = o;
+    } else Object.values(ACCOUNTS).forEach(a=>{ if(a.id === state.adminId){ if(url) a.photo = url; else delete a.photo; } });
+    saveLocal();
+    renderKeepingPlace();
+    say(`${CHECK_ICON} ${url ? 'Your photo is saved.' : 'Your photo was removed.'}`);
+  }catch(e){
+    const denied = String((e && e.code) || '').includes('permission-denied');
+    say(denied ? 'The photo was not saved: the database’s security rules do not allow photos yet. The Secretariat needs to publish the latest firestore.rules in the Firebase console (Firestore Database → Rules).'
+               : 'The photo was not saved: ' + esc((e && e.message) || e), true);
+  }
 }
 
 /* ============================================================

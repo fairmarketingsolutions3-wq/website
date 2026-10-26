@@ -265,6 +265,22 @@ back**, and is not brought back by a later edition of the built-in guide (the
 saved guide keeps a short `{id, removed: true}` marker for it). A crop the
 Secretariat added itself is gone for good once removed.
 
+### Pictures
+Each built-in crop has a picture: a single crop cut out with no background,
+in `public/assets/crops/<crop id>.webp` (192 px, about 11 KB each; made with
+Higgsfield). They appear beside the crop on the calendar, in the planting
+editor, in the crop guide and calculator, and in the totals. Under
+**Crop guide → Edit**, the Secretariat can upload a crop's own picture (best
+as a cut-out PNG or WebP) or go back to the built-in one; an uploaded picture
+is made small in the browser and kept in the crop guide.
+
+Farms and administrators add a **profile photo** by clicking their name at the
+top (on a phone, in the menu). It is cropped to a 192 px square in the browser
+and saved on the account (`photo`, a data URL of at most 120,000 characters,
+which the rules check). It shows wherever the initials were. Saving a photo
+needs the current `firestore.rules`; a calendar saves separately, so it is not
+affected if the rules are older.
+
 ### Varieties
 In the planting editor a farm picks its variety from the crop's list (with
 what the seed company says of it and its resistances) or types another. A
