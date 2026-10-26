@@ -257,6 +257,14 @@ A guide saved before this edition is brought up to it automatically: crops
 nobody changed take the new figures, crops the Secretariat changed or added are
 kept, and **Crop guide** offers the new figures for the changed ones.
 
+### Removing a crop from the guide
+Under **Crop guide**, every crop has **Remove**. Farms can then no longer plant
+it; plantings of it already on calendars stay, marked "not in the crop guide".
+A built-in crop removed this way is listed under **Removed crops** with **Put
+back**, and is not brought back by a later edition of the built-in guide (the
+saved guide keeps a short `{id, removed: true}` marker for it). A crop the
+Secretariat added itself is gone for good once removed.
+
 ### Varieties
 In the planting editor a farm picks its variety from the crop's list (with
 what the seed company says of it and its resistances) or types another. A
@@ -285,6 +293,13 @@ archived plantings, read only, under its calendar.
 Under **Crop calendars**, **Export every farm (Excel)** downloads one workbook: the
 association's totals, then every farm's calendar. Doing this regularly (e.g.
 monthly) is the simplest backup. Firestore's own scheduled exports need the Blaze plan.
+
+### Several accounts in one browser
+Farms and administrators sign in through separate Firebase app instances
+(`tipfa-crop-calendar` and `tipfa-crop-calendar-admin`), and each tab remembers
+which account it shows (sessionStorage), with the device remembering the last
+one for new tabs (localStorage). So an administrator in one tab and a farm in
+another both stay signed in, and refreshing a tab keeps its own account.
 
 ### Password resets
 **Forgotten your password?** on the sign-in screen sends Firebase's reset email. The

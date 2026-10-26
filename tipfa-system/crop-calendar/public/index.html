@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v18">
+<meta name="tipfa-build" content="v19">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2323,6 +2323,9 @@ body.cc-wide .content > .grid4{display:none;}
 .gb-refuse .gb-pick{margin-top:8px;}
 .msg-banner.is-warn{background:#FBF1E2;color:#7A4A10;border-left-color:var(--harvest-orange, #E8A734);}
 .msg-banner.is-warn svg{stroke:#C9822B;}
+.gd-removed-list{display:flex;flex-wrap:wrap;gap:8px;}
+.gd-removed-item{display:inline-flex;align-items:center;gap:10px;border:1px dashed var(--line);border-radius:12px;padding:6px 8px 6px 12px;background:#FBFAF5;}
+.gd-removed-item strong{color:var(--muted);font-weight:600;text-decoration:line-through;text-decoration-color:rgba(0,0,0,.25);}
 </style>
 </head>
 <body>
@@ -2671,7 +2674,43 @@ function operatorName(id){
    are in calendarFarms, not farms.
    ============================================================ */
 const COL = { farms:'calendarFarms', operators:'calendarOperators', settings:'calendarSettings' };
-const CLOUD = { status:'connecting', detail:'', app:null, db:null, auth:null, fs:null, authApi:null, ready:false };
+const CLOUD = { status:'connecting', detail:'', app:null, db:null, auth:null, fs:null, authApi:null, appApi:null, ready:false, slot:null, slots:{} };
+/* Two sign-ins, side by side. A browser keeps one signed-in account per
+   Firebase app, shared by every tab; with one app, signing in as a farm in one
+   tab signed the administrator out of another, and a refresh there opened the
+   farm. So farms and administrators each have an app of their own (the farm
+   one keeps the original name, so farms already signed in stay signed in), and
+   each tab remembers which one it was using. */
+const SLOT_APP = {farm:'tipfa-crop-calendar', admin:'tipfa-crop-calendar-admin'};
+function useSlot(kind){
+  if(!CLOUD.appApi || (CLOUD.slot === kind && CLOUD.auth)) return;
+  let s = CLOUD.slots[kind];
+  if(!s){
+    const cfg = window.TIPFA_CC_FIREBASE_CONFIG, firestore = CLOUD.fs, auth = CLOUD.authApi;
+    const app = CLOUD.appApi.getApps().find(a=> a.name === SLOT_APP[kind]) || CLOUD.appApi.initializeApp(cfg, SLOT_APP[kind]);
+    const a = auth.getAuth(app);
+    let db;
+    // Pointing at a local emulator, for testing, is a setting in the config file.
+    if(cfg.emulator){
+      db = firestore.getFirestore(app);
+      firestore.connectFirestoreEmulator(db, cfg.emulator.host, cfg.emulator.firestorePort);
+      auth.connectAuthEmulator(a, `http://${cfg.emulator.host}:${cfg.emulator.authPort}`, {disableWarnings:true});
+    } else {
+      // Keeps a farm's edits through a dropped connection and sends them when it returns.
+      db = firestore.initializeFirestore(app, {localCache: firestore.persistentLocalCache({tabManager: firestore.persistentMultipleTabManager()})});
+    }
+    s = CLOUD.slots[kind] = {app, auth: a, db};
+  }
+  CLOUD.slot = kind; CLOUD.app = s.app; CLOUD.auth = s.auth; CLOUD.db = s.db;
+}
+// The sign-in this tab was using: its own, or else the one used last on this device.
+function tabSlot(){ const s = readSession(); return s && s.slot ? s.slot : s && s.role === 'admin' ? 'admin' : 'farm'; }
+function readSession(own){
+  for(const store of own ? ['sessionStorage'] : ['sessionStorage', 'localStorage']){
+    try{ const s = JSON.parse(window[store].getItem(SESSION_KEY) || 'null'); if(s) return Object.assign(s, {own: store === 'sessionStorage'}); }catch(e){}
+  }
+  return null;
+}
 const CLOUD_SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
 const CLOUD_STATE = { uid:null, role:null, email:null, pushTimer:null, pendingId:null, cloudIds:new Set(), unsubs:[] };
 const CLOUD_CONFIGURED = !!(window.TIPFA_CC_FIREBASE_CONFIG && window.TIPFA_CC_FIREBASE_CONFIG.projectId);
@@ -2716,20 +2755,9 @@ async function initCloud(){
       import(CLOUD_SDK + 'firebase-firestore.js'),
       import(CLOUD_SDK + 'firebase-auth.js')
     ]);
-    if(!CLOUD.app){
-      CLOUD.app = getApps().find(a=> a.name === 'tipfa-crop-calendar') || initializeApp(cfg, 'tipfa-crop-calendar');
-      CLOUD.auth = auth.getAuth(CLOUD.app);
-      CLOUD.fs = firestore; CLOUD.authApi = auth;
-      // Pointing at a local emulator, for testing, is a setting in the config file.
-      if(cfg.emulator){
-        CLOUD.db = firestore.getFirestore(CLOUD.app);
-        firestore.connectFirestoreEmulator(CLOUD.db, cfg.emulator.host, cfg.emulator.firestorePort);
-        auth.connectAuthEmulator(CLOUD.auth, `http://${cfg.emulator.host}:${cfg.emulator.authPort}`, {disableWarnings:true});
-      } else {
-        // Keeps a farm's edits through a dropped connection and sends them when it returns.
-        CLOUD.db = firestore.initializeFirestore(CLOUD.app,
-          {localCache: firestore.persistentLocalCache({tabManager: firestore.persistentMultipleTabManager()})});
-      }
+    if(!CLOUD.appApi){
+      CLOUD.appApi = {initializeApp, getApps}; CLOUD.fs = firestore; CLOUD.authApi = auth;
+      useSlot(tabSlot());
     }
     setCloudStatus('ready', `Connected to ${cfg.projectId}.`);
   }catch(e){
@@ -2804,6 +2832,7 @@ async function withRollback(acct, work){
 }
 
 async function cloudRegisterFarm(vals, password, code){
+  useSlot('farm');
   const { doc, getDoc, setDoc, updateDoc, deleteField } = CLOUD.fs;
   const acct = await createOrAdopt(vals.email, password);
   const id = acct.cred.user.uid;
@@ -2824,6 +2853,7 @@ async function cloudRegisterFarm(vals, password, code){
    who claims ownership of the system (a document only the first can create)
    and approves themselves. Somebody has to be able to approve the rest. */
 async function cloudRegisterOperator(name, email, password, code){
+  useSlot('admin');
   const { doc, setDoc, updateDoc, deleteField } = CLOUD.fs;
   const acct = await createOrAdopt(email, password);
   const id = acct.cred.user.uid;
@@ -2860,7 +2890,8 @@ async function cloudWhoIs(id){
   }
   return {role:'orphan'};
 }
-async function cloudSignIn(email, password){
+async function cloudSignIn(email, password, kind){
+  useSlot(kind);
   const cred = await CLOUD.authApi.signInWithEmailAndPassword(CLOUD.auth, email, password);
   CLOUD_STATE.uid = cred.user.uid; CLOUD_STATE.email = email;
   const who = await cloudWhoIs(cred.user.uid);
@@ -3341,7 +3372,7 @@ async function doMemberLogin(btn){
   if(btn) btn.classList.add('is-busy');
   if(cloudOn()){
     try{
-      const who = await withTimeout(cloudSignIn(id.toLowerCase(), pw), 20000, 'Signing in');
+      const who = await withTimeout(cloudSignIn(id.toLowerCase(), pw, 'farm'), 20000, 'Signing in');
       if(who.role !== 'farm'){
         await cloudSignOut();
         if(btn) btn.classList.remove('is-busy');
@@ -3402,7 +3433,7 @@ async function doAdminLogin(btn){
   if(btn) btn.classList.add('is-busy');
   if(cloudOn()){
     try{
-      const who = await withTimeout(cloudSignIn(email, pw), 20000, 'Signing in');
+      const who = await withTimeout(cloudSignIn(email, pw, 'admin'), 20000, 'Signing in');
       if(who.role !== 'operator'){
         await cloudSignOut();
         if(btn) btn.classList.remove('is-busy');
@@ -3469,14 +3500,26 @@ function pendingCount(){
        + operatorList().filter(o=> o.status === 'pending').length;
 }
 function tabBadge(key){ return key === 'members' && state.role === 'admin' && isApproved() ? (pendingCount() || '') : ''; }
+/* Who is signed in is kept twice: for this tab (sessionStorage, which a
+   refresh keeps and other tabs do not share), and for the device (so a new
+   tab opens on the account used last). A refresh restores this tab's own. */
 function rememberSession(){
-  try{
-    if(!state.loggedIn){ localStorage.removeItem(SESSION_KEY); return; }
-    localStorage.setItem(SESSION_KEY, JSON.stringify({role:state.role, member:state.member,
-      adminName:state.adminName, adminId:state.adminId, tab:state.tab, cloud:!!cloudOn(), at:Date.now()}));
-  }catch(e){ }
+  if(!state.loggedIn){ forgetSession(); return; }
+  const s = JSON.stringify({role:state.role, member:state.member,
+    adminName:state.adminName, adminId:state.adminId, tab:state.tab, cloud:!!cloudOn(), slot: cloudOn() ? CLOUD.slot : null, at:Date.now()});
+  try{ sessionStorage.setItem(SESSION_KEY, s); }catch(e){ }
+  try{ localStorage.setItem(SESSION_KEY, s); }catch(e){ }
 }
-function forgetSession(){ try{ localStorage.removeItem(SESSION_KEY); }catch(e){} }
+// Signing out here forgets this tab's account, and the device's only if it was this one.
+function forgetSession(){
+  const mine = readSession(true);
+  try{ sessionStorage.removeItem(SESSION_KEY); }catch(e){}
+  try{
+    const dev = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
+    if(!mine || !dev || (dev.role === mine.role && (dev.role === 'member' ? dev.member === mine.member : dev.adminId === mine.adminId)))
+      localStorage.removeItem(SESSION_KEY);
+  }catch(e){}
+}
 function enterSession(role, opts){
   opts = opts || {};
   state.loggedIn = true; state.role = role;
@@ -3530,15 +3573,25 @@ function onLiveData(){
   if(keep){ const el = document.getElementById(keep.id); if(el){ el.focus({preventScroll:true}); try{ el.setSelectionRange(keep.start, keep.end); }catch(_){ } } }
 }
 async function restoreSession(){
-  let saved = null;
-  try{ saved = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null'); }catch(e){}
+  const saved = readSession();
   if(!saved) return false;
   if(cloudOn()){
-    const user = await new Promise(resolve=>{
+    const signedIn = ()=> new Promise(resolve=>{
       const stop = CLOUD.authApi.onAuthStateChanged(CLOUD.auth, u=>{ stop(); resolve(u); }, ()=> resolve(null));
       setTimeout(()=> resolve(CLOUD.auth.currentUser || null), 8000);
     });
-    if(!user){ forgetSession(); return false; }
+    // This tab's own account, in its own sign-in. A tab opened fresh may take
+    // whichever account is signed in on the device.
+    // (An account signed in before there were two keeps the sign-in it has.)
+    const first = saved.slot || (saved.role === 'admin' ? 'admin' : 'farm');
+    const kinds = [first, first === 'admin' ? 'farm' : 'admin'];
+    let user = null;
+    for(const kind of saved.own ? kinds.slice(0, 1) : kinds){
+      useSlot(kind);
+      user = await signedIn();
+      if(user) break;
+    }
+    if(!user){ useSlot(kinds[0]); forgetSession(); return false; }
     state.restoring = true; render();
     try{
       CLOUD_STATE.uid = user.uid; CLOUD_STATE.email = user.email || '';
@@ -5301,22 +5354,29 @@ function sanitiseGuide(list){
     return x;
   });
 }
+/* Built-in crops the Secretariat removed. The saved guide keeps a short
+   marker for each ({id, removed:true}), so a removed crop is not put back by
+   a later edition, and can be put back by hand. */
+let GUIDE_REMOVED_BY_ADMIN = [];
 function applyGuide(list){
-  const s = sanitiseGuide(list);
-  CROP_GUIDE = s && s.length ? upgradeGuide(s) : CROP_GUIDE_DEFAULT.map(cloneGuide);
+  const all = Array.isArray(list) ? list : [];
+  GUIDE_REMOVED_BY_ADMIN = [...new Set(all.filter(g=> g && g.removed && g.id).map(g=> String(g.id)))];
+  const s = sanitiseGuide(all.filter(g=> !(g && g.removed)));
+  CROP_GUIDE = s && s.length ? upgradeGuide(s)
+    : CROP_GUIDE_DEFAULT.filter(d=> !GUIDE_REMOVED_BY_ADMIN.includes(d.id)).map(cloneGuide);
 }
 /* A guide saved before this edition: its built-in crops nobody changed take
    this edition's figures; crops the Secretariat changed or added stay as it
    set them (the Crop guide page offers the new figures for those); crops new
    to this edition are added, unless the Secretariat already added its own. */
 function upgradeGuide(list){
-  const out = list.filter(g=> g.custom || !GUIDE_REMOVED.includes(g.id)).map(g=>{
+  const out = list.filter(g=> g.custom || (!GUIDE_REMOVED.includes(g.id) && !GUIDE_REMOVED_BY_ADMIN.includes(g.id))).map(g=>{
     const d = CROP_GUIDE_DEFAULT.find(x=> x.id === g.id);
     return !d || g.custom || g.edited || g.ed === GUIDE_EDITION ? g : cloneGuide(d);
   });
   const custom = new Set(out.filter(g=> g.custom).flatMap(g=> g.names));
   CROP_GUIDE_DEFAULT.forEach(d=>{
-    if(!out.some(g=> g.id === d.id) && !d.names.some(n=> custom.has(n))) out.push(cloneGuide(d));
+    if(!out.some(g=> g.id === d.id) && !GUIDE_REMOVED_BY_ADMIN.includes(d.id) && !d.names.some(n=> custom.has(n))) out.push(cloneGuide(d));
   });
   // A name belongs to one crop: an older crop gives up a name this edition uses.
   const fresh = new Set(out.filter(g=> g.ed === GUIDE_EDITION && !g.custom).flatMap(g=> g.names));
@@ -5329,8 +5389,9 @@ function loadGuideLocal(){
   if(CLOUD_CONFIGURED) return;
   try{ const d = JSON.parse(localStorage.getItem(GUIDE_KEY) || 'null'); if(d) applyGuide(d.crops || d); }catch(e){}
 }
-async function saveGuide(list){
-  const crops = JSON.parse(JSON.stringify(list));
+async function saveGuide(list, removed){
+  removed = (removed || GUIDE_REMOVED_BY_ADMIN).filter(id=> !list.some(g=> g.id === id));
+  const crops = JSON.parse(JSON.stringify(list)).concat(removed.map(id=> ({id, removed:true})));
   if(cloudOn()){
     const { doc, setDoc } = CLOUD.fs;
     await setDoc(doc(CLOUD.db, COL.settings, 'cropGuide'), {crops, updatedAt: new Date().toISOString(), updatedBy: CLOUD_STATE.uid});
@@ -7124,7 +7185,8 @@ function renderGuideAdmin(c){
     <div class="gd-list-head"><div class="section-label">Crops</div>
       <button class="btn small" onclick="guideStartEdit(null)">${icon('plus')} Add a crop</button></div>
     <p class="helper" style="margin:-4px 0 12px;">${meta} A farm typing any of a crop’s names gets its plan. Plantings already on a calendar keep their weeks.</p>
-    <div class="gd-grid">${list.map(guideCardHTML).join('')}</div>`;
+    <div class="gd-grid">${list.map(guideCardHTML).join('')}</div>
+    ${removedCropsHTML()}`;
   guideCalcUpdate(true);
 }
 
@@ -7149,7 +7211,7 @@ function guideCardHTML(g){
       <button class="btn small ghost" onclick="guideCalcPick('${id}')">${icon('calc')} Calculate</button>
       <button class="btn small ghost" onclick="guideStartEdit('${id}')">${icon('pencil')} Edit</button>
       ${g.edited && isBuiltIn(g.id) ? `<button class="btn small ghost" onclick="guideReset('${id}', this)" title="Put back the built-in (Rijk Zwaan guide) figures">${icon('restore')} Reset</button>` : ''}
-      ${g.custom ? `<button class="btn small ghost danger" onclick="guideDelete('${id}', this)">${icon('trash')} Delete</button>` : ''}
+      <button class="btn small ghost danger" onclick="guideDelete('${id}', this)" title="Take ${esc(g.name)} out of the crop guide">${icon('trash')} Remove</button>
     </div>
   </div>`;
 }
@@ -7392,10 +7454,10 @@ function renderGuideEditor(c){
 }
 
 // Saving the whole guide: the database keeps one list.
-async function guideCommit(list, btn, done){
+async function guideCommit(list, btn, done, removed){
   if(btn) btn.classList.add('is-busy');
   try{
-    await withTimeout(saveGuide(list), 15000, 'Saving the crop guide');
+    await withTimeout(saveGuide(list, removed), 15000, 'Saving the crop guide');
     state.guideEdit = null; state.guideEditErr = '';
     state.guideMsg = `${CHECK_ICON} ${done}`;
     render();
@@ -7467,12 +7529,40 @@ function guideVarAdd(){
   if(last){ last.scrollIntoView({block:'center'}); const inp = last.querySelector('input'); if(inp) inp.focus({preventScroll:true}); }
 }
 function guideVarDel(i){ state.guideEdit.varieties.splice(i, 1); renderKeepingPlace(); }
+/* Removing a crop: farms can no longer plant it. Plantings of it already on a
+   calendar stay, marked as not in the crop guide. A built-in crop can be put
+   back later; one the Secretariat added is gone for good. */
 function guideDelete(id, btn){
   const g = guideFor(id);
-  if(!g || !g.custom) return;
+  if(!g) return;
   if(CROP_GUIDE.length <= 1) return showFatal('The guide needs at least one crop.');
-  if(!confirm(`Delete ${g.name} from the crop guide?\n\nPlantings already on a calendar keep their weeks; farms will colour new ones by hand.`)) return;
-  guideCommit(CROP_GUIDE.filter(x=> x.id !== id).map(cloneGuide), btn, `${esc(g.name)} was deleted from the guide.`);
+  const using = Object.values(FARMS).map(f=> (f.rows || []).filter(r=> !r.archived && guideMatch(r.crop) === g).length).filter(n=> n);
+  const n = using.reduce((a, b)=> a + b, 0);
+  const builtIn = isBuiltIn(id);
+  if(!confirm(`Remove ${g.name} from the crop guide?\n\nFarms will no longer be able to plant it.` +
+      (n ? ` ${n} planting${n === 1 ? '' : 's'} of it on ${using.length} farm${using.length === 1 ? '' : 's'} will stay as ${n === 1 ? 'it is' : 'they are'}, marked “not in the crop guide”.` : '') +
+      (builtIn ? '\n\nYou can put it back later under “Removed crops”.' : '\n\nThis crop was added here, so it cannot be put back — only added again.'))) return;
+  const removed = builtIn ? [...new Set([...GUIDE_REMOVED_BY_ADMIN, id])] : GUIDE_REMOVED_BY_ADMIN;
+  if(state.guideCalc && state.guideCalc.id === id) state.guideCalc.id = '';
+  guideCommit(CROP_GUIDE.filter(x=> x.id !== id).map(cloneGuide), btn, `${esc(g.name)} was removed from the crop guide.`, removed);
+}
+// A removed built-in crop, back as the built-in figures have it.
+function guideRestore(id, btn){
+  const d = CROP_GUIDE_DEFAULT.find(x=> x.id === id);
+  if(!d) return;
+  const fresh = cloneGuide(d);
+  const taken = new Set(CROP_GUIDE.flatMap(x=> x.names));
+  fresh.names = fresh.names.filter(n=> !taken.has(n));
+  if(!fresh.names.length) fresh.names = [cropKey(fresh.name)];
+  guideCommit(CROP_GUIDE.map(cloneGuide).concat([fresh]), btn, `${esc(d.name)} is back in the crop guide.`, GUIDE_REMOVED_BY_ADMIN.filter(x=> x !== id));
+}
+function removedCropsHTML(){
+  const list = GUIDE_REMOVED_BY_ADMIN.map(id=> CROP_GUIDE_DEFAULT.find(d=> d.id === id)).filter(Boolean);
+  if(!list.length) return '';
+  return `<div class="section-label">Removed crops</div>
+    <div class="card gd-removed"><p class="helper" style="margin:0 0 10px;">Built-in crops taken out of the guide. Farms cannot plant them; put one back to offer it again.</p>
+      <div class="gd-removed-list">${list.map(d=> `<span class="gd-removed-item"><strong>${esc(d.name)}</strong>
+        <button class="btn small ghost" onclick="guideRestore('${esc(d.id)}', this)">${icon('restore')} Put back</button></span>`).join('')}</div></div>`;
 }
 
 /* ============================================================
