@@ -378,6 +378,23 @@ this repository and branch, with **Base directory** `tipfa-system/crop-calendar`
 Every push to that branch then goes live by itself. Add the Netlify address under
 **Authentication → Settings → Authorized domains** in Firebase.
 
+## As the TIPFA website's Members Portal
+
+The TIPFA website (the repository's root `index.html`) has a **Members Portal**
+page: the folder `members-portal/` at the root holds a copy of this system, so
+it opens at `<website>/members-portal/`. The website links to it from the
+header, the phone menu, the Membership section and the footer. Opened there,
+the system calls itself "Members Portal", and its logo and a link above the
+sign-in lead back to the website. It uses the same Firebase project, so every
+account and calendar is the same as on the crop calendar's own address.
+
+After changing the system, refresh the copy from the project root:
+
+    bash scripts/build-members-portal.sh
+
+Add the website's domain under **Authentication → Settings → Authorized
+domains** in Firebase, as for any other address the system is served from.
+
 ## Hosting somewhere else
 
 Any static host works (cPanel, Netlify, Cloudflare Pages, an S3 bucket…):
