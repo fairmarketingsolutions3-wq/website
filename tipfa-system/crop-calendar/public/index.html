@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v21">
+<meta name="tipfa-build" content="v22">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2303,6 +2303,8 @@ body.cc-wide .content > .grid4{display:none;}
 .gb-variety-info .gv-res{color:var(--muted);font-size:11.5px;}
 .gb-variety-info .gv-note{color:var(--deep-green);font-weight:500;}
 .gb-variety-info .gv-note svg{width:13px;height:13px;vertical-align:-2px;}
+.gb-variety-info .gv-plan{color:var(--ink);font-size:12.5px;}
+.gb-variety-info .gv-plan b{color:var(--deep-green);}
 .gd-tag.is-rz{background:#E7F1DC;color:#3D6B1F;font-weight:600;}
 .gd-vars{display:flex;flex-wrap:wrap;gap:4px;}
 .gd-vars span{font-size:11px;background:#F4F5EE;border:1px solid var(--line);border-radius:99px;padding:1px 7px;white-space:nowrap;}
@@ -2981,9 +2983,10 @@ function cloudListen(){
     const d = snap.exists() ? snap.data() || {} : null;
     applyGuide(d ? d.crops : null);
     GUIDE_META = d ? {updatedAt: d.updatedAt || '', updatedBy: d.updatedBy || ''} : null;
+    GUIDE_LIVE = true;
     if(state.loggedIn && state.role === 'admin' && state.tab === 'guide' && !state.guideEdit) onLiveData();
-    // A farm's calendar shows at once which plantings were planned with older figures.
-    if(state.loggedIn && state.role === 'member' && state.tab === 'calendar' && !state.editRow && !state.fillRow && isApproved()) renderKeepingPlace();
+    // A farm's plantings follow the new figures at once (followGuideNow, as it redraws).
+    if(state.loggedIn && state.role === 'member' && !state.editRow && !state.fillRow && isApproved()) renderKeepingPlace();
   }, quiet));
   if(CLOUD_STATE.role === 'farm'){
     CLOUD_STATE.unsubs.push(onSnapshot(doc(CLOUD.db, COL.farms, CLOUD_STATE.uid), snap=>{
@@ -3930,6 +3933,7 @@ function render(){
   // strip across the top, so the weeks get the room.
   document.body.classList.toggle('cc-calpage', isApproved() && (state.role === 'member' ? state.tab === 'calendar'
     : state.tab === 'calendarsA' && !!state.viewFarm));
+  followGuideNow();
   const c = document.getElementById('content');
   renderTabContent(c);
   afterRender(c);
@@ -4421,7 +4425,7 @@ function rowHTML(r, ri){
         <span class="cc-now">${esc(j.text)}</span>
         <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
       ${ro ? '' : `<span class="cc-rowbtns">
-        ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed — update its weeks" aria-label="The crop guide for ${esc(r.crop)} has changed: update its weeks">${icon('refresh')}</button>` : ''}
+        ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed. Its weeks were coloured by hand, so they were left as they are — update them" aria-label="The crop guide for ${esc(r.crop)} has changed: update its weeks">${icon('refresh')}</button>` : ''}
         <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants" aria-label="Edit ${esc(r.crop)}: crop, dates and plants">${icon('pencil')}</button>
         ${j.cls === 'done' ? `<button class="cc-rowbtn cc-arch" onclick="archiveRow('${r.id}')" title="Season done — archive it" aria-label="Archive ${esc(r.crop)}">${icon('archive')}</button>`
           : mobile ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}</span>`}
@@ -4873,6 +4877,8 @@ function saveEditor(){
     const same = r.plan && plan && ['guide', 'sown', 'moved', 'plants', 'kgpp'].every(k=> r.plan[k] === plan[k])
       && JSON.stringify(r.plan.adj || null) === JSON.stringify(plan.adj || null) && (r.variety || '') === variety;
     if(same && r.plan.sig) plan.sig = r.plan.sig;    // the weeks were planned from those figures, and are kept
+    if(same && r.plan.cs) plan.cs = r.plan.cs;
+    if(plan && !same) plan.cs = cellsSig(planned.cells);
     if(plan && !same){
       const n = Object.keys(r.cells).length;
       if(n && !confirm(`Plan ${e.crop} again from the crop guide? Its ${n} coloured week${n===1?'':'s'} will be replaced by the new plan.`)) return;
@@ -4888,6 +4894,7 @@ function saveEditor(){
     state.editRow = null;
   } else {
     const r = {id:uid('r'), unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes, cells: plan ? planned.cells : {}};
+    if(plan) plan.cs = cellsSig(r.cells);
     if(variety) r.variety = variety;
     if(plan) r.plan = plan; else if(facts) r.plan = facts;
     f.rows.push(r);
@@ -5131,10 +5138,12 @@ function removeBlock(unitId, blockId){
 }
 
 /* ---- The crop guide changed after a planting was planned ------------------
-   Each plan keeps a fingerprint of the figures it was made from. When the
-   Secretariat changes them, the planting offers to be planned again — with
-   the same dates, plants and the farm's own timings — and nothing changes
-   until the farm says so. */
+   Each plan keeps a fingerprint of the figures it was made from, and of the
+   weeks it coloured. When the Secretariat changes the figures, a planting
+   whose weeks are as they were planned follows at once — with the same dates,
+   plants, variety and the farm's own timings (followGuide). One whose weeks
+   the farm has coloured by hand since is left alone, and offers to be planned
+   again (the update button), as only the farm can say its own weeks may go. */
 function guideChanged(r){
   const p = r.plan, g = p && p.guide && !p.manual ? guideFor(p.guide) : null;
   return !!(g && p.sig && p.sown && guideSig(effGuide(g, null, r.variety)) !== p.sig);
@@ -5146,13 +5155,72 @@ function replanRow(id){
   const p = planFromGuide(effGuide(g, r.plan.adj, r.variety), Object.assign({until: calendarEnd()}, r.plan));
   if(p.error) return showFatal(`${r.crop} could not be planned again: ${p.error}`);
   const n = Object.keys(r.cells).length;
-  if(!confirm(`The crop guide for ${g.name} has changed since this planting was planned.\n\nPlan it again with the new figures? Its ${n} coloured week${n === 1 ? '' : 's'} will be replaced. Your dates, plants${r.plan.adj ? ' and your own timings' : ''} are kept.`)) return;
+  if(!confirm(`The crop guide for ${g.name} has changed since this planting was planned. Its weeks were coloured by hand since, so they were left as they are.\n\nPlan it again with the new figures? Its ${n} coloured week${n === 1 ? '' : 's'}, and the changes made by hand, will be replaced. Your dates, plants${r.plan.adj ? ' and your own timings' : ''} are kept.`)) return;
   r.cells = p.cells;
   r.plan.sig = guideSig(effGuide(g, null, r.variety));
+  r.plan.cs = cellsSig(r.cells);
   state.growRow = r.id;
   state.calMsg = `${CHECK_ICON} ${esc(r.crop)} planned again with the crop guide’s new figures${p.total != null ? `: ${fmt(p.total)} kg` : ''}.`;
   touch(state.member);
   render();
+}
+
+function cellsSig(cells){ return hashText(JSON.stringify(Object.keys(cells).sort().map(k=> [k, cells[k]]))); }
+// Whether a planting's weeks are still as its plan coloured them.
+function asPlanned(f, r, P){
+  const p = r.plan;
+  if(p.cs) return cellsSig(r.cells) === p.cs;
+  // Planned before the weeks were fingerprinted. From the built-in figures:
+  // plan it again with those, and compare.
+  const d = CROP_GUIDE_DEFAULT.find(x=> x.id === p.guide);
+  if(d && guideSig(effGuide(d, null, r.variety)) === p.sig){
+    const old = planFromGuide(effGuide(d, p.adj, r.variety), Object.assign({}, p, {until: farmEnd(f)}));
+    return !old.error && sameCells(old.cells, r.cells);
+  }
+  // From figures since changed: the same stages as the new plan, kg in the same proportions.
+  return cellsLike(r.cells, P.cells);
+}
+function cellsLike(a, b){
+  const ka = Object.keys(a).filter(k=> readCell(a[k])), kb = Object.keys(b).filter(k=> readCell(b[k]));
+  if(ka.length !== kb.length) return false;
+  let sa = 0, sb = 0;
+  for(const k of kb){
+    const x = readCell(a[k]), y = readCell(b[k]);
+    if(!x || x.s !== y.s || (x.kg == null) !== (y.kg == null)) return false;
+    sa += x.kg || 0; sb += y.kg || 0;
+  }
+  const q = sb ? sa / sb : 0;
+  return kb.every(k=>{ const x = readCell(a[k]), y = readCell(b[k]); return x.kg == null || Math.abs(x.kg - q * y.kg) <= 1 + 0.02 * x.kg; });
+}
+function farmEnd(f){ return new Date((f && f.startYear || DEFAULT_START_YEAR) + 3, 0, 1); }
+// Plan again every planting of a farm that the crop guide has moved on from; the ones changed.
+function followGuide(f){
+  const moved = [];
+  if(!f || !Array.isArray(f.rows)) return moved;
+  f.rows.forEach(r=>{
+    if(r.archived || !guideChanged(r)) return;
+    const g = guideFor(r.plan.guide);
+    const P = planFromGuide(effGuide(g, r.plan.adj, r.variety), Object.assign({}, r.plan, {until: farmEnd(f)}));
+    if(P.error || !asPlanned(f, r, P)) return;
+    r.cells = P.cells;
+    r.plan.sig = guideSig(effGuide(g, null, r.variety));
+    r.plan.cs = cellsSig(r.cells);
+    moved.push({r, total: P.total});
+  });
+  return moved;
+}
+// A farm's calendar, as it opens or redraws, takes the crop guide's latest figures.
+function followGuideNow(){
+  if(!state.loggedIn || !isApproved() || (cloudOn() && !GUIDE_LIVE)) return;
+  if(state.role !== 'member'){ Object.values(FARMS).forEach(followGuide); return; }
+  const moved = followGuide(currentFarm());
+  if(!moved.length) return;
+  touch(state.member);
+  const one = moved[0], name = esc(one.r.crop) + (one.r.variety ? ` (${esc(varietyShort(one.r))})` : '');
+  const text = moved.length === 1
+    ? `${name} follows the crop guide’s new figures${one.total != null ? `: now ${fmt(one.total)} kg` : ''}.`
+    : `${moved.length} plantings follow the crop guide’s new figures.`;
+  state.calMsg = `${CHECK_ICON} ${text}`;
 }
 
 /* ============================================================
@@ -5449,6 +5517,7 @@ const GUIDE_KEY = 'tipfa.cropcal.guide.v1';
 const cloneGuide = g=> JSON.parse(JSON.stringify(g));
 let CROP_GUIDE = CROP_GUIDE_DEFAULT.map(cloneGuide);
 let GUIDE_META = null;                 // when, and by whom, it was last changed
+let GUIDE_LIVE = false;                // the database's guide has been read: plantings may follow it
 function sanitiseGuide(list){
   if(!Array.isArray(list)) return null;
   return list.filter(g=> g && g.id && g.name && g.harvest && g.harvest.kind).map(g=>{
@@ -5633,11 +5702,11 @@ function effGuide(g, adj, variety){
   return out;
 }
 // A short fingerprint of a crop's figures, kept with each plan so a later change shows.
-function guideSig(g){
-  const t = JSON.stringify(stagesOf(g));
+function hashText(t){
   let h = 5381; for(let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
   return (h >>> 0).toString(36);
 }
+function guideSig(g){ return hashText(JSON.stringify(stagesOf(g))); }
 function guideFor(id){ return CROP_GUIDE.find(g=> g.id === id) || null; }
 function guideMatch(crop){ const k = cropKey(crop); return k ? CROP_GUIDE.find(g=> g.names.includes(k)) || null : null; }
 // Whether the guide knows what a plant gives, or the farm is asked.
@@ -5883,7 +5952,8 @@ function varietyFieldHTML(g){
   const info = v ? `<div class="gb-variety-info">
       <strong>${esc(v.name)}</strong>${v.type ? ` · ${esc(v.type)}` : ''}${v.traits ? `<span>${esc(v.traits)}</span>` : ''}
       ${v.res ? `<span class="gv-res">Resistances: ${esc(v.res)}</span>` : ''}
-      ${v.note ? `<span class="gv-note">${icon('today')} ${esc(v.note)}${v.adj ? ' — planned with these days.' : ''}</span>` : ''}</div>` : '';
+      ${v.note ? `<span class="gv-note">${icon('today')} ${esc(v.note)}</span>` : ''}
+      ${varietyPlanText(g, v)}</div>` : '';
   if(!list.length) return `<div class="gb-variety"><div><label class="f" for="ed-variety-text">Variety <span class="opt">optional</span></label>
       <input id="ed-variety-text" value="${esc(e.variety || '')}" placeholder="e.g. the name on the seed packet" oninput="state.editRow.variety=this.value.trim()"></div></div>`;
   return `<div class="gb-variety">
@@ -5896,6 +5966,11 @@ function varietyFieldHTML(g){
     ${other ? `<div><label class="f" for="ed-variety-text">Variety name</label>
       <input id="ed-variety-text" value="${esc(e.variety === '__other' ? '' : e.variety)}" placeholder="Type the variety" oninput="state.editRow.variety=this.value.trim()||'__other'"></div>` : ''}
     ${info}</div>`;
+}
+// What the calendar plans for a variety: the crop guide's figures as the Secretariat set them.
+function varietyPlanText(g, v){
+  const gv = effGuide(g, null, v.name), kg = perPlantOf(gv);
+  return `<span class="gv-plan">Planned at <b>${kg == null ? 'your own kg a plant' : amountText(kg) + ' a ' + (g.tree ? 'tree' : 'plant')}</b> — ${esc(stagesText(gv))}.</span>`;
 }
 function setVariety(v){
   const e = state.editRow;
@@ -6275,7 +6350,7 @@ function dayRowHTML(f, r, x, ri, v){
   const j = rowJourney(r);
   const open = ro ? '' : `onclick="openEditor('${r.id}')"`;
   const btns = ro ? '' : `<span class="cc-rowbtns">
-      ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed — update its days" aria-label="The crop guide for ${esc(r.crop)} has changed: update it">${icon('refresh')}</button>` : ''}
+      ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed. Its weeks were coloured by hand, so they were left as they are — update it" aria-label="The crop guide for ${esc(r.crop)} has changed: update it">${icon('refresh')}</button>` : ''}
       <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants, timings" aria-label="Edit ${esc(r.crop)}">${icon('pencil')}</button>
       ${j.cls === 'done' ? `<button class="cc-rowbtn cc-arch" onclick="archiveRow('${r.id}')" title="Season done — archive it" aria-label="Archive ${esc(r.crop)}">${icon('archive')}</button>` : ''}</span>`;
   const segs = x.segs.map(s=>{
@@ -7257,7 +7332,8 @@ function guideTag(g){
 /* ---- The page ------------------------------------------------------------ */
 function renderGuideAdmin(c){
   if(state.guideEdit) return renderGuideEditor(c);
-  const msg = state.guideMsg; state.guideMsg = '';
+  // Kept through the redraws the farms' own updates bring, for a few seconds.
+  const msg = state.guideMsg; if(!(Date.now() < state.guideMsgUntil)) state.guideMsg = '';
   const list = CROP_GUIDE;
   const calc = state.guideCalc || (state.guideCalc = {id: list[0] ? list[0].id : '', plants: '1000', sown: todayISO(), kgpp: ''});
   if(!guideFor(calc.id) && list[0]) calc.id = list[0].id;
@@ -7577,7 +7653,7 @@ async function guideCommit(list, btn, done, removed){
   try{
     await withTimeout(saveGuide(list, removed), 15000, 'Saving the crop guide');
     state.guideEdit = null; state.guideEditErr = '';
-    state.guideMsg = `${CHECK_ICON} ${done}`;
+    state.guideMsg = `${CHECK_ICON} ${done}`; state.guideMsgUntil = Date.now() + 8000;
     render();
     return true;
   }catch(e){
@@ -7597,7 +7673,7 @@ function guideSaveEdit(btn){
   const at = list.findIndex(x=> x.id === g.id);
   if(at >= 0) list[at] = g; else list.push(g);
   if(state.guideCalc) state.guideCalc.id = g.id;
-  guideCommit(list, btn, `${esc(g.name)} ${at >= 0 ? 'saved' : 'added to the guide'}. Farms plan with ${at >= 0 ? 'the new figures' : 'it'} from now on.`);
+  guideCommit(list, btn, at >= 0 ? `${esc(g.name)} saved. The farms’ plantings of it now use the new figures — all but any a farm has coloured by hand.` : `${esc(g.name)} added to the guide. Farms plan with it from now on.`);
 }
 function guideReset(id, btn){
   const d = CROP_GUIDE_DEFAULT.find(x=> x.id === id), g = guideFor(id);

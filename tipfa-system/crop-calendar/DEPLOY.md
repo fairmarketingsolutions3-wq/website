@@ -226,9 +226,12 @@ the total kg a plant gives; the weekly kilograms are worked out from those.
 **Add a crop** adds a new one,
 **Reset** puts a built-in crop back to the TIPFA figures, and **Delete** removes
 an added crop. The guide is kept in `calendarSettings/cropGuide` and every farm
-plans with it at once. Plantings already on a calendar keep their weeks; each
-one planned with older figures shows an orange update button beside it, and
-the farm decides whether to plan it again. This needs the
+plans with it at once. Plantings already on a calendar follow the change by
+themselves — the same dates, plants, variety and the farm's own timings, with
+the new days and kilograms — as soon as the farm's calendar is open (the
+Secretariat's view shows the new figures straight away). A planting whose
+weeks the farm has changed by hand is left alone: it shows an orange update
+button beside it, and the farm decides whether to plan it again. This needs the
 `calendarSettings/cropGuide` block of `firestore.rules` published.
 
 ### Where the built-in figures come from
