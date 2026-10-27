@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v20">
+<meta name="tipfa-build" content="v21">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -5238,168 +5238,208 @@ function renderArchive(c){
 
 /* ============================================================
    The crop guide: a planting planned from its sowing date
-   The built-in figures are the Rijk Zwaan crop guide for East Africa
-   (Tanzania), October 2026: how many days each stage takes — nursery,
-   transplanting to first flowers, flowering and fruit set to the first
-   harvest — and how long the harvest lasts, for the varieties Rijk Zwaan
-   sells here. Where a range is given, its middle is used, and each variety
-   can carry its own days. As the guide itself says, Rijk Zwaan does not
-   publish stage days for its African varieties: these are standard ranges
-   for warm East African conditions matched to each variety type, with
-   Rijk Zwaan's own figures quoted where it has published them. Cool
-   highlands (Iringa in June–August) run to the upper end, or 10–25% longer.
-   The guide gives no yields: what a plant gives stays the TIPFA Harvest
-   Ledger's (per harvest week), or the farm's own figure. Onion, herbs and
-   avocado are not Rijk Zwaan crops; their timings are the guide's general
-   ones. Crops the guide does not cover are not in it. The Secretariat can
-   change any of it, or add a crop, under Crop guide.
+   The built-in figures are the Rijk Zwaan crop guide "Growth stages and
+   harvest per plant" (Sub-Saharan Africa range, October 2026): for every
+   variety, the days after sowing to transplanting, flowering, fruit set and
+   first harvest; how long the harvest lasts; fruit weight; and an estimated
+   harvest a plant. ★ in a note marks Rijk Zwaan's own figure (from its
+   Africa crop guides or variety pages); the rest are standard ranges for the
+   variety type in East Africa. The middle of each range is used.
+   As stages: nursery = sowing to transplanting; vegetative growth =
+   transplanting to flowering; flowering = flowering (or curd/head/bulb
+   initiation) to the first harvest. Each crop's own figures are its first
+   variety's; the other varieties carry their own days and yields.
+   The harvest a plant is the guide's estimate — a typical number of fruits
+   for the crop × Rijk Zwaan's fruit weight — to be confirmed against a farm's
+   own records. Onion, herbs and avocado are the guide's general guidance
+   (Rijk Zwaan does not sell them). Cool highland seasons run 10–25% slower.
+   The Secretariat can change any of it under Crop guide.
    ============================================================ */
-const GUIDE_SEASON_WEEKS = 24;      // the Harvest Ledger's season, from transplanting
-const GUIDE_EDITION = 'rz-ea-2026-10';
+const GUIDE_SEASON_WEEKS = 24;      // the season a weekly-cut herb is planned for, from transplanting
+const GUIDE_EDITION = 'rz-ssa-2026-10b';
 const RZ = 'rz', GENERAL = 'general';
 // Crops an earlier edition had built in, which this guide does not cover.
-const GUIDE_REMOVED = ['paprika', 'habanero', 'garlic'];
+const GUIDE_REMOVED = ['paprika', 'garlic', 'mint', 'herbs-perennial'];
 const CROP_GUIDE_DEFAULT = [
   {id:'tomato', name:'Tomato', src:RZ,
    names:['tomato', 'tomatoes', 'tomatoes (standard)', 'standard tomato', 'tomato (standard)', 'plum tomato', 'round tomato', 'beef tomato', 'beefsteak tomato'],
-   nurseryDays:[28, 28], fromTransplant:80, flowerDays:55,
-   ranges:{nursery:'25–30 days', veg:'20–30 days', flower:'50–60 days', first:'75–90 days after transplanting', window:'4–8+ months'},
-   timingNote:'indeterminate types, staked or in a greenhouse; grafted seedlings add about 10–14 days in the nursery',
-   harvest:{kind:'weekly', weeks:26, kg:null},
+   nurseryDays:[25, 25], fromTransplant:73, flowerDays:48,
+   doc:'transplant 21–28 days after sowing ★ (3–4 weeks); flowering 45–55 days; fruit set 50–60; first harvest 90–105 days after sowing (65–75 after transplanting); harvest 4–8 weeks; fruit 120–150 g ★; about 2–4 kg a plant (ABALE, the first variety — each variety has its own)',
+   timingNote:'determinate types give one concentrated flush; indeterminate types keep fruiting up the trellis. Rijk Zwaan: 16,000–20,000 plants a hectare ★',
+   harvest:{kind:'weekly', weeks:6, kg:3 / 6}, est:true,
    varieties:[
-     {name:'ABALE RZ F1', type:'Plum · determinate · open field', traits:'Short compact plant; large, very firm fruit 120–150 g; adaptable to wet or dry seasons',
-      res:'HR: ToMV:0-2/Fol:0,1/Sbl/Va:0/Vd:0 · IR: TYLCV/Pst/Ma/Mi/Mj', adj:{veg:23, flower:50, hWeeks:6},
-      note:'The only determinate: a short, single-flush open-field crop — first flowers 20–25 days after transplanting, first ripe fruit 65–75, harvest 4–8 weeks'},
-     {name:'UWEZO RZ F1', type:'Oval plum · indeterminate · loose', traits:'Good plant habit, good continuation, very productive, attractive colour', res:'HR: ToMV:0-2/Fol:0-2/Lt/Va:0/Vd:0 · IR: TSWV/TYLCV/Ma/Mi/Mj'},
-     {name:'JARRAH RZ F1', type:'Plum · loose', traits:'Plum type for loose harvest', res:'HR: ToMV:0-2/Fol:0,1/Va:0/Vd:0 · IR: TYLCV/For'},
-     {name:'AMBURANA RZ F1', type:'Elongated plum', traits:'Elongated plum type', res:'HR: ToMV:0-2/Pst/Fol:0-2/Sbl/Va:0/Vd:0 · IR: TSWV/TYLCV'},
-     {name:'GAMHAR RZ F1', type:'Plum · loose', traits:'Plum type for loose harvest', res:'HR: ToMV:0-2/Fol:0,1/For/Va:0/Vd:0 · IR: Ma/Mi/Mj'},
-     {name:'TRONUS RZ F1', type:'Intermediate round · indeterminate', traits:'Open field or protected; firm 200–250 g fruit; keeps size through the crop; excellent shelf life', res:'HR: ToMV:0-2/Fol:0,1/Pf:A-E,H/Sbl/Va:0/Vd:0 · IR: TSWV/Ma/Mi/Mj'},
-     {name:'VALOURO RZ F1', type:'Beefsteak · loose', traits:'Large beef type', res:'HR: ToMV:0-2/Fol:0,1/For/Pf:A-E/Sbl/Va:0/Vd:0 · IR: TSWV/TYLCV/Ma/Mi/Mj',
-      adj:{flower:60}, note:'Beefsteak runs at the slower end: first ripe fruit about 60 days after set'},
+     {name:'ABALE RZ F1', type:'Plum · determinate · open field', traits:'Wet or dry season ★',
+      note:'Transplant 21–28 days ★; flowering 45–55; fruit set 50–60 (most trusses within about 3 weeks); first harvest 90–105 days after sowing (65–75 after transplanting); harvest 4–8 weeks; fruit 120–150 g ★; about 2–4 kg a plant (17–30 fruits)'},
+     {name:'AMBURANA RZ F1', type:'Elongated plum · tall determinate · open field', traits:'Best in the dry season ★',
+      adj:{hWeeks:7, total:3.25},
+      note:'Transplant 21–28 days ★; flowering 45–55; fruit set 50–60; first harvest 90–105 days after sowing; harvest 6–8 weeks, holding fruit size to the last pick ★; fruit 120–150 g ★; about 2.5–4 kg a plant'},
+     {name:'GAMHAR RZ F1', type:'Elongated plum · short determinate', traits:'',
+      adj:{flower:45, hWeeks:5, total:2.75},
+      note:'Transplant 21–28 days ★; flowering 45–55; fruit set 50–60; first harvest 90–100 days after sowing; harvest 4–6 weeks; fruit 100–120 g ★; about 2–3.5 kg a plant'},
+     {name:'JARRAH RZ F1', type:'Plum · semi-determinate', traits:'',
+      adj:{hWeeks:7, total:2.75},
+      note:'Transplant 21–28 days ★; flowering 45–55; fruit set 50–60; first harvest 90–105 days after sowing; harvest 6–8 weeks; fruit 80–100 g ★; about 2–3.5 kg a plant'},
+     {name:'UWEZO RZ F1', type:'Oval plum · intermediate growth', traits:'',
+      adj:{flower:58, hWeeks:17, total:5},
+      note:'Transplant 21–28 days ★; flowering 45–55; fruit set 50–62; first harvest 100–115 days after sowing; harvest 3–5 months; plum fruit about 100–130 g; about 4–6 kg a plant, staked'},
+     {name:'TRONUS RZ F1', type:'Intermediate round · indeterminate', traits:'Open field or protected ★',
+      adj:{veg:27, flower:58, hWeeks:22, total:6.5},
+      note:'Transplant 21–28 days ★; flowering 45–58 (a new truss every 7–10 days); fruit set 52–65; first harvest 100–120 days after sowing (75–90 after transplanting); harvest 4–6+ months; fruit 200–250 g ★; about 5–8 kg a plant staked, 8–12 kg in a greenhouse'},
+     {name:'VALOURO RZ F1', type:'Beefsteak · indeterminate', traits:'Greenhouse, or open field on stakes ★',
+      adj:{veg:27, flower:61, hWeeks:22, total:6.5},
+      note:'Transplant 21–28 days ★; flowering 45–58; fruit set 52–65; first harvest 105–120 days after sowing; harvest 4–6+ months; fruit 180–200 g ★; about 5–8 kg a plant staked, 8–12 kg in a greenhouse'},
    ]},
   {id:'cherry-tomato', name:'Cherry tomato', src:RZ, names:['cherry tomato', 'cherry tomatoes'],
-   nurseryDays:[28, 28], fromTransplant:65, flowerDays:43,
-   ranges:{nursery:'25–30 days', veg:'18–25 days', flower:'40–45 days', first:'60–70 days after transplanting', window:'5–9 months'},
-   timingNote:'a new truss roughly every 7 days; pick 2–3 times a week',
-   harvest:{kind:'weekly', weeks:30, kg:0.3}, kgSrc:'Harvest Ledger',
+   nurseryDays:[25, 25], fromTransplant:68, flowerDays:48,
+   doc:'transplant 21–28 days after sowing; flowering 40–50; fruit set 45–55; first harvest 85–100 days after sowing (60–70 after transplanting); harvest 5–8 months; about 2–4 kg a plant (FORTESA, the first variety). Rijk Zwaan has no cherry tomato crop guide; the nursery follows its tomato guide',
+   timingNote:'greenhouses with long cycles reach the higher yields; open-field crops are usually at the lower end',
+   harvest:{kind:'weekly', weeks:28, kg:3 / 28}, est:true,
    varieties:[
-     {name:'FORTESA RZ F1', type:'Cherry · loose · indeterminate', traits:'Compact plant type, easy fruit set, good continuation, long harvest period', res:'HR: ToMV:0-2/Fol:0,1/Pf:A-E/Va:0/Vd:0/Si · IR: TSWV/TYLCV/Ma/Mi/Mj'},
-     {name:'NANCY RZ F1', type:'Cherry · loose · indeterminate', traits:'Continuous harvest, balanced vigour, resists cracking, uniform red, high brix', res:'HR: ToMV:0-2 · IR: TYLCV/Ma/Mi/Mj'},
-     {name:'MOSCATEL RZ F1', type:'Cherry · truss', traits:'Harvested as whole trusses', res:'HR: ToMV:0-2/Fol:0,1/Pf:A-E/Va:0/Vd:0/Si · IR: TSWV/TYLCV/Ma/Mi/Mj',
-      adj:{flower:53}, note:'Cut whole trusses when the tip fruit has coloured: 40–50 days from set, first harvest 70–80 days after transplanting'},
+     {name:'FORTESA RZ F1', type:'Cherry · loose · indeterminate', traits:'Compact, easy set ★',
+      note:'Transplant 21–28 days; flowering 40–50; fruit set 45–55; first harvest 85–100 days after sowing (60–70 after transplanting); harvest 5–8 months; fruit about 12–18 g; about 2–4 kg a plant'},
+     {name:'NANCY RZ F1', type:'Cherry · loose · indeterminate', traits:'High brix, crack resistant ★',
+      note:'Transplant 21–28 days; flowering 40–50; fruit set 45–55; first harvest 85–100 days after sowing; harvest 5–8 months; fruit about 12–18 g; about 2–4 kg a plant'},
+     {name:'MOSCATEL RZ F1', type:'Cherry · truss', traits:'Compact, high brix ★',
+      adj:{flower:53},
+      note:'Transplant 21–28 days; flowering 40–50; fruit set 45–55; first harvest 90–105 days after sowing (whole truss ripe); harvest 5–8 months; fruit 15 g ★; about 2–4 kg a plant (130–260 fruits)'},
+   ]},
+  {id:'habanero', name:'Habanero pepper', src:RZ,
+   names:['habanero', 'habanero pepper', 'habanero peppers', 'habanero (loleza)', 'habanero (lengai)'],
+   nurseryDays:[25, 25], fromTransplant:52, flowerDays:27,
+   doc:'transplant 21–28 days after sowing ★; flowering 45–55; fruit set 50–60; first harvest 71–83 days after sowing (50–55 after transplanting ★); a long cycle of 4–6 months ★; about 1–2 kg a plant (LENGAI, the first variety). Nursery, spacing (100 × 60 cm ★) and fertiliser (140 N / 100 P₂O₅ / 200 K₂O kg a hectare ★) follow Rijk Zwaan’s Habanero Pepper crop guide',
+   harvest:{kind:'weekly', weeks:22, kg:1.5 / 22}, est:true,
+   varieties:[
+     {name:'LENGAI RZ F1', type:'Red, slightly blocky', traits:'Outdoor and indoor ★. In Rijk Zwaan’s habanero crop guide, but not in its current Africa online catalogue — check with your dealer',
+      note:'Transplant 21–28 days ★; flowering 45–55; fruit set 50–60; first harvest 71–83 days after sowing (50–55 after transplanting ★); 4–6 months ★; fruit 13 g ★ (4.5 cm); about 1–2 kg a plant (75–150 fruits)'},
+     {name:'AFADJA RZ F1', type:'Red, oval, upright', traits:'Early, high yield ★',
+      note:'Transplant 21–28 days ★; flowering 45–55; fruit set 50–60; first harvest 71–83 days after sowing (50–55 after transplanting ★); 4–6 months ★; fruit 15 g ★ (5.5 cm); about 1–2 kg a plant (65–135 fruits)'},
+     {name:'LOLEZA RZ F1', type:'Yellow, blocky', traits:'',
+      adj:{veg:30, flower:34, total:1.15},
+      note:'Transplant 21–28 days ★; flowering 50–60; fruit set 55–65; first harvest 81–97 days after sowing (60–65 after transplanting ★ in the crop guide; 69 ★ on the variety page); 4–6 months ★; fruit 9 g ★ (5 cm); about 0.8–1.5 kg a plant (90–165 fruits)'},
+     {name:'MAWENZILI RZ F1', type:'Red African hot pepper, blocky', traits:'Outdoor, also indoor ★; good harvest continuity ★',
+      adj:{veg:30, flower:37, total:1.4},
+      note:'Transplant 21–28 days ★; flowering 50–60; fruit set 55–65; first harvest 81–103 days after sowing (early: 60–75 days ★); 4–6 months; fruit 12–15 g ★ (4–5 cm); about 1–1.8 kg a plant'},
+   ]},
+  {id:'hot-pepper', name:'Hot pepper', src:RZ,
+   names:['hot pepper', 'hot peppers', 'chilli', 'chili', 'chilli pepper', 'chili pepper', 'chillies', 'pilipili', 'pilipili hoho kali'],
+   nurseryDays:[25, 25], fromTransplant:70, flowerDays:40,
+   doc:'transplant 21–28 days after sowing ★; flowering 50–60; fruit set 55–65; first harvest 91–98 days after sowing (70 after transplanting ★); harvest 4–6 months; about 1.5–2.5 kg a plant (ERTA ALE, the first variety). Nursery, spacing (100 × 60 cm ★) and fertiliser (140 N / 100 P₂O₅ / 200 K₂O kg a hectare ★) follow Rijk Zwaan’s Hot Pepper crop guide',
+   harvest:{kind:'weekly', weeks:22, kg:2 / 22}, est:true,
+   varieties:[
+     {name:'ERTA ALE RZ F1', type:'Conical Fresno / Serrano, up to 30,000 SHU ★', traits:'Very productive, robust ★',
+      note:'Transplant 21–28 days ★; flowering 50–60; fruit set 55–65; first harvest 91–98 days after sowing (medium early: 70 after transplanting ★); 4–6 months; fruit 25–35 g ★ (2.5 × 12 cm); about 1.5–2.5 kg a plant (50–80 fruits)'},
+     {name:'HABIB RZ F1', type:'Mediterranean green, medium hot ★', traits:'Good fruit setting ★',
+      note:'Transplant 21–28 days ★; flowering 50–60; fruit set 55–65; first harvest 86–103 days after sowing (65–75 after transplanting); 4–6 months; fruit 15 cm long ★ (about 20–25 g); about 1.5–2.5 kg a plant'},
+     {name:'MEXTIZO RZ F1', type:'Serrano, outdoor ★', traits:'Good continuation ★',
+      adj:{total:1.5},
+      note:'Transplant 21–28 days ★; flowering 50–60; fruit set 55–65; first harvest 86–103 days after sowing (65–75 after transplanting); 4–6 months; fruit 10–12 cm long ★ (about 10–15 g); about 1–2 kg a plant'},
    ]},
   {id:'capsicum', name:'Capsicum', src:RZ,
-   names:['capsicum', 'capsicum (bell pepper)', 'capsicum (red & yellow)', 'bell pepper', 'sweet pepper', 'capsicum (sweet pepper)', 'red capsicum', 'yellow capsicum'],
-   nurseryDays:[40, 40], fromTransplant:90, flowerDays:60,
-   ranges:{nursery:'35–45 days', veg:'25–35 days', flower:'35–45 days to mature green, then 15–25 more to full colour', first:'85–100 days after transplanting (coloured); green 65–75', window:'4–7 months'},
-   timingNote:'red and yellow fruit at full colour; peppers need a longer nursery than tomato and set poorly above about 32 °C by day or below 15 °C at night',
-   harvest:{kind:'weekly', weeks:24, kg:0.2}, kgSrc:'Harvest Ledger',
+   names:['capsicum', 'capsicum (bell pepper)', 'capsicum (red & yellow)', 'bell pepper', 'sweet pepper', 'capsicum (sweet pepper)', 'red capsicum', 'yellow capsicum', 'pilipili hoho'],
+   nurseryDays:[40, 40], fromTransplant:90, flowerDays:62,
+   doc:'transplant 35–45 days after sowing (peppers need a longer nursery than tomato); flowering 60–75; fruit set 65–85; first harvest at full colour 120–140 days after sowing (green 100–115); harvest 5–7 months; fruit 220 g ★; about 4–5.5 kg a plant in a greenhouse, 2.5–4 kg under shade net (PASARELLA, the first variety). Rijk Zwaan has no sweet pepper crop guide for Africa',
+   timingNote:'picking green gives more fruit a plant; letting fruit colour fully adds 15–25 days a fruit and lowers the number of picks. Harvest a plant is given for a greenhouse',
+   harvest:{kind:'weekly', weeks:26, kg:4.75 / 26}, est:true,
    varieties:[
-     {name:'RED JET RZ F1', type:'Red blocky · Lt Defense', traits:'Deep red; suitable for green harvest; easy fruit setting; compact plant; early production and reliable set in heat', res:'HR: PVY:0,1,1.2/Tm:0-2/X spp:1-3 · IR: Lt'},
-     {name:'RED JET RZ F1 — picked green', type:'Red blocky, harvested mature green', traits:'RED JET is suitable for green harvest', res:'HR: PVY:0,1,1.2/Tm:0-2/X spp:1-3 · IR: Lt',
-      adj:{flower:40}, note:'Picked mature green: 35–45 days from set, first harvest 65–75 days after transplanting'},
-     {name:'STARLET RZ F1', type:'Red blocky · indoor', traits:'About 240 g fruit; easy setting; balanced plant; relatively longer crop; performs in cold and hot conditions', res:'HR: PVY:0,1/Tm:0/X spp:1-3 · IR: TSWV:0'},
-     {name:'ILANGA RZ F1', type:'Yellow blocky · indoor', traits:'220–250 g; easy fruit setting; good shape and colour; medium-long plant', res:'HR: PVY:0/Tm:0-3 · IR: TSWV:0'},
-     {name:'PASARELLA RZ F1', type:'Blocky', traits:'Blocky sweet pepper', res:'HR: PVY:0,1/Tm:0-2 · IR: TSWV:0'},
-     {name:'REGGAETON RZ F1', type:'Sweet pepper', traits:'', res:'HR: Tm:0-3 · IR: TSWV:0'},
+     {name:'PASARELLA RZ F1', type:'Red semi-blocky · indoor ★', traits:'Easy set, crack resistant, good continuation ★',
+      note:'Transplant 35–45 days; flowering 60–75; fruit set 65–85; first harvest green 100–115 / red 120–140 days after sowing; harvest 5–7 months; fruit 220 g ★; about 4–5.5 kg a plant in a greenhouse (18–25 fruits), 2.5–4 kg under shade net'},
+     {name:'STARLET RZ F1', type:'Red blocky · indoor ★', traits:'Relatively longer crop; sets in cold and heat ★',
+      adj:{hWeeks:30, total:5.25},
+      note:'Transplant 35–45 days; flowering 60–75; fruit set 65–85; first harvest green 100–115 / red 120–140 days after sowing; harvest 6–8 months; fruit 240 g ★; about 4.5–6 kg a plant in a greenhouse, 3–4 kg under shade net'},
+     {name:'ILANGA RZ F1', type:'Yellow blocky · indoor ★', traits:'Easy setting ★',
+      note:'Transplant 35–45 days; flowering 60–75; fruit set 65–85; first harvest green 100–115 / yellow 120–140 days after sowing; harvest 5–7 months; fruit 220–250 g ★; about 4–5.5 kg a plant in a greenhouse, 2.5–4 kg under shade net'},
+     {name:'REGGAETON RZ F1', type:'Yellow blocky · under plastic ★', traits:'Protected, spring and summer ★',
+      adj:{total:4.5},
+      note:'Transplant 35–45 days; flowering 60–75; fruit set 65–85; first harvest green 100–115 / yellow 120–140 days after sowing; harvest 5–7 months; fruit 200–220 g ★; about 4–5 kg a plant in a greenhouse, 2.5–3.5 kg under shade net'},
+     {name:'RED JET RZ F1', type:'Red blocky · open field, early, short cycle ★', traits:'Compact; open field, short cycles, hot conditions ★',
+      adj:{veg:23, flower:55, hWeeks:15, total:2},
+      note:'Transplant 35–45 days; flowering 55–70; fruit set 60–80; first harvest green 95–110 / red 110–125 days after sowing; harvest 3–4 months; medium fruit ★ (about 150–180 g); about 1.5–2.5 kg a plant in the open field'},
    ]},
   {id:'sweet-melon', name:'Sweet melon', src:RZ, names:['sweet melon', 'melon', 'sweet melons', 'rock melon', 'muskmelon', 'cantaloupe'],
-   nurseryDays:[15, 15], fromTransplant:70, flowerDays:45,
-   ranges:{nursery:'12–18 days (or sown direct)', veg:'20–30 days to female flowers', flower:'35–55 days, by type', first:'65–90 days after transplanting', window:'2–4 weeks'},
-   timingNote:'roots dislike disturbance — transplant young; bees at the first female flower; thin to 2–4 fruit a plant; pick every 1–2 days at peak',
-   harvest:{kind:'weekly', weeks:3, kg:1.5}, kgSrc:'Harvest Ledger',
+   nurseryDays:[12, 12], fromTransplant:81, flowerDays:54,
+   doc:'direct sowing is common; from a nursery, transplant at 10–14 days with 2–3 true leaves; vine run to 32; female flowers 32–45; fruit set 38–50; first harvest 85–100 days after sowing (turns golden, full slip); harvest 2–3 weeks; fruit 1.4–1.8 kg ★; about 3–6 kg a plant, 2–3 fruits (CARIBBEAN GOLD, the first variety)',
+   timingNote:'bee hives at the first female flowers; thin to 2–4 fruits a plant to reach the official fruit sizes',
+   harvest:{kind:'weekly', weeks:3, kg:4.5 / 3}, est:true,
    varieties:[
-     {name:'CARIBBEAN GOLD RZ F1', type:'Harper / Western shipper · long shelf life', traits:'1.4–1.8 kg; very robust, good in difficult conditions; open field or protected; golden colour change, full slip', res:'HR: Fom:0,1,2 · IR: Px:2/Ag',
-      adj:{flower:49}, note:'Harper/shipper: fruit set to harvest 40–45 days, 70–85 days after transplanting'},
-     {name:'CARIBBEAN KING RZ F1', type:'Harper / Western shipper · long shelf life', traits:'Larger fruit, about 2.2 kg; orange, high sugar; concentrated fruit set', res:'HR: Fom:0,1,2 · IR: Px:2,3,5',
-      adj:{flower:49}, note:'Harper/shipper: 70–85 days after transplanting. Published: 85–90 days to maturity (US grower trade press)'},
-     {name:'ALPES RZ F1', type:'Galia · yellowing', traits:'Galia type that turns yellow at maturity', res:'HR: Fom:0,1,2 · IR: Gc:1/Px:2,5',
-      adj:{flower:44}, note:'Galia: fruit set to harvest 35–40 days, 60–75 days after transplanting'},
-     {name:'DIBANGO RZ F1', type:'Charentais · yellowing', traits:'Charentais (orange flesh) yellowing type', res:'HR: Fom:0,1 · IR: Px:2,3,5,3.5/Ag',
-      adj:{flower:44}, note:'Charentais: 60–75 days after transplanting'},
-     {name:'ETCHABI RZ F1', type:'Charentais', traits:'Early, grouped fruit set', res:'HR: Fom:0,1,2 · IR: Fom:1.2/Px:1,2,5/Ag',
-      adj:{flower:44}, note:'Charentais: 60–75 days after transplanting'},
-     {name:'GLADIAL RZ F1', type:'Yellow (canary)', traits:'Large smooth fruit, sweet and aromatic; best in summer open field with high light', res:'HR: Fom:0,2 · IR: Gc:1/Px:1,2,5',
-      adj:{flower:56}, note:'Yellow: fruit set to harvest 45–55 days, 75–90 days after transplanting'},
-     {name:'RICURA RZ F1', type:'Piel de Sapo · Mellissimo', traits:'Spanish green-skinned type', res:'HR: MNSV/Fom:0,1 · IR: Gc:1/Px:2,5',
-      adj:{flower:56}, note:'Piel de Sapo: 75–90 days after transplanting'},
-     {name:'MESURA RZ F1', type:'Piel de Sapo', traits:'Spanish green-skinned type', res:'HR: MNSV/Fom:0,1,2 · IR: Gc:1/Px:2,5/Ag',
-      adj:{flower:56}, note:'Piel de Sapo: 75–90 days after transplanting'},
-   ]},
-  {id:'broccoli', name:'Broccoli', src:RZ, names:['broccoli'],
-   nurseryDays:[28, 28], fromTransplant:62, flowerDays:22,
-   ranges:{nursery:'25–30 days', veg:'35–45 days to head initiation', flower:'7–10 days to a visible head, then 10–15 to harvest', first:'60–75 days after transplanting', window:'1–2 weeks, then side shoots 3–4 weeks'},
-   stageWords:{veg:'to head initiation', flower:'head forming to harvest'},
-   harvest:{kind:'head', kg:0.75, sideWeeks:4, sideKg:0.25}, kgSrc:'Harvest Ledger',
-   varieties:[
-     {name:'KARIBA RZ F1', type:'Broccoli', traits:'Fast growing, uniform harvest; fine-grained, well-domed heads about 500 g; upright plant', res:'HR: Foc:1',
-      adj:{flower:30, headKg:0.5, total:1.5}, note:'Published: 65–75 days (Rijk Zwaan USA); heads about 500 g'},
-     {name:'TAHOE RZ F1', type:'Broccoli', traits:'High-domed, smooth, dense dark-green head; uniform small–medium beads; best in cool-to-warm conditions', res:'HR: Foc:1',
-      adj:{flower:25}, note:'Published: 60–70 days (Rijk Zwaan USA)'},
+     {name:'CARIBBEAN GOLD RZ F1', type:'Harper / Western shipper · long shelf life ★', traits:'Robust, good in difficult conditions ★',
+      note:'Transplant 10–14 days; vine run to 32; female flowers 32–45; fruit set 38–50; first harvest 85–100 days after sowing (turns golden, full slip); 2–3 weeks; fruit 1.4–1.8 kg ★; about 3–6 kg a plant'},
+     {name:'CARIBBEAN KING RZ F1', type:'Harper · long shelf life, concentrated set ★', traits:'',
+      adj:{flower:59, total:5.5},
+      note:'Transplant 10–14 days; female flowers 32–45; fruit set 38–50; first harvest 90–105 days after sowing; 2–3 weeks; fruit 2.2 kg ★; about 4.5–6.5 kg a plant'},
+     {name:'ALPES RZ F1', type:'Galia · yellowing · early crop ★', traits:'Very easy fruit setting ★',
+      adj:{veg:23, flower:40, total:3.5},
+      note:'Transplant 10–14 days; female flowers 30–40; fruit set 35–45; first harvest 70–80 days after sowing; 2–3 weeks; fruit 1.1 kg ★; about 2.5–4.5 kg a plant (2–4 fruits)'},
+     {name:'DIBANGO RZ F1', type:'Charentais · yellowing · open field ★', traits:'',
+      adj:{veg:24, flower:47, total:3.25},
+      note:'Transplant 10–14 days; female flowers 30–42; fruit set 35–48; first harvest 75–90 days after sowing; 2–3 weeks; fruit about 1–1.3 kg; about 2.5–4 kg a plant'},
+     {name:'ETCHABI RZ F1', type:'Charentais · semi-concentrated set ★', traits:'',
+      adj:{veg:24, flower:47, total:3.25},
+      note:'Transplant 10–14 days; female flowers 30–42; fruit set 35–48; first harvest 75–90 days after sowing; 2–3 weeks; fruit about 1–1.3 kg; about 2.5–4 kg a plant'},
+     {name:'GLADIAL RZ F1', type:'Yellow canary · summer open field ★', traits:'',
+      adj:{flower:59},
+      note:'Transplant 10–14 days; female flowers 32–45; fruit set 38–50; first harvest 90–105 days after sowing; 2–4 weeks; large fruit ★ (about 2 kg); about 3–6 kg a plant'},
+     {name:'RICURA RZ F1', type:'Piel de Sapo (Mellissimo) ★', traits:'Horizontal open field ★',
+      adj:{flower:59},
+      note:'Transplant 10–14 days; female flowers 32–45; fruit set 38–50; first harvest 90–105 days after sowing; 2–4 weeks; fruit 1.2–3 kg ★; about 3–6 kg a plant'},
+     {name:'MESURA RZ F1', type:'Piel de Sapo · large oval ★', traits:'Early transplanting ★',
+      adj:{flower:59, total:5},
+      note:'Transplant 10–14 days; female flowers 32–45; fruit set 38–50; first harvest 90–105 days after sowing; 2–4 weeks; fruit about 3 kg ★; about 4–6 kg a plant (1–2 fruits)'},
    ]},
   {id:'cauliflower', name:'Cauliflower', src:RZ, names:['cauliflower'],
-   nurseryDays:[28, 28], fromTransplant:72, flowerDays:29,
-   ranges:{nursery:'25–30 days', veg:'35–50 days to curd initiation', flower:'7–10 days to a visible curd, then 15–25 to harvest', first:'60–80 days after transplanting', window:'1–3 weeks'},
-   stageWords:{veg:'to curd initiation', flower:'curd forming to harvest'},
-   timingNote:'cool highland plantings (Iringa, Njombe) commonly take 80–100 days after transplanting; old seedlings cause buttoning',
-   harvest:{kind:'head', kg:1.15, sideWeeks:0}, kgSrc:'Harvest Ledger',
+   nurseryDays:[28, 28], fromTransplant:62, flowerDays:32,
+   doc:'transplant 25–30 days after sowing; curd initiation 50–65 days (there is no fruit set); first harvest 80–100 days after sowing (55–70 after transplanting ★); one curd of about 0.8–1.2 kg a plant (MONEERA, the first variety)',
+   stageWords:{veg:'to curd initiation', flower:'curd to harvest'},
+   harvest:{kind:'head', kg:1, sideWeeks:0}, est:true,
    varieties:[
-     {name:'MONEERA RZ F1', type:'White', traits:'Fast-growing fresh-market variety; dense curd, uniform harvest; strong vigour and good self-cover', res:''},
-     {name:'CASPER RZ F1', type:'White', traits:'Very strong self-cover; stable quality in various climates; very white, dense heads; fresh market and processing', res:''},
+     {name:'MONEERA RZ F1', type:'White · very fast ★', traits:'Holds curd quality in heat ★',
+      note:'Transplant 25–30 days; curd initiation 50–65 days after sowing; first harvest 80–100 days after sowing (55–70 after transplanting ★; “65–75 days to mature” ★); harvest 1–2 weeks; one curd of about 0.8–1.2 kg'},
+     {name:'CASPER RZ F1', type:'White · mid-late ★', traits:'Very strong self-cover, stable in warm conditions ★',
+      adj:{veg:40, flower:40, headKg:1.25, total:1.25},
+      note:'Transplant 25–30 days; curd initiation 60–75 days after sowing; first harvest 95–120 days after sowing (70–90 after transplanting ★); harvest 1–3 weeks; one curd of about 1–1.5 kg'},
+   ]},
+  {id:'broccoli', name:'Broccoli', src:RZ, names:['broccoli'],
+   nurseryDays:[28, 28], fromTransplant:70, flowerDays:33,
+   doc:'transplant 25–30 days after sowing; head initiation 60–70 days; first harvest 90–105 days after sowing (65–75 days ‡ — Rijk Zwaan USA, counted from transplanting in East African highlands); one main head of about 500 g ★, then 0.1–0.2 kg of side shoots (KARIBA, the first variety)',
+   stageWords:{veg:'to head initiation', flower:'head to harvest'},
+   timingNote:'side shoots are planned over 3 weeks after the main head',
+   harvest:{kind:'head', kg:0.5, sideWeeks:3, sideKg:0.05}, est:true,
+   varieties:[
+     {name:'KARIBA RZ F1', type:'Fast growing, uniform ★', traits:'Upright, well-domed ★',
+      note:'Transplant 25–30 days; head initiation 60–70 days after sowing; first harvest 90–105 days after sowing (65–75 days ‡); harvest 1–2 weeks plus side shoots; head about 500 g ★ (350–400 g medium heads ★); about 0.5 kg + 0.1–0.2 kg of side shoots a plant'},
+     {name:'TAHOE RZ F1', type:'High dome, dark green', traits:'',
+      adj:{veg:32, flower:33},
+      note:'Transplant 25–30 days; head initiation 55–65 days after sowing; first harvest 85–100 days after sowing (60–70 days ‡); harvest 1–2 weeks plus side shoots; head about 400–500 g; about 0.4–0.6 kg + side shoots a plant'},
    ]},
   {id:'onion', name:'Onion', src:GENERAL, names:['onion', 'onions', 'red onion', 'red onions', 'bulb onion'],
-   nurseryDays:[45, 45], fromTransplant:105, flowerDays:55,
-   ranges:{nursery:'40–50 days', veg:'40–60 days to bulbing', flower:'40–60 days of bulb fill, then 7–14 to maturity', first:'90–120 days after transplanting (130–170 after sowing)', window:'lifted once'},
-   stageWords:{veg:'leaf growth to bulbing', flower:'bulb fill to lifting'},
-   timingNote:'short-day bulb onions from transplants; stop irrigation about 2 weeks before lifting, then cure 10–14 days',
-   harvest:{kind:'single', kg:null},
-   varieties:[
-     {name:'Red Creole type', type:'Short-day bulb · not Rijk Zwaan', traits:'Widely grown in Tanzania', res:''},
-     {name:'Red Bombay type', type:'Short-day bulb · not Rijk Zwaan', traits:'Widely grown in Tanzania', res:''},
-     {name:'F1 short-day hybrid', type:'Short-day bulb · not Rijk Zwaan', traits:'From other seed companies', res:''},
-   ]},
+   nurseryDays:[45, 45], fromTransplant:105, flowerDays:50,
+   doc:'short-day bulb onion: transplant 40–50 days after sowing; leaf growth to about 100; bulbing 90–110; harvest 130–170 days after sowing at 50–80% neck fall; lifted once, then cured 10–14 days; one bulb of about 120–250 g a plant',
+   stageWords:{veg:'leaf growth to bulbing', flower:'bulbing to lifting'},
+   harvest:{kind:'single', kg:0.185}, est:true},
   {id:'herbs', name:'Basil', src:GENERAL, names:['basil', 'sweet basil', 'herbs', 'herbs (basil, coriander)', 'herbs (annual)'],
    nurseryDays:[28, 28], fromTransplant:25, flowerDays:0,
-   ranges:{nursery:'25–30 days', veg:'3–4 weeks to the first cut', first:'45–60 days after sowing', window:'cut every 2–3 weeks; a 4–6 month crop'},
+   doc:'transplant 25–30 days after sowing; growth 30–50; first cut 45–60 days after sowing; cut every 2–3 weeks for 4–6 months; pinch out flowers as they appear; about 0.5–1 kg fresh a plant over the season',
    stageWords:{veg:'to the first cut'},
-   timingNote:'pinch out the flowers',
-   harvest:{kind:'pulses', count:5, every:3, kg:0.36}, kgSrc:'Yield Calculator'},
+   harvest:{kind:'pulses', count:8, every:3, kg:0.75 / 8}, est:true},
   {id:'coriander', name:'Coriander (dhania)', src:GENERAL, names:['coriander', 'dhania', 'coriander (dhania)', 'cilantro'],
    direct:true, fromSowing:[38, 38], flowerDays:0,
-   ranges:{nursery:'sown direct', first:'30–45 days after sowing (leaf)', window:'1–2 cuts before bolting at about 50–60 days'},
-   timingNote:'sow every 2–3 weeks for a steady supply; for seed, 90–110 days',
-   harvest:{kind:'pulses', count:2, every:2, kg:null}},
+   doc:'sown direct; leaf harvest 30–45 days after sowing; bolts at about 50–60; one or two cuts, re-sown every 2–3 weeks; seed at 90–110 days; about 30–80 g of leaf a plant',
+   harvest:{kind:'pulses', count:2, every:2, kg:0.055 / 2}, est:true},
   {id:'parsley', name:'Parsley', src:GENERAL, names:['parsley'],
    nurseryDays:[45, 45], fromTransplant:30, flowerDays:0,
-   ranges:{nursery:'40–50 days (slow to germinate, 14–21 days)', veg:'about 30 days to the first cut', first:'70–80 days after sowing', window:'outer leaves cut every 3–4 weeks; a 6–12 month crop'},
+   doc:'transplant 40–50 days after sowing; growth 50–70; first cut 70–80 days after sowing; cut every 3–4 weeks for 6–12 months (flowers in its second year); about 0.5–1 kg a plant over the season',
    stageWords:{veg:'to the first cut'},
-   harvest:{kind:'pulses', count:8, every:4, kg:null}},
-  {id:'mint', name:'Mint', src:GENERAL, names:['mint'],
-   direct:true, fromSowing:[75, 75], flowerDays:0,
-   ranges:{nursery:'planted as cuttings (rooting 10–14 days)', first:'60–90 days after planting', window:'cut every 4–6 weeks; perennial — planned here for a year'},
-   harvest:{kind:'pulses', count:11, every:5, kg:null}},
-  {id:'herbs-perennial', name:'Rosemary', src:GENERAL, names:['rosemary', 'herbs (rosemary, thyme)', 'herbs (perennial)'],
-   nurseryDays:[70, 70], fromTransplant:80, flowerDays:0,
-   ranges:{nursery:'8–12 weeks from cuttings (rooting 3–6 weeks)', veg:'to the first cut', first:'4–6 months from the cutting', window:'light cuts all year; perennial — planned here for a year'},
-   stageWords:{veg:'to the first cut'},
-   harvest:{kind:'weekly', weeks:52, kg:null}},
-  {id:'avocado', name:'Avocado', src:GENERAL, names:['avocado', 'avocados', 'avocado (mature tree)', 'avocado (bearing tree)', 'hass avocado'],
-   tree:true, alt:'avocado-seed', harvest:{kind:'weekly', weeks:24, kg:1.5}, kgSrc:'Harvest Ledger',
-   ranges:{first:'a light crop in year 3–4, full yield in year 5–7', window:'seasonal'},
-   timingNote:'a tree already bearing: fruit set to maturity 7–12 months for Hass, 6–8 for Fuerte; bees essential for set',
-   varieties:[
-     {name:'Hass', type:'Grafted · not Rijk Zwaan', traits:'The main commercial avocado in Tanzania; test dry matter (21–23% or more) before picking', res:''},
-     {name:'Fuerte', type:'Grafted · not Rijk Zwaan', traits:'Fruit set to maturity 6–8 months', res:''},
-     {name:'Pinkerton', type:'Grafted · not Rijk Zwaan', traits:'', res:''},
-   ]},
-  // Raised in a nursery: rootstock from seed, then grafted. A young tree takes
-  // two to three years to flower, beyond the calendar's three, so no harvest is planned.
+   harvest:{kind:'pulses', count:10, every:4, kg:0.75 / 10}, est:true},
+  {id:'avocado', name:'Avocado', src:GENERAL, names:['avocado', 'avocados', 'avocado (mature tree)', 'avocado (bearing tree)', 'hass avocado', 'grafted avocado tree'],
+   tree:true, alt:'avocado-seed',
+   doc:'a grafted Hass tree: first flowering in years 2–3; flower to fruit set 2–4 weeks; set to mature fruit 7–12 months; a seasonal harvest of about 10–30 kg a tree in years 3–4 and 50–150 kg from year 6',
+   timingNote:'planned for a tree in full bearing (year 6 on), 100 kg over a 24-week season; a young tree in years 3–4 gives 10–30 kg — enter your own figure for it',
+   harvest:{kind:'weekly', weeks:24, kg:100 / 24}, est:true},
+  // Raised in a nursery: rootstock from seed, then grafted. A young tree flowers
+  // in years 2–3, beyond the calendar's three, so no harvest is planned.
   {id:'avocado-seed', name:'Avocado (nursery, grafted tree)', src:GENERAL,
-   names:['avocado (from seed)', 'avocado from seed', 'avocado seed', 'avocado seeds', 'avocado seedling', 'avocado seedlings', 'grafted avocado', 'avocado (nursery, grafted tree)'],
+   names:['avocado (from seed)', 'avocado from seed', 'avocado seed', 'avocado seeds', 'avocado seedling', 'avocado seedlings', 'avocado (nursery, grafted tree)'],
    nurseryDays:[225, 225], flowerDays:0, alt:'avocado',
-   ranges:{nursery:'6–9 months: seed to germination 4–6 weeks, to a graft-ready rootstock 3–5 months, to a saleable grafted plant 6–9 months', window:'first flowering 2–3 years after planting out'},
-   timingNote:'buy grafted trees from certified nurseries; remove early flowers in years 1–2 to build the tree',
+   doc:'seed to a grafted plant ready to plant out: 6–9 months; first flowering 2–3 years after planting (remove early flowers in years 1–2)',
    harvest:{kind:'none'}},
 ].map(g=> Object.assign(g, {ed: GUIDE_EDITION}));
 /* The guide in use: the defaults above until the Secretariat edits it, then
@@ -5423,19 +5463,21 @@ function sanitiseGuide(list){
 let GUIDE_REMOVED_BY_ADMIN = [];
 function applyGuide(list){
   const all = Array.isArray(list) ? list : [];
-  GUIDE_REMOVED_BY_ADMIN = [...new Set(all.filter(g=> g && g.removed && g.id).map(g=> String(g.id)))];
+  // A crop removed under an earlier edition comes back with this one, which replaces the whole guide.
+  GUIDE_REMOVED_BY_ADMIN = [...new Set(all.filter(g=> g && g.removed && g.id && g.ed === GUIDE_EDITION).map(g=> String(g.id)))];
   const s = sanitiseGuide(all.filter(g=> !(g && g.removed)));
   CROP_GUIDE = s && s.length ? upgradeGuide(s)
     : CROP_GUIDE_DEFAULT.filter(d=> !GUIDE_REMOVED_BY_ADMIN.includes(d.id)).map(cloneGuide);
 }
-/* A guide saved before this edition: its built-in crops nobody changed take
-   this edition's figures; crops the Secretariat changed or added stay as it
-   set them (the Crop guide page offers the new figures for those); crops new
-   to this edition are added, unless the Secretariat already added its own. */
+/* A guide saved before this edition: every built-in crop takes this
+   edition's figures — those the Secretariat had changed too, as this edition
+   replaces the whole guide — and crops new to it are added. Crops the
+   Secretariat added itself stay as it set them. Changes made under this
+   edition are kept. */
 function upgradeGuide(list){
   const out = list.filter(g=> g.custom || (!GUIDE_REMOVED.includes(g.id) && !GUIDE_REMOVED_BY_ADMIN.includes(g.id))).map(g=>{
     const d = CROP_GUIDE_DEFAULT.find(x=> x.id === g.id);
-    return !d || g.custom || g.edited || g.ed === GUIDE_EDITION ? g : cloneGuide(d);
+    return !d || g.custom || g.ed === GUIDE_EDITION ? g : cloneGuide(d);
   });
   const custom = new Set(out.filter(g=> g.custom).flatMap(g=> g.names));
   CROP_GUIDE_DEFAULT.forEach(d=>{
@@ -5454,7 +5496,7 @@ function loadGuideLocal(){
 }
 async function saveGuide(list, removed){
   removed = (removed || GUIDE_REMOVED_BY_ADMIN).filter(id=> !list.some(g=> g.id === id));
-  const crops = JSON.parse(JSON.stringify(list)).concat(removed.map(id=> ({id, removed:true})));
+  const crops = JSON.parse(JSON.stringify(list)).concat(removed.map(id=> ({id, removed:true, ed: GUIDE_EDITION})));
   if(cloudOn()){
     const { doc, setDoc } = CLOUD.fs;
     await setDoc(doc(CLOUD.db, COL.settings, 'cropGuide'), {crops, updatedAt: new Date().toISOString(), updatedBy: CLOUD_STATE.uid});
@@ -5877,14 +5919,22 @@ function stagesText(g){
   return parts.join(', ');
 }
 // Where a crop's figures come from, in words.
-const SRC_NAME = {rz:'Rijk Zwaan crop guide, East Africa', general:'Rijk Zwaan crop guide, general guidance (not a Rijk Zwaan crop)'};
+const SRC_NAME = {rz:'Rijk Zwaan crop guide, growth stages and harvest a plant', general:'Rijk Zwaan crop guide, general guidance (not a Rijk Zwaan crop)'};
 function guideSourceText(g){
   const cap = t=> t.charAt(0).toUpperCase() + t.slice(1);
-  const kg = `Yield: ${yieldText(g)}${guideHasYield(g) ? (g.kgSrc ? ` — the Rijk Zwaan guide gives no yields; this is the ${g.kgSrc}’s` : '') : ' — no figure in the guide, so give your own expected kg a plant'}.`;
+  const kg = `Yield: ${yieldText(g)}${guideHasYield(g) ? (g.est ? ' — the guide’s estimate (a typical number of fruits a plant × Rijk Zwaan’s fruit weight); check it against your own records' : '') : ' — no figure in the guide, so give your own expected kg a plant'}.`;
   const v = g.variety && g.varieties ? g.varieties.find(x=> x.name === g.variety) : null;
   if(g.adjusted) return `Your timings for this planting: ${stagesText(g)}. ${kg}`;
   if(g.custom || g.edited) return `Timing: ${stagesText(g)}. ${kg}${g.timingNote ? ' ' + cap(g.timingNote) + '.' : ''} Figures set by the Secretariat.`;
   const parts = [], r = g.ranges, w = g.stageWords || {};
+  if(g.doc){
+    // The guide's own words for the variety chosen, or for the crop.
+    parts.push(`Timing (${SRC_NAME[g.src] || 'crop guide'}; ★ = Rijk Zwaan’s own figure; the middle of each range is used): ${v && v.note ? `${v.name} — ${v.note}` : cap(g.doc)}`);
+    if(g.timingNote) parts.push(cap(g.timingNote));
+    let out = parts.join('. ') + '. ' + kg;
+    if(g.src === 'rz' || g.src === 'general') out += ' Cool highland seasons (Iringa in June–August) run 10–25% slower.';
+    return out;
+  }
   if(r){
     const t = [];
     if(r.nursery) t.push(`nursery ${r.nursery}`);
@@ -7160,7 +7210,7 @@ function todayISO(){ const d = new Date(); return `${d.getFullYear()}-${String(d
 
 // How long a crop takes, in words.
 function timingText(g){
-  if(g.custom || g.edited) return g.tree ? 'A bearing tree: the harvest starts on the date entered' : stagesText(g);
+  if(g.custom || g.edited || g.doc) return g.tree ? 'A bearing tree: the harvest starts on the date entered' : stagesText(g);
   if(g.ranges){
     const r = g.ranges, w = g.stageWords || {}, t = [];
     if(r.nursery) t.push(`nursery ${r.nursery}`);
@@ -7213,7 +7263,7 @@ function renderGuideAdmin(c){
   if(!guideFor(calc.id) && list[0]) calc.id = list[0].id;
   const meta = GUIDE_META && GUIDE_META.updatedAt
     ? `Last changed ${esc(whenText(GUIDE_META.updatedAt))}${operatorName(GUIDE_META.updatedBy) ? ' by ' + esc(operatorName(GUIDE_META.updatedBy)) : ''}.`
-    : 'These are the built-in figures — the Rijk Zwaan crop guide for East Africa — and nobody has changed them yet.';
+    : 'These are the built-in figures — the Rijk Zwaan crop guide, growth stages and harvest a plant — and nobody has changed them yet.';
   c.innerHTML = `
     <h1 class="page-title">Crop guide</h1>
     <p class="page-sub">The figures every farm’s plan is worked out from. Change one here and farms plan with the new figure straight away.</p>
@@ -7227,7 +7277,7 @@ function renderGuideAdmin(c){
     ${staleEdited().length ? `<div class="card gd-stale">${icon('refresh')} <div><strong>The Rijk Zwaan crop guide is built in.</strong>
       Every crop nobody had changed now uses it. ${staleEdited().map(g=> esc(g.name)).join(', ')} still ${staleEdited().length === 1 ? 'has' : 'have'} figures set here before it came in.
       <div style="margin-top:8px;"><button class="btn small" onclick="guideUseEdition(this)">Use the Rijk Zwaan figures for ${staleEdited().length === 1 ? 'it' : 'them'} too</button></div></div></div>` : ''}
-    <p class="helper gd-about">Timings: the Rijk Zwaan crop guide for East Africa (Tanzania), October 2026 — standard stage ranges for warm East African conditions matched to each variety type, with Rijk Zwaan’s published figures quoted where it has them; the middle of each range is used. It gives no yields, so what a plant gives is still the TIPFA Harvest Ledger’s, or each farm’s own. Onion, herbs and avocado are its general guidance (not Rijk Zwaan crops). Crops it does not cover are not built in; add one with Add a crop if farms need it.</p>
+    <p class="helper gd-about">Built in: the Rijk Zwaan crop guide “Growth stages and harvest per plant” (Sub-Saharan Africa range, October 2026) — for every variety, the days after sowing to transplanting, flowering, fruit set and first harvest, how long the harvest lasts, and an estimated harvest a plant. ★ marks Rijk Zwaan’s own figure; the others are standard ranges for the variety type; the middle of each range is used. Harvest a plant is the guide’s estimate (a typical number of fruits × Rijk Zwaan’s fruit weight). Onion, herbs and avocado are its general guidance (not Rijk Zwaan crops). Crops it does not cover are not built in; add one with Add a crop if farms need it.</p>
 
     <div class="section-label">Calculator</div>
     <div class="card gd-calc">

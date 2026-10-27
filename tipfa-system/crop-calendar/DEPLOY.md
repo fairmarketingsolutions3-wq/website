@@ -232,30 +232,29 @@ the farm decides whether to plan it again. This needs the
 `calendarSettings/cropGuide` block of `firestore.rules` published.
 
 ### Where the built-in figures come from
-The built-in crop guide is the **Rijk Zwaan crop guide for East Africa
-(Tanzania), October 2026**: days for each stage and how long the harvest lasts,
-for the varieties Rijk Zwaan sells here, with each variety's own days where it
-differs (e.g. ABALE, the determinate tomato; MOSCATEL truss cherry tomato;
-Galia, Harper and Piel de Sapo melons; KARIBA and TAHOE broccoli). As that guide
-says, Rijk Zwaan does not publish stage days for its African varieties: they
-are standard ranges for warm East African conditions matched to each variety
-type, with Rijk Zwaan's published figures quoted where they exist; the middle
-of each range is used. It gives no yields, so kg a plant stays the TIPFA
-Harvest Ledger's (per harvest week) or the farm's own. Onion, herbs and avocado
-are its general guidance. Crops it does not cover are not built in (paprika,
-habanero and garlic were removed, also from guides saved earlier); the
-Secretariat can add any crop under **Crop guide → Add a crop**.
+The built-in crop guide is the **Rijk Zwaan crop guide "Growth stages and
+harvest per plant"** (Sub-Saharan Africa range, October 2026). For every
+variety it gives the days after sowing to transplanting, flowering, fruit set
+and first harvest, how long the harvest lasts, the fruit weight and an
+estimated harvest a plant. Crops: tomato (7 varieties), cherry tomato (3),
+habanero pepper (4), hot pepper (3), capsicum (5), sweet melon (8),
+cauliflower (2) and broccoli (2), plus the guide's general guidance for onion,
+basil, coriander, parsley and avocado (Rijk Zwaan does not sell those).
 
-Only crops in the crop guide can be planted. A farm typing another crop is
-turned back with the guide's crops to pick from; a planting of such a crop
-cannot be copied; and an Excel import brings in only the guide's crops,
-listing the rows it left out. Plantings of other crops already on a calendar
-stay as they were, marked "not in the crop guide", with a note above the
-calendar: edit one to choose a guide crop, or archive or delete it.
+In the app, each crop's own figures are its first variety's, and each variety
+carries its own days and harvest. The middle of each range is used. As stages:
+nursery = sowing to transplanting; vegetative growth = transplanting to
+flowering (or curd, head or bulb initiation); flowering = from there to the
+first harvest. ★ in a variety's note marks Rijk Zwaan's own figure. The
+harvest a plant is the guide's estimate (a typical number of fruits × Rijk
+Zwaan's fruit weight): farms should check it against their own records.
+Capsicum yields are the greenhouse figures; avocado is planned for a tree in
+full bearing (100 kg over a 24-week season, which the guide does not give).
 
-A guide saved before this edition is brought up to it automatically: crops
-nobody changed take the new figures, crops the Secretariat changed or added are
-kept, and **Crop guide** offers the new figures for the changed ones.
+This edition replaces the whole built-in guide when it loads: every built-in
+crop takes the new figures — including any the Secretariat had changed
+before — and crops removed before come back. Crops the Secretariat added
+itself are kept. Mint and rosemary, which the guide does not cover, are gone.
 
 ### Removing a crop from the guide
 Under **Crop guide**, every crop has **Remove**. Farms can then no longer plant
@@ -268,7 +267,7 @@ Secretariat added itself is gone for good once removed.
 ### Pictures
 Each built-in crop has a picture: a single crop cut out with no background,
 in `public/assets/crops/<crop id>.webp` (192 px, about 11 KB each; made with
-Higgsfield). They appear beside the crop on the calendar, in the planting
+Higgsfield; basil's file is `herbs.webp`). They appear beside the crop on the calendar, in the planting
 editor, in the crop guide and calculator, and in the totals. Under
 **Crop guide → Edit**, the Secretariat can upload a crop's own picture (best
 as a cut-out PNG or WebP) or go back to the built-in one; an uploaded picture
@@ -283,7 +282,7 @@ affected if the rules are older.
 
 ### Varieties
 In the planting editor a farm picks its variety from the crop's list (with
-what the seed company says of it and its resistances) or types another. A
+what the seed company says of it, and the guide's figures for it) or types another. A
 variety with its own days is planned with them. The variety shows on the
 calendar and goes to Excel in the notes column (`Variety: …`), and comes back
 from it on import. The Secretariat edits each crop's varieties under
