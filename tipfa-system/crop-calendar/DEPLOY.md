@@ -276,6 +276,17 @@ editor, in the crop guide and calculator, and in the totals. Under
 as a cut-out PNG or WebP) or go back to the built-in one; an uploaded picture
 is made small in the browser and kept in the crop guide.
 
+Each **variety** has its own colour (the colour of its fruit, curd or rind)
+and its own picture. A built-in variety's picture is
+`public/assets/varieties/<name>.webp` (the name without "RZ F1", in lower
+case with hyphens, e.g. `red-jet.webp`), listed in `VARIETY_PICS` in the app;
+a variety without one shows its crop's picture. A planting's badge on the
+calendar shows its variety's picture, ringed in the variety's colour, and a
+dot of that colour sits beside the variety's name. Under **Crop guide → Edit**,
+each variety has a picture to upload (made 128 px in the browser) and a
+colour to pick. The crop guide is one database document of at most 1 MB, so
+the app refuses a save that would pass about 950 KB of uploaded pictures.
+
 Farms and administrators add a **profile photo** by clicking their name at the
 top (on a phone, in the menu). It is cropped to a 192 px square in the browser
 and saved on the account (`photo`, a data URL of at most 120,000 characters,

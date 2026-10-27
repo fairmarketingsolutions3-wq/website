@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v22">
+<meta name="tipfa-build" content="v23">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2307,7 +2307,8 @@ body.cc-wide .content > .grid4{display:none;}
 .gb-variety-info .gv-plan b{color:var(--deep-green);}
 .gd-tag.is-rz{background:#E7F1DC;color:#3D6B1F;font-weight:600;}
 .gd-vars{display:flex;flex-wrap:wrap;gap:4px;}
-.gd-vars span{font-size:11px;background:#F4F5EE;border:1px solid var(--line);border-radius:99px;padding:1px 7px;white-space:nowrap;}
+.gd-vars span{font-size:11px;background:#F4F5EE;border:1px solid var(--line);border-radius:99px;padding:1px 7px;white-space:nowrap;display:inline-flex;align-items:center;}
+.gd-vars .crop-pic.vchip{width:18px;height:18px;margin:-2px 4px -2px -4px;}
 .gd-vars i{color:var(--harvest-orange);font-style:normal;font-weight:700;}
 .gd-stale{display:flex;gap:12px;align-items:flex-start;border-left:4px solid var(--harvest-orange);font-size:13px;line-height:1.5;}
 .gd-stale > svg{flex:none;width:20px;height:20px;color:var(--harvest-orange);margin-top:2px;}
@@ -2336,7 +2337,8 @@ body.cc-wide .content > .grid4{display:none;}
 .crop-pic.xs{width:22px;height:22px;margin-right:6px;}
 .crop-pic.chip{width:22px;height:22px;margin:-3px 6px -3px -4px;}
 .crop-pic.head{width:40px;height:40px;margin:-6px 2px -6px -2px;}
-.crop-pic.card{width:52px;height:52px;margin:-6px 4px -6px -4px;}
+.crop-pic.gcard{width:68px;height:68px;padding:4px;margin:-8px 6px -8px -6px;border-radius:20px;
+  background:radial-gradient(circle at 50% 58%, #FFFFFF, #EEF2E4 74%);box-shadow:inset 0 0 0 1px rgba(35,40,31,.06);}
 .crop-pic.calc{width:86px;height:86px;}
 .gd-card-head{justify-content:flex-start;}
 .gd-card-head .gd-tag{margin-left:auto;}
@@ -2389,7 +2391,31 @@ button.nd-acct{width:100%;background:none;border:none;cursor:pointer;text-align:
 @media (max-width: 760px){
   .gd-figs.has-pic{grid-template-columns:1fr;}
   .crop-pic.calc{width:64px;height:64px;}
-  .crop-pic.card{width:44px;height:44px;}
+  .crop-pic.gcard{width:56px;height:56px;padding:3px;border-radius:16px;}
+}
+
+/* ---- A variety's own picture and colour ---- */
+.vdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--vc);flex:none;margin-right:5px;vertical-align:-1px;
+  box-shadow:inset 0 0 0 1px rgba(35,40,31,.22);}
+.gd-vars .vdot{margin-right:4px;}
+.cc-ico.has-vc{box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--vc);}
+html[data-view="mobile"] .cc-ico.has-vc{box-shadow:0 0 0 1.5px #fff, 0 0 0 3px var(--vc);}
+.gb-variety-info{border-left-color:var(--vc, var(--leaf-green));}
+.gb-variety-info.has-pic{display:grid;grid-template-columns:76px 1fr;column-gap:12px;align-content:start;}
+.gb-variety-info.has-pic > *{grid-column:2;}
+.gb-variety-info.has-pic > .crop-pic.vcard{grid-column:1;grid-row:1 / span 6;align-self:start;}
+.crop-pic.vcard{width:76px;height:76px;padding:4px;border-radius:18px;background:radial-gradient(circle at 50% 58%, #FFFFFF, #EEF2E4 74%);
+  box-shadow:inset 0 0 0 2px var(--vc, transparent);}
+.ge-var-look{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin:2px 0 10px;}
+.ge-var-pic{width:76px;height:76px;border-radius:18px;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--muted);
+  background:radial-gradient(circle at 50% 58%, #FFFFFF, #EEF2E4 74%);box-shadow:inset 0 0 0 3px var(--vc, #DCE5CC);}
+.ge-var-pic img{width:64px;height:64px;object-fit:contain;filter:drop-shadow(0 2px 3px rgba(35,40,31,.2));}
+.ge-var-look-side{flex:1;min-width:200px;}
+.ge-var-color{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink);}
+.ge-var-color input{width:42px;height:32px;padding:2px;margin:0;border:1px solid var(--line);border-radius:8px;background:#fff;cursor:pointer;}
+@media (max-width: 760px){
+  .gb-variety-info.has-pic{grid-template-columns:58px 1fr;}
+  .crop-pic.vcard{width:58px;height:58px;}
 }
 </style>
 </head>
@@ -4015,6 +4041,7 @@ function offGuideBanner(f){
 }
 // A variety, short enough for the calendar's crop column.
 function varietyShort(r){ return r.variety ? r.variety.replace(/ RZ F1/, '') : ''; }
+function rowVarietyDot(r){ return r.variety ? varietyDot(varietyOf(guideMatch(r.crop), r.variety)) : ''; }
 function liveRows(f){ return f.rows.filter(r=> !r.archived); }
 function archivedRows(f){ return f.rows.filter(r=> r.archived); }
 
@@ -4421,7 +4448,7 @@ function rowHTML(r, ri){
   const cropInner = `<div class="cc-crop-cell">
       ${cropIcoHTML(r, j)}
       <span class="cn" ${ro ? '' : `onclick="openEditor('${r.id}')"`} title="${esc(tip)}"><span class="cn-name">${esc(r.crop || '—')}</span>
-        ${sub && !mobile ? `<span class="sub">${esc(sub)}</span>` : ''}
+        ${sub && !mobile ? `<span class="sub">${rowVarietyDot(r)}${esc(sub)}</span>` : ''}
         <span class="cc-now">${esc(j.text)}</span>
         <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
       ${ro ? '' : `<span class="cc-rowbtns">
@@ -5328,6 +5355,19 @@ const GUIDE_EDITION = 'rz-ssa-2026-10b';
 const RZ = 'rz', GENERAL = 'general';
 // Crops an earlier edition had built in, which this guide does not cover.
 const GUIDE_REMOVED = ['paprika', 'garlic', 'mint', 'herbs-perennial'];
+// Each variety's own colour: the colour of its fruit, curd or rind.
+const VARIETY_COLOR = {
+  'ABALE RZ F1':'#D7261E', 'AMBURANA RZ F1':'#B71C1C', 'GAMHAR RZ F1':'#E53935', 'JARRAH RZ F1':'#C62828',
+  'UWEZO RZ F1':'#D84315', 'TRONUS RZ F1':'#EF3B2C', 'VALOURO RZ F1':'#9E1B1B',
+  'FORTESA RZ F1':'#E0302A', 'NANCY RZ F1':'#FF4433', 'MOSCATEL RZ F1':'#B3261E',
+  'LENGAI RZ F1':'#D32F2F', 'AFADJA RZ F1':'#F04A2A', 'LOLEZA RZ F1':'#F9C80E', 'MAWENZILI RZ F1':'#A3151B',
+  'ERTA ALE RZ F1':'#D0312D', 'HABIB RZ F1':'#8BC34A', 'MEXTIZO RZ F1':'#2E7D32',
+  'PASARELLA RZ F1':'#D62828', 'STARLET RZ F1':'#B3121F', 'ILANGA RZ F1':'#FFD21F', 'REGGAETON RZ F1':'#F4A900', 'RED JET RZ F1':'#7F1418',
+  'CARIBBEAN GOLD RZ F1':'#E0A54E', 'CARIBBEAN KING RZ F1':'#B5A57A', 'ALPES RZ F1':'#E9C46A', 'DIBANGO RZ F1':'#9DB89A',
+  'ETCHABI RZ F1':'#E6D48F', 'GLADIAL RZ F1':'#FFD60A', 'RICURA RZ F1':'#3E7B3A', 'MESURA RZ F1':'#5E9440',
+  'MONEERA RZ F1':'#EFE6CC', 'CASPER RZ F1':'#FBF8EE',
+  'KARIBA RZ F1':'#4C9A2A', 'TAHOE RZ F1':'#2F5D3A',
+};
 const CROP_GUIDE_DEFAULT = [
   {id:'tomato', name:'Tomato', src:RZ,
    names:['tomato', 'tomatoes', 'tomatoes (standard)', 'standard tomato', 'tomato (standard)', 'plum tomato', 'round tomato', 'beef tomato', 'beefsteak tomato'],
@@ -5509,7 +5549,10 @@ const CROP_GUIDE_DEFAULT = [
    nurseryDays:[225, 225], flowerDays:0, alt:'avocado',
    doc:'seed to a grafted plant ready to plant out: 6–9 months; first flowering 2–3 years after planting (remove early flowers in years 1–2)',
    harvest:{kind:'none'}},
-].map(g=> Object.assign(g, {ed: GUIDE_EDITION}));
+].map(g=>{
+  (g.varieties || []).forEach(v=>{ if(VARIETY_COLOR[v.name]) v.color = VARIETY_COLOR[v.name]; });
+  return Object.assign(g, {ed: GUIDE_EDITION});
+});
 /* The guide in use: the defaults above until the Secretariat edits it, then
    the Secretariat's version — kept in the database (or, with none, in this
    browser) and read by every farm as it plans. */
@@ -5552,6 +5595,8 @@ function upgradeGuide(list){
   CROP_GUIDE_DEFAULT.forEach(d=>{
     if(!out.some(g=> g.id === d.id) && !GUIDE_REMOVED_BY_ADMIN.includes(d.id) && !d.names.some(n=> custom.has(n))) out.push(cloneGuide(d));
   });
+  // A variety saved before varieties had colours takes its built-in colour.
+  out.forEach(g=> (g.varieties || []).forEach(v=>{ if(!v.color && VARIETY_COLOR[v.name]) v.color = VARIETY_COLOR[v.name]; }));
   // A name belongs to one crop: an older crop gives up a name this edition uses.
   const fresh = new Set(out.filter(g=> g.ed === GUIDE_EDITION && !g.custom).flatMap(g=> g.names));
   out.forEach(g=>{ if(g.ed !== GUIDE_EDITION && !g.custom) g.names = g.names.filter(n=> n === cropKey(g.name) || !fresh.has(n)); });
@@ -5566,6 +5611,9 @@ function loadGuideLocal(){
 async function saveGuide(list, removed){
   removed = (removed || GUIDE_REMOVED_BY_ADMIN).filter(id=> !list.some(g=> g.id === id));
   const crops = JSON.parse(JSON.stringify(list)).concat(removed.map(id=> ({id, removed:true, ed: GUIDE_EDITION})));
+  // The guide is one database document, which holds up to 1 MB; uploaded pictures are most of it.
+  if(JSON.stringify(crops).length > 950000)
+    throw new Error('The crop guide is too large to save with this many uploaded pictures. Use smaller pictures, or put a crop or variety back to its built-in picture.');
   if(cloudOn()){
     const { doc, setDoc } = CLOUD.fs;
     await setDoc(doc(CLOUD.db, COL.settings, 'cropGuide'), {crops, updatedAt: new Date().toISOString(), updatedBy: CLOUD_STATE.uid});
@@ -5857,7 +5905,7 @@ function guideBoxHTML(){
   const unit = g.tree ? 'trees' : 'plants';
   const dateLabel = g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date';
   return `<div class="gb">
-    <div class="gb-head">${cropPic(g, 'head') || icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt && guideFor(g.alt)
+    <div class="gb-head">${varietyPic(g, varietyOf(g, e.variety), 'head') || icon('today')} <span><strong>Planned from the TIPFA crop guide</strong> — enter the ${dateLabel.toLowerCase()} and the weeks fill themselves in${g.alt && guideFor(g.alt)
       ? ` <button type="button" class="gb-alt" onclick="pickGuideCrop('${g.alt}')">${g.tree ? 'Growing it from seed instead?' : 'A tree already bearing fruit instead?'}</button>` : ''}</span></div>
     ${varietyFieldHTML(g)}
     <div class="gb-fields">
@@ -5949,8 +5997,9 @@ function varietyFieldHTML(g){
   const e = state.editRow, list = g && g.varieties ? g.varieties : [];
   const known = varietyOf(g, e.variety), other = !!e.variety && !known;
   const v = known;
-  const info = v ? `<div class="gb-variety-info">
-      <strong>${esc(v.name)}</strong>${v.type ? ` · ${esc(v.type)}` : ''}${v.traits ? `<span>${esc(v.traits)}</span>` : ''}
+  const info = v ? `<div class="gb-variety-info${plantingImgSrc(g, v.name) ? ' has-pic' : ''}"${v.color ? ` style="--vc:${esc(v.color)}"` : ''}>
+      ${varietyPic(g, v, 'vcard')}
+      <span class="gv-name"><strong>${varietyDot(v)}${esc(v.name)}</strong>${v.type ? ` · ${esc(v.type)}` : ''}</span>${v.traits ? `<span>${esc(v.traits)}</span>` : ''}
       ${v.res ? `<span class="gv-res">Resistances: ${esc(v.res)}</span>` : ''}
       ${v.note ? `<span class="gv-note">${icon('today')} ${esc(v.note)}</span>` : ''}
       ${varietyPlanText(g, v)}</div>` : '';
@@ -6366,7 +6415,7 @@ function dayRowHTML(f, r, x, ri, v){
     <div class="dv-pin"><div class="cc-crop-cell">
       ${cropIcoHTML(r, j)}
       <span class="cn" ${open} title="${esc([r.crop, sub, j.text, r.notes].filter(Boolean).join(' — '))}"><span class="cn-name">${esc(r.crop || '—')}</span>
-        ${sub ? `<span class="sub">${esc(sub)}</span>` : ''}
+        ${sub ? `<span class="sub">${rowVarietyDot(r)}${esc(sub)}</span>` : ''}
         <span class="cc-now">${esc(j.text)}</span>
         <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
       ${btns}</div></div>
@@ -7388,13 +7437,13 @@ function guideCardHTML(g){
     : per === null ? `<span class="gd-missing">No kg figure — farms give their own</span>`
     : `${fmt(plants)} ${unit}s → <strong>${fmt(Math.round(per * plants * 10) / 10)} kg</strong>`;
   return `<div class="card gd-card" data-guide="${id}">
-    <div class="gd-card-head">${cropPic(g, 'card')}<strong>${esc(g.name)}</strong>${guideTag(g)}</div>
+    <div class="gd-card-head">${cropPic(g, 'gcard')}<strong>${esc(g.name)}</strong>${guideTag(g)}</div>
     <dl class="gd-facts">
       <dt>Stages</dt><dd>${stageChipsHTML(g)}</dd>
       <dt>Timing</dt><dd>${esc(timingText(g) || '—')}</dd>
       <dt>Harvest</dt><dd>${esc(yieldText(g))}</dd>
       <dt>A ${unit}</dt><dd>${per === null ? '—' : g.harvest.kind === 'none' ? '0 kg' : `<strong>${kgText(per)}</strong>`}</dd>
-      ${g.varieties && g.varieties.length ? `<dt>Varieties</dt><dd class="gd-vars">${g.varieties.map(v=> `<span title="${esc([v.type, v.traits, v.note].filter(Boolean).join(' — '))}">${esc(v.name.replace(/ RZ F1/, ''))}${v.adj ? '<i>*</i>' : ''}</span>`).join('')}</dd>` : ''}
+      ${g.varieties && g.varieties.length ? `<dt>Varieties</dt><dd class="gd-vars">${g.varieties.map(v=> `<span class="gd-var" title="${esc([v.type, v.traits, v.note].filter(Boolean).join(' — '))}">${varietyImgSrc(v) ? varietyPic(g, v, 'vchip') : varietyDot(v)}${esc(v.name.replace(/ RZ F1/, ''))}${v.adj ? '<i>*</i>' : ''}</span>`).join('')}</dd>` : ''}
     </dl>
     <div class="gd-out">${out}</div>
     <div class="gd-actions">
@@ -7460,7 +7509,7 @@ function guideCalcUpdate(cropChanged){
     : perPlantWorking(g);
   const weekly = per != null && plants && p.hWeeks ? Math.round(per * plants / p.hWeeks * 10) / 10 : null;
   out.innerHTML = `
-    <div class="gd-figs${cropImgSrc(g0) ? ' has-pic' : ''}">${cropImgSrc(g0) ? `<div class="gd-fig gd-pic">${cropPic(g0, 'calc')}</div>` : ''}
+    <div class="gd-figs${plantingImgSrc(g0, calc.variety) ? ' has-pic' : ''}">${plantingImgSrc(g0, calc.variety) ? `<div class="gd-fig gd-pic">${varietyPic(g0, varietyOf(g0, calc.variety), 'calc')}</div>` : ''}
       <div class="gd-fig"><span class="lbl">A ${unit} gives</span><span class="val">${per == null ? '—' : kgText(per)}</span></div>
       <div class="gd-fig is-main"><span class="lbl">${plants ? fmt(plants) : 'No'} ${many} give</span><span class="val">${per == null || !plants ? '—' : fmt(p.total) + ' kg'}</span></div>
       <div class="gd-fig"><span class="lbl">${h.kind === 'weekly' || h.kind === 'picking' ? 'Each harvest week' : 'A harvest week, on average'}</span><span class="val">${weekly == null ? '—' : fmt(weekly) + ' kg'}</span></div>
@@ -7484,7 +7533,8 @@ function toDraft(g){
   Object.keys(st).forEach(k=> d[k] = s(st[k]));
   if(d.kind === 'single') d.hWeeks = '1';
   d.image = g && g.image || '';
-  d.varieties = (g && g.varieties || []).map(v=> Object.assign({name: v.name, type: v.type || '', traits: v.traits || '', res: v.res || '', vnote: v.note || ''},
+  d.varieties = (g && g.varieties || []).map(v=> Object.assign({name: v.name, type: v.type || '', traits: v.traits || '', res: v.res || '', vnote: v.note || '',
+      color: v.color || '', image: v.image || ''},
     ...VAR_DAYS.map(k=> ({[k]: v.adj && v.adj[k] != null ? String(v.adj[k]) : ''}))));
   return d;
 }
@@ -7530,6 +7580,8 @@ function fromDraft(d){
     if(v.res.trim()) out.res = v.res.trim().slice(0, 200);
     if(v.vnote.trim()) out.note = v.vnote.trim().slice(0, 300);
     if(Object.keys(adj).length) out.adj = adj;
+    if(/^#[0-9a-f]{6}$/i.test(v.color || '')) out.color = v.color.toUpperCase();
+    if(v.image) out.image = v.image;
     g.varieties.push(out);
   }
   if(!g.varieties.length) delete g.varieties;
@@ -7698,9 +7750,23 @@ function varietyEditHTML(v, i, d){
     <input id="gv-${i}-${k}" value="${esc(v[k])}" ${attrs || 'type="text"'} placeholder="${esc(ph || '')}" oninput="guideVarSet(${i}, '${k}', this.value)"></div>`;
   const n = (k, label, ph, step)=> f(k, label, `type="number" min="0" step="${step || '1'}" inputmode="${step ? 'decimal' : 'numeric'}"`, ph);
   const grows = d.start !== 'tree' && d.kind !== 'none';
+  const src = varietyImgSrc(v), builtIn = !v.image && !!src;
   return `<div class="ge-var">
     <div class="ge-var-head"><strong>${esc(v.name || 'New variety')}</strong>
       <button type="button" class="btn small ghost danger" onclick="guideVarDel(${i})">${icon('trash')} Remove</button></div>
+    <div class="ge-var-look">
+      <span class="ge-var-pic"${v.color ? ` style="--vc:${esc(v.color)}"` : ''}>${src ? `<img src="${esc(src)}" alt="" onerror="this.remove()">` : `<span>No picture</span>`}</span>
+      <div class="ge-var-look-side">
+        <div class="ge-pic-btns">
+          <label class="btn small ghost">${icon('up')} ${src ? 'Change picture' : 'Upload a picture'}
+            <input type="file" accept="image/*" onchange="guideVarPic(${i}, this)" hidden></label>
+          ${v.image ? `<button type="button" class="btn small ghost" onclick="guideVarPic(${i}, null)">${VARIETY_PICS.has(varietySlug(v.name)) ? `${icon('restore')} Use the built-in picture` : `${icon('trash')} Remove the picture`}</button>` : ''}
+          <label class="ge-var-color" for="gv-${i}-color">Colour
+            <input id="gv-${i}-color" type="color" value="${esc(v.color || '#6B8E23')}" onchange="guideVarSet(${i}, 'color', this.value);renderKeepingPlace()"></label>
+        </div>
+        <span class="helper" id="gv-${i}-pic-msg" style="margin:4px 0 0;">${builtIn ? 'The built-in picture. ' : ''}A single fruit or plant of this variety, no background. The colour marks the variety on the calendar.</span>
+      </div>
+    </div>
     <div class="ge-row">
       ${f('name', 'Name', 'type="text" maxlength="80"', 'e.g. ABALE RZ F1')}
       ${f('type', 'Type', 'type="text" maxlength="120"', 'e.g. Plum · determinate')}
@@ -7741,10 +7807,18 @@ async function guidePicSet(input){
 function guidePicClear(){ state.guideEdit.image = ''; renderKeepingPlace(); }
 function guideVarSet(i, k, v){ state.guideEdit.varieties[i][k] = v; if(k === 'name'){ const h = document.querySelectorAll('.ge-var-head strong')[i]; if(h) h.textContent = v || 'New variety'; } guideEditPreview(); }
 function guideVarAdd(){
-  state.guideEdit.varieties.push(Object.assign({name:'', type:'', traits:'', res:'', vnote:''}, ...VAR_DAYS.map(k=> ({[k]: ''}))));
+  state.guideEdit.varieties.push(Object.assign({name:'', type:'', traits:'', res:'', vnote:'', color:'', image:''}, ...VAR_DAYS.map(k=> ({[k]: ''}))));
   renderKeepingPlace();
   const all = document.querySelectorAll('.ge-var'); const last = all[all.length - 1];
   if(last){ last.scrollIntoView({block:'center'}); const inp = last.querySelector('input'); if(inp) inp.focus({preventScroll:true}); }
+}
+async function guideVarPic(i, input){
+  const v = state.guideEdit.varieties[i];
+  if(!input){ v.image = ''; renderKeepingPlace(); return; }
+  const file = input.files && input.files[0];
+  if(!file) return;
+  try{ v.image = await pictureDataURL(file, 128, 'contain'); renderKeepingPlace(); }
+  catch(e){ const m = document.getElementById(`gv-${i}-pic-msg`); if(m){ m.style.color = 'var(--red)'; m.textContent = (e && e.message) || String(e); } }
 }
 function guideVarDel(i){ state.guideEdit.varieties.splice(i, 1); renderKeepingPlace(); }
 /* Removing a crop: farms can no longer plant it. Plantings of it already on a
@@ -7797,16 +7871,37 @@ function cropImgSrc(g){
   if(g.image) return g.image;
   return CROP_GUIDE_DEFAULT.some(d=> d.id === g.id) ? `assets/crops/${g.id}.webp` : '';
 }
+/* A variety has its own picture and colour. The built-in varieties' pictures
+   are files in assets/varieties (those listed here); the Secretariat can give
+   any variety its own. A variety with no picture shows its crop's. */
+const VARIETY_PICS = new Set(['gamhar']);
+function varietySlug(name){ return String(name || '').replace(/\s+RZ F1$/i, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
+function varietyImgSrc(v){
+  if(!v) return '';
+  if(v.image) return v.image;
+  const s = varietySlug(v.name);
+  return VARIETY_PICS.has(s) ? `assets/varieties/${s}.webp` : '';
+}
+// A planting's picture: its variety's, or else its crop's.
+function plantingImgSrc(g, variety){ return varietyImgSrc(varietyOf(g, variety)) || cropImgSrc(g); }
+function varietyPic(g, v, cls){
+  const s = varietyImgSrc(v);
+  return s ? `<img class="crop-pic${cls ? ' ' + cls : ''}" src="${esc(s)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : cropPic(g, cls);
+}
+// A variety's colour, as a small round swatch.
+function varietyDot(v){ return v && v.color ? `<i class="vdot" style="--vc:${esc(v.color)}" aria-hidden="true"></i>` : ''; }
 // A crop's picture; nothing when it has none, or when the file cannot be loaded.
 function cropPic(g, cls){
   const s = cropImgSrc(g);
   return s ? `<img class="crop-pic${cls ? ' ' + cls : ''}" src="${esc(s)}" alt="" loading="lazy" decoding="async" onerror="this.remove()">` : '';
 }
-// The crop column's round badge: the crop's picture, with where it stands today in a small dot.
+// The crop column's round badge: the planting's picture (its variety's, if it
+// has one), ringed in the variety's colour, with where it stands today in a small dot.
 function cropIcoHTML(r, j){
-  const s = cropImgSrc(guideMatch(r.crop));
-  if(!s) return `<span class="cc-ico ${j.cls}" aria-hidden="true">${jIcon(j.icon, 17)}</span>`;
-  return `<span class="cc-ico has-pic ${j.cls}" aria-hidden="true"><img src="${esc(s)}" alt="" loading="lazy" decoding="async"
+  const g = guideMatch(r.crop), v = varietyOf(g, r.variety), s = plantingImgSrc(g, r.variety);
+  const vc = v && v.color ? ` has-vc" style="--vc:${esc(v.color)}` : '';
+  if(!s) return `<span class="cc-ico ${j.cls}${vc}" aria-hidden="true">${jIcon(j.icon, 17)}</span>`;
+  return `<span class="cc-ico has-pic ${j.cls}${vc}" aria-hidden="true"><img src="${esc(s)}" alt="" loading="lazy" decoding="async"
       onerror="this.parentNode.classList.remove('has-pic');this.remove()"><i class="cc-stage">${jIcon(j.icon, 11)}</i></span>`;
 }
 
