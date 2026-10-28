@@ -22,7 +22,7 @@ def part(start, end):
 def up(html):
     """Point the website's links and pictures one folder up, from members-portal/."""
     html = re.sub(r'href="#', 'href="../#', html)
-    html = re.sub(r'(src|href)="(assets|css|js)/', r'\1="../\2/', html)
+    html = re.sub(r'(src|href)="(assets|css|js|platform)/', r'\1="../\2/', html)
     # Back to top is the top of this page.
     html = html.replace('href="../#top" class="to-top"', 'href="#" class="to-top"')
     # The Members Portal link is this page.
