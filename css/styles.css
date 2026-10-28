@@ -2089,6 +2089,8 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
   }
   .nav-links { gap: 0.35rem; }
   .nav-toggle { width: 44px; height: 44px; display: grid; align-content: center; justify-items: center; gap: 5px; }
+  /* In the centred grid the bars need their own width, or they shrink to nothing. */
+  .nav-toggle span { width: 26px; margin: 0; }
   .nav-logo { display: inline-flex; align-items: center; min-height: 44px; }
   .footer-links { gap: 0.15rem; }
   .footer-links a { display: flex; align-items: center; min-height: 44px; }
@@ -2099,9 +2101,10 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
   .nav-portal-item a { color: var(--harvest-orange) !important; }
   .portal-callout { grid-template-columns: 1fr; padding: 1.6rem 1.4rem; gap: 1rem; }
   .portal-callout .btn { justify-self: start; }
-  .nav-toggle.open span:nth-child(1) { transform: translateY(8px) rotate(45deg); background: var(--field-cream); }
+  .nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); background: var(--field-cream); }
   .nav-toggle.open span:nth-child(2) { opacity: 0; }
-  .nav-toggle.open span:nth-child(3) { transform: translateY(-8px) rotate(-45deg); background: var(--field-cream); }
+  .nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); background: var(--field-cream); }
+  .nav.scrolled .nav-toggle.open span { background: var(--tipfa-green); }
 }
 
 @media (max-width: 560px) {
@@ -2145,6 +2148,7 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
 @media (pointer: coarse) {
   .nav-logo { display: inline-flex; align-items: center; min-height: 44px; }
   .nav-toggle { width: 44px; height: 44px; display: grid; align-content: center; justify-items: center; gap: 5px; }
+  .nav-toggle span { width: 26px; margin: 0; }
   .nav-links a {
     display: flex;
     align-items: center;
@@ -2165,4 +2169,24 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
   .to-top { min-height: 44px; display: inline-flex; align-items: center; }
   .contact-item { min-height: 56px; }
   .footer-badges li { padding: 0.5rem 0.8rem; }
+}
+
+/* ==========================================================================
+   Members Portal page: the website's header and footer around the system
+   ========================================================================== */
+.page-portal .nav-links a[aria-current="page"]::after { transform: scaleX(1); }
+.page-portal .btn-portal[aria-current="page"] { background: var(--tipfa-green); border-color: var(--tipfa-green); color: var(--field-cream); }
+.portal-head { padding: calc(var(--navh, 72px) + 1.1rem) 0 1rem; background: var(--field-cream); }
+.portal-head .container { display: grid; grid-template-columns: auto 1fr; align-items: end; column-gap: 2.4rem; }
+.portal-kicker { grid-column: 1 / -1; font-family: var(--font-display); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--harvest-orange); margin-bottom: 0.3rem; }
+.portal-head h1 { font-size: clamp(1.35rem, 2.4vw, 1.9rem); color: var(--deep-green); line-height: 1.15; }
+.portal-sub { font-size: 0.92rem; color: rgba(35, 40, 31, 0.78); max-width: 70ch; }
+.portal-stage { background: var(--field-cream); border-top: 3px solid var(--harvest-orange); }
+.portal-frame { display: block; width: 100%; border: 0; background: var(--field-cream);
+  height: calc(100vh - 12rem); min-height: 520px; }
+@media (max-width: 900px) {
+  .portal-head { padding: calc(var(--navh, 64px) + 0.7rem) 0 0.7rem; }
+  .portal-head .container { grid-template-columns: 1fr; }
+  .portal-sub { display: none; }
 }

@@ -9,8 +9,8 @@
   var hero = document.querySelector('.hero');
 
   function finishLoading() {
-    preloader.classList.add('done');
-    hero.classList.add('loaded');
+    if (preloader) preloader.classList.add('done');
+    if (hero) hero.classList.add('loaded');
   }
   if (document.readyState === 'complete') {
     setTimeout(finishLoading, 500);
@@ -26,7 +26,8 @@
   var navLinks = document.getElementById('navLinks');
 
   function onNavScroll() {
-    nav.classList.toggle('scrolled', window.scrollY > 60);
+    // A page with no hero (the Members Portal) keeps the solid header throughout.
+    nav.classList.toggle('scrolled', !hero || window.scrollY > 60);
   }
   window.addEventListener('scroll', onNavScroll, { passive: true });
   onNavScroll();
@@ -47,7 +48,7 @@
   function onProgress() {
     var doc = document.documentElement;
     var max = doc.scrollHeight - window.innerHeight;
-    progress.style.transform = 'scaleX(' + (max > 0 ? window.scrollY / max : 0) + ')';
+    if (progress) progress.style.transform = 'scaleX(' + (max > 0 ? window.scrollY / max : 0) + ')';
   }
   window.addEventListener('scroll', onProgress, { passive: true });
   onProgress();

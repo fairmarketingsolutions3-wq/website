@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v24">
+<meta name="tipfa-build" content="v25">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2424,6 +2424,10 @@ a.brandblock{color:inherit;text-decoration:none;}
   font-size:12.5px;font-weight:600;color:var(--tipfa-green);text-decoration:none;transition:background .2s;}
 .back-site:hover{background:rgba(85,117,51,.1);}
 .back-site svg{width:16px;height:16px;}
+/* Inside the website's Members Portal page: the website's header above carries the brand. */
+html.embedded .topbar .brandblock{display:none;}
+html.embedded .topbar{justify-content:flex-end;padding-top:8px;padding-bottom:8px;}
+html.embedded .topbar:has(#topbarRight:empty){display:none;}
 </style>
 </head>
 <body>
@@ -2830,8 +2834,11 @@ function setCloudStatus(status, detail){
   document.querySelectorAll('.cloud-badge:not(.build)').forEach(el=> el.outerHTML = cloudBadge(true));
 }
 const BUILD = (document.querySelector('meta[name="tipfa-build"]') || {}).content || 'v0';
-// Opened as the Members Portal page of the TIPFA website (…/members-portal/).
+// Opened as the Members Portal of the TIPFA website (…/members-portal/app/),
+// usually inside the website's own Members Portal page, which frames it.
 const IN_PORTAL = /\/members-portal(\/|$)/.test(location.pathname);
+const EMBEDDED = (()=>{ try{ return window.self !== window.top; }catch(e){ return true; } })();
+const SITE_ROOT = IN_PORTAL ? location.pathname.replace(/members-portal\/.*$/, '') : '';
 
 function cloudBadge(onlyStatus){
   const cls = CLOUD.status === 'ready' ? 'ok' : (CLOUD.status === 'connecting' ? 'wait' : 'off');
@@ -3304,7 +3311,7 @@ function renderLogin(){
       <div class="loginpane">
         <div class="arcfield" aria-hidden="true"><div class="arc arc--cream-1"></div><div class="arc arc--cream-2"></div></div>
         <div class="loginbox">
-          ${IN_PORTAL ? `<a class="back-site" href="../">${icon('chevL')} The TIPFA website</a>` : ''}
+          ${IN_PORTAL && !EMBEDDED ? `<a class="back-site" href="${esc(SITE_ROOT)}">${icon('chevL')} The TIPFA website</a>` : ''}
           <div class="lock-icon">${LOCK_ICON} Secure sign-in</div>
           <div class="logintabs">
             <span class="tabglide" style="transform:translateX(${isMember?'0':'100%'});"></span>
@@ -8239,17 +8246,19 @@ function journeyAfterRender(c){
   document.head.appendChild(s);
 })();
 
-/* Opened as the TIPFA website's Members Portal (its members-portal/ page):
-   it is named so, and the brand at the top leads back to the website. */
+/* As the TIPFA website's Members Portal it is named so. Inside the website's
+   Members Portal page, the website's own header carries the brand, so this
+   one steps aside; opened on its own, its brand leads back to the website. */
 (function portal(){
   if(!IN_PORTAL) return;
   document.title = 'Members Portal · TIPFA';
   const n = document.querySelector('.bt-name');
   if(n) n.innerHTML = 'TIPFA <span>Members Portal</span>';
+  if(EMBEDDED){ document.documentElement.classList.add('embedded'); return; }
   const b = document.querySelector('.brandblock');
   if(b){
     const a = document.createElement('a');
-    a.className = b.className; a.href = '../'; a.title = 'Back to the TIPFA website';
+    a.className = b.className; a.href = SITE_ROOT; a.title = 'Back to the TIPFA website';
     a.innerHTML = b.innerHTML; b.replaceWith(a);
   }
 })();

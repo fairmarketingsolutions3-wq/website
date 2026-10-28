@@ -381,14 +381,22 @@ Every push to that branch then goes live by itself. Add the Netlify address unde
 ## As the TIPFA website's Members Portal
 
 The TIPFA website (the repository's root `index.html`) has a **Members Portal**
-page: the folder `members-portal/` at the root holds a copy of this system, so
-it opens at `<website>/members-portal/`. The website links to it from the
-header, the phone menu, the Membership section and the footer. Opened there,
-the system calls itself "Members Portal", and its logo and a link above the
-sign-in lead back to the website. It uses the same Firebase project, so every
-account and calendar is the same as on the crop calendar's own address.
+page, `members-portal/`. It is a page of the website: the website's own header
+and footer, a short heading, and this system filling the screen below them.
 
-After changing the system, refresh the copy from the project root:
+- `members-portal/index.html` is the page. Its header and footer are taken from
+  the website's `index.html`, so they always match it.
+- `members-portal/app/` is a copy of this system, shown inside the page.
+
+The website links to the page from its header, the phone menu, the Membership
+section and the footer. Inside the page the system leaves the brand to the
+website's header; opened on its own at `members-portal/app/`, it calls itself
+"Members Portal" and leads back to the website. It uses the same Firebase
+project, so every account and calendar is the same as on the crop calendar's
+own address.
+
+After changing the system, or the website's header or footer, rebuild the page
+from the project root:
 
     bash scripts/build-members-portal.sh
 
