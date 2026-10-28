@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v25">
+<meta name="tipfa-build" content="v26">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -7891,7 +7891,7 @@ function cropImgSrc(g){
 /* A variety has its own picture and colour. The built-in varieties' pictures
    are files in assets/varieties (those listed here); the Secretariat can give
    any variety its own. A variety with no picture shows its crop's. */
-const VARIETY_PICS = new Set(['gamhar']);
+const VARIETY_PICS = new Set(['abale', 'amburana', 'gamhar', 'tronus', 'moscatel', 'afadja']);
 function varietySlug(name){ return String(name || '').replace(/\s+RZ F1$/i, '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''); }
 function varietyImgSrc(v){
   if(!v) return '';
