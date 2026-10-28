@@ -1,0 +1,44 @@
+# Netlify — for hosting the crop calendar from this repository.
+#
+# In Netlify: Site configuration → Build & deploy → Link repository, then
+#   Base directory:     tipfa-system/crop-calendar
+#   Build command:      (leave empty — there is nothing to build)
+#   Publish directory:  tipfa-system/crop-calendar/public
+# Netlify reads this file from the base directory. The headers match
+# firebase.json, so the site behaves the same on either host.
+
+[build]
+  publish = "public"
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+
+# The page and its settings are checked for a newer copy on every visit.
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
+[[headers]]
+  for = "/firebase-config.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+# The Excel library and the logos change rarely.
+[[headers]]
+  for = "/vendor/*"
+  [headers.values]
+    Cache-Control = "public, max-age=2592000"
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"

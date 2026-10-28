@@ -1,0 +1,170 @@
+rules_version = '2';
+
+/*
+ * TIPFA Crop Calendar — Firestore security rules
+ *
+ * Publish with `firebase deploy --only firestore:rules` from this folder, or
+ * paste into Build → Firestore Database → Rules in the console.
+ *
+ *   calendarSettings/signup   the two sign-up codes, farmCode and operatorCode.
+ *                             No client can read or write it; the rules read it
+ *                             on the client's behalf, so a code is checked
+ *                             without ever being sent to a browser. Created by
+ *                             hand in the console (see DEPLOY.md).
+ *
+ *   calendarSettings/owner    which administrator owns the system. Written once,
+ *                             by the first administrator to register, and never
+ *                             again — a create rule only applies to a document
+ *                             that does not exist yet.
+ *
+ *   calendarSettings/cropGuide  the crop guide farms plan from, as the
+ *                             administrators last edited it. Until it exists the
+ *                             app's built-in figures are used.
+ *
+ *   calendarOperators/{uid}   one document per administrator, with a status.
+ *
+ *   calendarFarms/{uid}       one document per farm: its details, its status,
+ *                             how it is divided, and its calendar.
+ *
+ * Approval. Every account starts as `pending`. An approved administrator moves
+ * an account to `approved`, `rejected` or `suspended`, and nothing else can.
+ * Only the system owner approves themselves, once, on arrival — someone has to
+ * be first. The owner cannot be suspended by anyone.
+ *
+ * A farm reads its own record at any status, so it can see where it stands,
+ * but writes its calendar only while approved. Approved administrators read
+ * every farm and every administrator, change nothing but status, may
+ * remove a farm altogether, and keep the crop guide. Nothing else is ever deleted from the app.
+ *
+ * IMPORTANT — a Firestore database has ONE set of rules. Do not publish this
+ * file into a project that runs the full TIPFA platform: it would replace the
+ * platform's rules. Give the crop calendar a project of its own.
+ */
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isSelf(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    function settingsPath(id) {
+      return /databases/$(database)/documents/calendarSettings/$(id);
+    }
+    function operatorPath(uid) {
+      return /databases/$(database)/documents/calendarOperators/$(uid);
+    }
+    function calendarCodes() {
+      return get(settingsPath('signup')).data;
+    }
+    function isOwnerUid(uid) {
+      return exists(settingsPath('owner')) && get(settingsPath('owner')).data.uid == uid;
+    }
+    function isApprovedOperator() {
+      return signedIn()
+        && exists(operatorPath(request.auth.uid))
+        && get(operatorPath(request.auth.uid)).data.status == 'approved';
+    }
+    // An approved administrator deciding on somebody else's account: only the
+    // status fields change, to a known status, signed with their own uid.
+    function isDecision() {
+      return isApprovedOperator()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'statusBy', 'statusAt'])
+        && request.resource.data.status in ['approved', 'rejected', 'suspended']
+        && request.resource.data.statusBy == request.auth.uid;
+    }
+    function changedOnly(keys) {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys);
+    }
+
+    // Everything a farm document may hold. signupCode is allowed only so the
+    // create rule can check it; it is deleted straight afterwards.
+    function farmShape(d) {
+      return d.keys().hasOnly(['name', 'contact', 'phone', 'email', 'location', 'registered',
+                               'units', 'rows', 'startYear', 'updatedAt', 'signupCode',
+                               'status', 'statusBy', 'statusAt', 'photo'])
+        && photoOk(d)
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 120
+        && d.units is list && d.units.size() >= 1 && d.units.size() <= 200
+        && d.rows is list && d.rows.size() <= 1000;
+    }
+    // What a farm may change about itself: its details and its calendar.
+    function farmOwnFields() {
+      return ['name', 'contact', 'phone', 'location', 'units', 'rows', 'startYear', 'updatedAt', 'photo'];
+    }
+    // A profile photo: a small picture, made in the browser, kept as a data URL.
+    function photoOk(d) {
+      return !('photo' in d) || (d.photo is string && d.photo.size() <= 120000 && d.photo.matches('^data:image/.*'));
+    }
+
+    match /calendarSettings/signup {
+      allow read, write: if false;            // the console only
+    }
+
+    match /calendarSettings/owner {
+      allow read: if signedIn();
+      // Only a registered administrator may claim it, only for themselves,
+      // and only while nobody has.
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'at'])
+        && request.resource.data.uid == request.auth.uid
+        && exists(operatorPath(request.auth.uid));
+      allow update, delete: if false;
+    }
+
+    // The crop guide every farm plans from. Everyone signed in reads it; only
+    // an approved administrator changes it, as one list, signed with their uid.
+    match /calendarSettings/cropGuide {
+      allow read: if signedIn();
+      allow create, update: if isApprovedOperator()
+        && request.resource.data.keys().hasOnly(['crops', 'updatedAt', 'updatedBy'])
+        && request.resource.data.crops is list
+        && request.resource.data.crops.size() >= 1 && request.resource.data.crops.size() <= 300
+        && request.resource.data.updatedBy == request.auth.uid;
+      allow delete: if false;
+    }
+
+    match /calendarOperators/{uid} {
+      allow read: if isSelf(uid) || isApprovedOperator();
+      allow create: if isSelf(uid)
+        && request.resource.data.keys().hasOnly(['name', 'email', 'signupCode', 'since', 'status'])
+        && request.resource.data.status == 'pending'
+        && request.resource.data.signupCode == calendarCodes().operatorCode;
+      allow update: if
+        // the code goes the moment the account exists; a name and a photo may be changed
+        (isSelf(uid) && changedOnly(['signupCode', 'name', 'photo']) && !('signupCode' in request.resource.data)
+            && photoOk(request.resource.data))
+        // the owner approves themselves, once, on arrival
+        || (isSelf(uid) && isOwnerUid(uid) && changedOnly(['status', 'statusBy', 'statusAt'])
+            && request.resource.data.status == 'approved' && request.resource.data.statusBy == uid)
+        // another administrator's decision — never on oneself, never on the owner
+        || (!isSelf(uid) && !isOwnerUid(uid) && isDecision());
+      allow delete: if false;
+    }
+
+    match /calendarFarms/{uid} {
+      allow read: if isSelf(uid) || isApprovedOperator();
+      allow create: if isSelf(uid)
+        && farmShape(request.resource.data)
+        && request.resource.data.status == 'pending'
+        && !('statusBy' in request.resource.data)
+        && request.resource.data.signupCode == calendarCodes().farmCode;
+      allow update: if
+        // the code goes the moment the farm exists
+        (isSelf(uid) && changedOnly(['signupCode']) && !('signupCode' in request.resource.data))
+        // an approved farm keeps its own calendar — and only that
+        || (isSelf(uid) && resource.data.status == 'approved'
+            && changedOnly(farmOwnFields()) && farmShape(request.resource.data))
+        // an administrator's decision
+        || (!isSelf(uid) && isDecision());
+      // An approved administrator may remove a farm, calendar and all.
+      allow delete: if !isSelf(uid) && isApprovedOperator();
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
