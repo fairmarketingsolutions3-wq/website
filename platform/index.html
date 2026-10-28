@@ -4093,7 +4093,7 @@ function rulesGapBanner(){
   const rulesTab = proj
     ? `https://console.firebase.google.com/project/${encodeURIComponent(proj)}/firestore/rules`
     : 'https://console.firebase.google.com/';
-  const rulesFile = 'https://github.com/fairmarketingsolutions3-wq/website/blob/main/firestore.rules';
+  const rulesFile = 'https://github.com/fairmarketingsolutions3-wq/website/blob/main/platform/firestore.rules';
   return `<div class="card" style="border-color:var(--red);">
     <strong>The shared database is refusing these records, so nothing here reaches anybody.</strong>
     <p class="helper" style="margin-top:6px;">The database has never been told these records exist. Until it is, whatever you record stays on this device and a farm on another phone sees nothing. It is a one-off job on the Firebase console — and it has to be done again whenever the rules file changes, which it did most recently when roles were added.</p>
