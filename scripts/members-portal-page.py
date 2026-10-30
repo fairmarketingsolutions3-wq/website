@@ -53,13 +53,7 @@ page = f'''<!DOCTYPE html>
   {header}
 
   <main>
-    <section class="portal-head" id="portalHead" aria-label="Members Portal">
-      <div class="container">
-        <p class="portal-kicker">Members Portal</p>
-        <h1>The shared crop calendar</h1>
-        <p class="portal-sub">Member farms sign in to plan their plantings from nursery to harvest. The secretariat approves every account and sees every farm's calendar.</p>
-      </div>
-    </section>
+    <h1 class="visually-hidden">TIPFA Members Portal</h1>
     <section class="portal-stage" aria-label="Crop calendar">
       <iframe class="portal-frame" id="portalFrame" src="app/" title="TIPFA Members Portal: the crop calendar"
               allow="fullscreen; clipboard-write" allowfullscreen></iframe>

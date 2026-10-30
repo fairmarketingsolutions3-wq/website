@@ -2176,20 +2176,10 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
    ========================================================================== */
 .page-portal .nav-links a[aria-current="page"]::after { transform: scaleX(1); }
 .page-portal .btn-portal[aria-current="page"] { background: var(--tipfa-green); border-color: var(--tipfa-green); color: var(--field-cream); }
-.portal-head { padding: calc(var(--navh, 72px) + 1.1rem) 0 1rem; background: var(--field-cream); }
-.portal-head .container { display: grid; grid-template-columns: auto 1fr; align-items: end; column-gap: 2.4rem; }
-.portal-kicker { grid-column: 1 / -1; font-family: var(--font-display); font-weight: 600; font-size: 0.72rem; letter-spacing: 0.22em;
-  text-transform: uppercase; color: var(--harvest-orange); margin-bottom: 0.3rem; }
-.portal-head h1 { font-size: clamp(1.35rem, 2.4vw, 1.9rem); color: var(--deep-green); line-height: 1.15; }
-.portal-sub { font-size: 0.92rem; color: rgba(35, 40, 31, 0.78); max-width: 70ch; }
-.portal-stage { background: var(--field-cream); border-top: 3px solid var(--harvest-orange); }
+.portal-stage { margin-top: var(--navh, 72px); background: var(--field-cream); border-top: 3px solid var(--harvest-orange); }
 .portal-frame { display: block; width: 100%; border: 0; background: var(--field-cream);
-  height: calc(100vh - 12rem); min-height: 520px; }
-@media (max-width: 900px) {
-  .portal-head { padding: calc(var(--navh, 64px) + 0.7rem) 0 0.7rem; }
-  .portal-head .container { grid-template-columns: 1fr; }
-  .portal-sub { display: none; }
-}
+  height: calc(100vh - 6rem); min-height: 520px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 
 /* ==========================================================================
    WhatsApp and social media
