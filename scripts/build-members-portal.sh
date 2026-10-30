@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
 # Build the website's Members Portal page (members-portal/).
 #
-#   members-portal/index.html  the page: the website's own header and footer
-#                              (taken from index.html) around the system
+#   members-portal/index.html  the page: the website's own header (taken from
+#                              index.html) above the system, which fills the screen
 #   members-portal/app/        the TIPFA crop calendar system itself
 #
 # The system is built in tipfa-system/crop-calendar/public. Run this from the
-# project root after changing it, or after changing the website's header or
-# footer:
+# project root after changing it, or after changing the website's header:
 #   bash scripts/build-members-portal.sh
 #
 # The portal uses the same Firebase project and accounts as the crop calendar.

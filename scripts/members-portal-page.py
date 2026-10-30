@@ -1,7 +1,8 @@
 """Write members-portal/index.html: the website's Members Portal page.
 
-The page is the website's own header and footer, taken from index.html so
-they always match it, around the Members Portal system (members-portal/app/).
+The page is the website's own header, taken from index.html so it always
+matches it, above the Members Portal system (members-portal/app/). It has no
+footer: the system fills the screen to the bottom.
 Run by scripts/build-members-portal.sh; it reads and writes only these files.
 """
 import re
@@ -33,7 +34,6 @@ def up(html):
 head_links = '\n'.join('  ' + l.strip() for l in site.splitlines()
                        if re.search(r'rel="(icon|preconnect|stylesheet)"|fonts\.googleapis\.com/css', l))
 header = up(part('<header class="nav" id="nav">', '</header>'))
-footer = up(part('<footer class="footer" id="siteFooter">', '</footer>'))
 
 page = f'''<!DOCTYPE html>
 <html lang="en">
@@ -65,8 +65,6 @@ page = f'''<!DOCTYPE html>
               allow="fullscreen; clipboard-write" allowfullscreen></iframe>
     </section>
   </main>
-
-  {footer}
 
   <script src="../js/main.js"></script>
   <script>

@@ -1783,7 +1783,7 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
 
 /* Compact icon actions — the full contact pitch lives in the contact
    section above, so the footer only carries quick ways to reach us. */
-.footer-actions { display: flex; gap: 0.7rem; margin-top: 1.6rem; }
+.footer-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.6rem; }
 .footer-actions a {
   width: 42px; height: 42px;
   display: grid;
@@ -2190,3 +2190,33 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
   .portal-head .container { grid-template-columns: 1fr; }
   .portal-sub { display: none; }
 }
+
+/* ==========================================================================
+   WhatsApp and social media
+   ========================================================================== */
+.contact-item .ci-ico { width: 44px; height: 44px; flex: none; border-radius: 50%; display: grid; place-items: center; background: #25D366; color: #fff; }
+.contact-item .ci-ico svg { width: 24px; height: 24px; }
+.contact-item.ci-whatsapp { border-color: rgba(37, 211, 102, 0.45); }
+.social-row { padding: 0.4rem 0.2rem 0; }
+.social-row .ci-label { font-family: var(--font-display); font-size: 0.66rem; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--harvest-orange); display: block; margin-bottom: 0.8rem; }
+.social-btns { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.social-btn { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.05rem 0.6rem 0.85rem; border-radius: 60px; min-height: 44px;
+  border: 1px solid rgba(239, 237, 226, 0.22); background: rgba(239, 237, 226, 0.07); color: var(--field-cream);
+  font-family: var(--font-display); font-weight: 600; font-size: 0.82rem;
+  transition: background 0.3s, color 0.3s, border-color 0.3s, transform 0.35s var(--ease-out); }
+.social-btn svg { width: 18px; height: 18px; flex: none; }
+.social-btn:hover { background: var(--harvest-orange); border-color: var(--harvest-orange); color: var(--deep-green); transform: translateY(-3px); }
+
+.wa-float { position: fixed; right: max(20px, env(safe-area-inset-right)); bottom: max(20px, env(safe-area-inset-bottom)); z-index: 950;
+  display: inline-flex; align-items: center; gap: 0; height: 58px; min-width: 58px; padding: 0 17px; border-radius: 60px;
+  background: #25D366; color: #fff; box-shadow: 0 10px 28px rgba(18, 140, 70, 0.4), 0 2px 6px rgba(0, 0, 0, 0.18);
+  transition: transform 0.35s var(--ease-out), box-shadow 0.35s, gap 0.35s var(--ease-out);
+  animation: waIn 0.6s var(--ease-out) 1.2s both; }
+.wa-float svg { width: 26px; height: 26px; flex: none; }
+.wa-float .wa-label { max-width: 0; overflow: hidden; white-space: nowrap; font-family: var(--font-display); font-weight: 600; font-size: 0.9rem;
+  transition: max-width 0.4s var(--ease-out); }
+.wa-float:hover, .wa-float:focus-visible { transform: translateY(-3px); box-shadow: 0 14px 34px rgba(18, 140, 70, 0.5); gap: 0.55rem; }
+.wa-float:hover .wa-label, .wa-float:focus-visible .wa-label { max-width: 180px; }
+@keyframes waIn { from { opacity: 0; transform: translateY(20px) scale(0.85); } to { opacity: 1; transform: none; } }
+@media (max-width: 560px) { .wa-float { height: 54px; min-width: 54px; padding: 0 15px; right: 16px; bottom: 16px; } }
+@media (prefers-reduced-motion: reduce) { .wa-float { animation: none; } }
