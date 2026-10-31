@@ -392,11 +392,11 @@ Every push to that branch then goes live by itself. Add the Netlify address unde
 ## As the TIPFA website's Members Portal
 
 The TIPFA website (the repository's root `index.html`) has a **Members Portal**
-page, `members-portal/`. It is a page of the website: the website's own header
-and footer, a short heading, and this system filling the screen below them.
+page, `members-portal/`. It is a page of the website: the website's own header,
+and this system filling the screen below it.
 
-- `members-portal/index.html` is the page. Its header and footer are taken from
-  the website's `index.html`, so they always match it.
+- `members-portal/index.html` is the page. Its header is taken from the
+  website's `index.html`, so it always matches it.
 - `members-portal/app/` is a copy of this system, shown inside the page.
 
 The website links to the page from its header, the phone menu, the Membership
@@ -406,7 +406,14 @@ website's header; opened on its own at `members-portal/app/`, it calls itself
 project, so every account and calendar is the same as on the crop calendar's
 own address.
 
-After changing the system, or the website's header or footer, rebuild the page
+**Dark mode.** The moon button in the page's header (beside the Members Portal
+button; on phones, beside the menu) turns the page and the system dark, and the
+sun button turns them light again. The choice is remembered on each device
+(`localStorage` "tipfa-theme"), and the system opened on its own follows it too.
+The system's dark colours are written from its light ones at every build, so a
+new screen is dark without extra work; a few are set by hand.
+
+After changing the system, or the website's header, rebuild the page
 from the project root:
 
     bash scripts/build-members-portal.sh

@@ -2210,3 +2210,52 @@ h2.quoted::after  { content: "\201D"; margin-left: 0.06em; }
 @keyframes waIn { from { opacity: 0; transform: translateY(20px) scale(0.85); } to { opacity: 1; transform: none; } }
 @media (max-width: 560px) { .wa-float { height: 54px; min-width: 54px; padding: 0 15px; right: 16px; bottom: 16px; } }
 @media (prefers-reduced-motion: reduce) { .wa-float { animation: none; } }
+
+/* ==========================================================================
+   Members Portal: light or dark. The moon button sits beside the Members
+   Portal button, and on phones beside the menu. Dark is remembered on the
+   device ("tipfa-theme") and the system inside follows it.
+   ========================================================================== */
+.theme-toggle { width: 42px; height: 42px; flex: none; display: grid; place-items: center; padding: 0; cursor: pointer;
+  border-radius: 50%; border: 1.5px solid var(--tipfa-green); background: transparent; color: var(--tipfa-green);
+  transition: background 0.3s, color 0.3s, border-color 0.3s, transform 0.4s var(--ease-out); }
+.theme-toggle:hover { background: var(--tipfa-green); color: var(--field-cream); }
+.theme-toggle:active { transform: scale(0.92); }
+.theme-toggle:focus-visible { outline: 2px solid var(--harvest-orange); outline-offset: 2px; }
+.theme-toggle svg { width: 20px; height: 20px; grid-area: 1 / 1; transition: opacity 0.35s, transform 0.5s var(--ease-out); }
+.theme-toggle .ti-sun { opacity: 0; transform: rotate(-90deg) scale(0.6); }
+.theme-toggle[aria-pressed="true"] .ti-moon { opacity: 0; transform: rotate(90deg) scale(0.6); }
+.theme-toggle[aria-pressed="true"] .ti-sun { opacity: 1; transform: none; }
+.theme-toggle--menu { display: none; }
+/* Room for it: on the portal page the logo keeps its size, and the website's
+   "Start a conversation" stays in the menu's Contact instead of the header. */
+.page-portal .nav-logo { flex: none; }
+.page-portal .nav .btn-cta-wrap .btn-primary { display: none; }
+@media (max-width: 1100px) and (min-width: 901px) {
+  .page-portal .nav .container { gap: 0.9rem; }
+  .page-portal .nav-links { gap: 0.8rem; }
+  .page-portal .nav-links a { font-size: 0.74rem; }
+}
+@media (max-width: 1000px) and (min-width: 901px) {
+  .page-portal .nav .container { gap: 0.6rem; }
+  .page-portal .nav-links { gap: 0.6rem; }
+  .page-portal .nav-links a { font-size: 0.7rem; }
+  .page-portal .nav .btn-cta-wrap .btn { padding: 0.65rem 0.9rem; }
+}
+@media (max-width: 900px) {
+  .theme-toggle--menu { display: grid; margin-left: auto; margin-right: -1rem; }
+}
+@media (prefers-reduced-motion: reduce) { .theme-toggle, .theme-toggle svg { transition: none; } }
+
+html[data-theme="dark"] { color-scheme: dark; }
+html[data-theme="dark"] body.page-portal { background: #141A12; }
+html[data-theme="dark"] .page-portal .nav.scrolled { background: rgba(20, 26, 18, 0.9); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06); }
+/* The coloured lockup is made for light grounds; on dark it is drawn in cream. */
+html[data-theme="dark"] .page-portal .nav.scrolled .nav-logo img { filter: brightness(0) invert(0.92) sepia(0.12); }
+html[data-theme="dark"] .page-portal .nav.scrolled .nav-links a { color: #CFE0B4; }
+html[data-theme="dark"] .page-portal .nav.scrolled .btn-portal { border-color: #CFE0B4; color: #CFE0B4; }
+html[data-theme="dark"] .page-portal .btn-portal[aria-current="page"] { background: var(--leaf-green); border-color: var(--leaf-green); color: #141A12; }
+html[data-theme="dark"] .page-portal .nav.scrolled .nav-toggle span { background: #CFE0B4; }
+html[data-theme="dark"] .page-portal .theme-toggle { border-color: #CFE0B4; color: #F2C766; }
+html[data-theme="dark"] .page-portal .theme-toggle:hover { background: rgba(207, 224, 180, 0.14); color: #F2C766; }
+html[data-theme="dark"] .portal-stage, html[data-theme="dark"] .portal-frame { background: #141A12; }

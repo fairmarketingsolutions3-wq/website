@@ -35,6 +35,25 @@ head_links = '\n'.join('  ' + l.strip() for l in site.splitlines()
                        if re.search(r'rel="(icon|preconnect|stylesheet)"|fonts\.googleapis\.com/css', l))
 header = up(part('<header class="nav" id="nav">', '</header>'))
 
+# Light or dark: a moon button beside the Members Portal button, and on phones
+# beside the menu, where the header buttons are folded away.
+THEME_ICONS = (
+    '<svg class="ti-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+    'stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>'
+    '<svg class="ti-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" '
+    'stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4'
+    'M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>')
+
+
+def theme_button(extra=''):
+    return (f'<button type="button" class="theme-toggle{extra}" aria-pressed="false" '
+            f'aria-label="Dark mode" title="Dark mode">{THEME_ICONS}</button>')
+
+
+assert header.count('<div class="btn-cta-wrap">') == 1 and header.count('<button class="nav-toggle"') == 1
+header = header.replace('<div class="btn-cta-wrap">', '<div class="btn-cta-wrap">\n        ' + theme_button())
+header = header.replace('<button class="nav-toggle"', theme_button(' theme-toggle--menu') + '\n      <button class="nav-toggle"')
+
 page = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -45,6 +64,10 @@ page = f'''<!DOCTYPE html>
   <meta name="theme-color" content="#405E35">
   <link rel="canonical" href="https://fairmarketingsolutions3-wq.github.io/website/members-portal/">
 {up(head_links)}
+  <script>
+    // Light or dark, as chosen on this device, before the first paint.
+    try {{ if (localStorage.getItem('tipfa-theme') === 'dark') document.documentElement.setAttribute('data-theme', 'dark'); }} catch (e) {{}}
+  </script>
 </head>
 <body class="page-portal">
   <div class="scroll-progress" id="scrollProgress"></div>
@@ -71,6 +94,25 @@ page = f'''<!DOCTYPE html>
         var top = frame.getBoundingClientRect().top + window.scrollY;
         frame.style.height = Math.max(520, window.innerHeight - top) + 'px';
       }}
+      // Light or dark: the page and the system inside it change together.
+      function setTheme(t) {{
+        if (t === 'dark') root.setAttribute('data-theme', 'dark'); else root.removeAttribute('data-theme');
+        try {{ localStorage.setItem('tipfa-theme', t); }} catch (e) {{}}
+        try {{ var w = document.getElementById('portalFrame').contentWindow; if (w && w.tipfaTheme) w.tipfaTheme(t); }} catch (e) {{}}
+        showTheme();
+      }}
+      function showTheme() {{
+        var dark = root.getAttribute('data-theme') === 'dark';
+        document.querySelectorAll('.theme-toggle').forEach(function (b) {{
+          b.setAttribute('aria-pressed', dark ? 'true' : 'false');
+          b.title = dark ? 'Light mode' : 'Dark mode';
+          b.setAttribute('aria-label', b.title);
+        }});
+      }}
+      document.querySelectorAll('.theme-toggle').forEach(function (b) {{
+        b.addEventListener('click', function () {{ setTheme(root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }});
+      }});
+      showTheme();
       window.addEventListener('resize', fit);
       window.addEventListener('load', fit);
       fit();
