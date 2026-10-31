@@ -25,7 +25,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v36">
+<meta name="tipfa-build" content="v37">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -7258,15 +7258,261 @@ function newWorkbook(ExcelJS){
   return wb;
 }
 
+/* An export is two sheets. The first is the calendar as the portal shows it:
+   its heading, the farm's layout, the four figures, the colours' key, every
+   planting with its picture and its stages as coloured bars, this week
+   marked, and the harvest by crop. The second is the TIPFA template filled
+   in, which Import reads back (the first has no CROP heading, so it is
+   passed over). */
 async function exportFarmExcel(farmId){
   const id = farmId || state.member, f = FARMS[id];
   try{
     const ExcelJS = await loadExcel();
     const wb = newWorkbook(ExcelJS);
     const months = farmWindow(f);
-    writeTemplateSheet(wb.addWorksheet('Crop Calendar'), f, months);
+    await writePortalSheet(wb, wb.addWorksheet('Crop Calendar', {properties:{tabColor:{argb:'FF405E35'}}}), f);
+    writeTemplateSheet(wb.addWorksheet('Template (for import)'), f, months);
     await downloadWorkbook(wb, `${safeFileName(f.name)}_CROP_CALENDAR_${months[0].y}-${months[months.length-1].y}.xlsx`);
   }catch(e){ showFatal(e.message || e); }
+}
+
+/* ---- The calendar as the portal shows it ---- */
+const PX = {deep:'FF2C4423', green:'FF405E35', leaf:'FF7E9B3F', orange:'FFE8A734', cream:'FFEFEDE2', paper:'FFF6F4EC',
+  card:'FFFFFFFF', band:'FFE4EBD8', line:'FFDFDCCB', soft:'FFECEBE2', ink:'FF23281F', muted:'FF6E7466', cropRow:'FFFFFBF0', varRow:'FFFFFDF6'};
+const PORTAL_WEEK_W = 4.4;             // Excel's width units: about 36 pixels, room for a week's number
+const xlPx = w=> Math.round(w * 7 + 5);  // a column's width in pixels, near enough
+// A picture in the page (a crop's or a variety's) as a PNG Excel can show, or nothing.
+async function pngOf(src){
+  if(!src) return null;
+  try{
+    const im = new Image(); im.src = src; await im.decode();
+    const c = document.createElement('canvas'); c.width = c.height = 96;
+    const x = c.getContext('2d'), k = Math.min(96 / im.width, 96 / im.height), w = im.width * k, h = im.height * k;
+    x.drawImage(im, (96 - w) / 2, (96 - h) / 2, w, h);
+    return c.toDataURL('image/png');
+  }catch(e){ return null; }
+}
+async function writePortalSheet(wb, ws, f){
+  const months = seasonMonths(f), nW = months.length * 4, C0 = 3, last = C0 + nW - 1;
+  const rows = orderedRows(f), fig = farmFigures(f, farmWindow(f)), now = todayKey();
+  const widths = [7.5, 30, ...Array(nW).fill(PORTAL_WEEK_W)];
+  widths.forEach((w, i)=> ws.getColumn(i + 1).width = w);
+  ws.properties.defaultRowHeight = 15;
+  ws.pageSetup = {orientation:'landscape', paperSize:9, fitToPage:true, fitToWidth:1, fitToHeight:0,
+                  margins:{left:0.4, right:0.4, top:0.5, bottom:0.5, header:0.3, footer:0.3}};
+  const fill = (c, argbC)=>{ c.fill = solid(argbC); };
+  const band = (r, h, argbC)=>{ ws.getRow(r).height = h; for(let c = 1; c <= last; c++) fill(ws.getCell(r, c), argbC); };
+  const font = o=> Object.assign({name:'Arial', size:10, color:{argb:PX.ink}}, o);
+  const pics = {};
+  const picFor = async src=>{ if(!(src in pics)) pics[src] = await pngOf(src); return pics[src]; };
+  const putPic = (data, r, size)=>{ if(!data) return; const id = wb.addImage({base64:data, extension:'png'});
+    ws.addImage(id, {tl:{col:0.12, row:r - 1 + 0.1}, ext:{width:size, height:size}, editAs:'oneCell'}); };
+  let r = 1;
+
+  // The heading: the page's title, the farm and its season, the farm's layout.
+  band(r, 34, PX.deep); ws.mergeCells(r, 1, r, last);
+  const title = ws.getCell(r, 1);
+  title.value = {richText:[{text:'Crop calendar', font:font({size:18, bold:true, color:{argb:PX.cream}})},
+    {text:`     TIPFA Members Portal`, font:font({size:10, color:{argb:'FFE8A734'}})}]};
+  title.alignment = {vertical:'middle', indent:1};
+  r++;
+  band(r, 22, PX.deep); ws.mergeCells(r, 1, r, last);
+  const m0 = months[0], m1 = months[months.length - 1];
+  const sub = ws.getCell(r, 1);
+  sub.value = `${f.name} · every planting from its first week to its last harvest · ${MONTHS[m0.m - 1]} ${m0.y} – ${MONTHS[m1.m - 1]} ${m1.y}`;
+  sub.font = font({size:10, color:{argb:'FFD8E2C8'}}); sub.alignment = {vertical:'middle', indent:1};
+  r++;
+  band(r, 4, PX.orange); r++;
+  band(r, 8, PX.paper); r++;
+  band(r, 24, PX.paper); ws.mergeCells(r, 1, r, last);
+  const lay = ws.getCell(r, 1);
+  lay.value = {richText:[{text:'Your farm is set up as ', font:font({size:10})}, {text:layoutSummary(f), font:font({size:10, bold:true, color:{argb:PX.deep}})},
+    {text:'.', font:font({size:10})}]};
+  lay.alignment = {vertical:'middle', indent:1};
+  r++;
+  band(r, 8, PX.paper); r++;
+
+  // The four figures, as four cards across the page.
+  const px = widths.map(xlPx), total = px.reduce((a, b)=> a + b, 0), cum = [0];
+  px.forEach(v=> cum.push(cum[cum.length - 1] + v));
+  const colAt = x=> { let i = 1; while(i < cum.length - 1 && cum[i] <= x) i++; return i; };   // 1-based column holding pixel x
+  const cards = [['PLANTINGS', fmt(fig.plantings), '', PX.deep], ['AREA PLANTED', fmt(Math.round(fig.area)), ' m²', PX.deep],
+                 ['PLANNED HARVEST', fmt(Math.round(fig.total)), ' kg', 'FF5E7A2E'], ['BUSIEST MONTH', fig.peak, '', PX.deep]];
+  band(r, 20, PX.paper); band(r + 1, 32, PX.paper);
+  cards.forEach(([lbl, val, unit, col], i)=>{
+    const a = colAt(total * i / 4 + 4), b = Math.max(a, colAt(total * (i + 1) / 4 - 10) - 1);
+    ws.mergeCells(r, a, r, b); ws.mergeCells(r + 1, a, r + 1, b);
+    for(let c = a; c <= b; c++){
+      fill(ws.getCell(r, c), PX.card); fill(ws.getCell(r + 1, c), PX.card);
+      ws.getCell(r, c).border = {top: side('thin', PX.line), left: c === a ? side('thin', PX.line) : undefined, right: c === b ? side('thin', PX.line) : undefined};
+      ws.getCell(r + 1, c).border = {bottom: side('thin', PX.line), left: c === a ? side('thin', PX.line) : undefined, right: c === b ? side('thin', PX.line) : undefined};
+    }
+    const l = ws.getCell(r, a); l.value = lbl; l.font = font({size:8, bold:true, color:{argb:PX.muted}}); l.alignment = {vertical:'bottom', indent:1};
+    const v = ws.getCell(r + 1, a);
+    v.value = {richText:[{text:val, font:font({size:16, bold:true, color:{argb:col}})}, ...(unit ? [{text:unit, font:font({size:10, color:{argb:PX.muted}})}] : [])]};
+    v.alignment = {vertical:'middle', indent:1};
+  });
+  r += 2;
+  band(r, 10, PX.paper); r++;
+
+  // The colours' key.
+  band(r, 22, PX.paper);
+  const kl = ws.getCell(r, 2); kl.value = 'COLOUR WEEKS'; kl.font = font({size:8, bold:true, color:{argb:PX.muted}}); kl.alignment = {vertical:'middle', horizontal:'right', indent:1};
+  let kc = C0;
+  STAGES.forEach(st=>{
+    const span = Math.ceil((st.name.length * 6.2 + 14) / xlPx(PORTAL_WEEK_W));
+    if(kc + span > last){ r++; band(r, 22, PX.paper); kc = C0; }
+    const sw = ws.getCell(r, kc); fill(sw, argb(st.color)); sw.border = {top: side('thick', PX.paper), bottom: side('thick', PX.paper), right: side('thin', PX.paper)};
+    ws.mergeCells(r, kc + 1, r, kc + span);
+    const nm = ws.getCell(r, kc + 1); nm.value = st.name; nm.font = font({size:9}); nm.alignment = {vertical:'middle', indent:0};
+    kc += span + 2;
+  });
+  r++;
+  band(r, 10, PX.paper); r++;
+
+  // The calendar's heading: the farm in its corner; years, months and weeks.
+  const h0 = r;
+  ws.getRow(r).height = 18; ws.getRow(r + 1).height = 22; ws.getRow(r + 2).height = 16;
+  ws.mergeCells(r, 1, r + 2, 2);
+  const corner = ws.getCell(r, 1);
+  corner.value = {richText:[{text:f.name.toUpperCase() + '\n', font:font({size:10, bold:true, color:{argb:PX.cream}})},
+    {text:`${rows.length} planting${rows.length === 1 ? '' : 's'}`, font:font({size:9, color:{argb:'FFC9D6B6'}})}]};
+  corner.alignment = {vertical:'middle', horizontal:'center', wrapText:true};
+  fill(corner, PX.deep); corner.border = {right: side('medium', PX.orange)};
+  for(let rr = r; rr <= r + 2; rr++) ws.getCell(rr, 2).border = {right: side('medium', PX.orange)};
+  // Years
+  let yc = C0;
+  months.forEach((mo, i)=>{
+    const lastOfYear = i === months.length - 1 || months[i + 1].y !== mo.y;
+    if(lastOfYear){
+      const c2 = C0 + i * 4 + 3;
+      ws.mergeCells(r, yc, r, c2);
+      const yv = ws.getCell(r, yc); yv.value = String(mo.y);
+      yv.font = font({size:10, bold:true, color:{argb:PX.cream}}); yv.alignment = {horizontal:'center', vertical:'middle'};
+      for(let c = yc; c <= c2; c++){ fill(ws.getCell(r, c), 'FF2B4224'); ws.getCell(r, c).border = c === yc ? {left: side('medium', PX.orange)} : {}; }
+      yc = c2 + 1;
+    }
+  });
+  // Months and weeks
+  const nowCol = (()=>{ let at = -1; months.forEach((mo, i)=> mo.keys.forEach((k, w)=>{ if(k === now) at = C0 + i * 4 + w; })); return at; })();
+  months.forEach((mo, i)=>{
+    const c1 = C0 + i * 4;
+    ws.mergeCells(r + 1, c1, r + 1, c1 + 3);
+    const mv = ws.getCell(r + 1, c1); mv.value = `${MONTH_ABBR[mo.m - 1].toUpperCase()} ${mo.y}`;
+    mv.font = font({size:9, bold:true, color:{argb:PX.cream}}); mv.alignment = {horizontal:'center', vertical:'middle'};
+    const isNow = mo.keys.includes(now);
+    for(let w = 0; w < 4; w++){
+      const mc = ws.getCell(r + 1, c1 + w); fill(mc, isNow ? 'FF3B5C30' : PX.deep);
+      mc.border = {left: w === 0 ? side(mo.m === 1 ? 'medium' : 'thin', mo.m === 1 ? PX.orange : 'FF56704A') : undefined,
+                   bottom: isNow ? side('medium', PX.orange) : undefined};
+      const wc = ws.getCell(r + 2, c1 + w); wc.value = w + 1;
+      const today = c1 + w === nowCol;
+      fill(wc, today ? PX.orange : PX.band);
+      wc.font = font({size:8, bold:true, color:{argb: today ? PX.card : PX.deep}}); wc.alignment = {horizontal:'center', vertical:'middle'};
+      wc.border = {left: w === 0 ? side('thin', 'FFB5C4A3') : side('hair', 'FFCCD6BE')};
+    }
+  });
+  r += 3;
+
+  // The plantings: picture, name and where each stands; its stages as bars.
+  const units = showUnits(f);
+  let lastUnit = null;
+  for(const row of rows){
+    if(units && row.unit !== lastUnit){
+      lastUnit = row.unit;
+      const u = unitOf(f, row.unit), cnt = rows.filter(o=> o.unit === u.id).length;
+      band(r, 22, 'FFE5EDD6'); ws.mergeCells(r, 1, r, last);
+      const uc = ws.getCell(r, 1);
+      uc.value = {richText:[{text:u.name, font:font({size:11, bold:true, color:{argb:PX.deep}})}, {text:`  · ${cnt} planting${cnt === 1 ? '' : 's'}`, font:font({size:9, color:{argb:PX.muted}})}]};
+      uc.alignment = {vertical:'middle', indent:1};
+      r++;
+    }
+    const g = guideMatch(row.crop), j = rowJourney(row);
+    const plants = row.plan && row.plan.plants ? `${fmt(row.plan.plants)} ${g && g.tree ? 'trees' : 'plants'}` : '';
+    const subl = [locationText(f, row), varietyShort(row), row.area ? `${fmt(row.area)} m²` : '', plants].filter(Boolean).join(' · ');
+    ws.getRow(r).height = 44;
+    const pc = ws.getCell(r, 1); fill(pc, 'FFFBFAF5'); pc.border = {bottom: side('thin', PX.soft)};
+    putPic(await picFor(plantingImgSrc(g, row.variety)), r, 40);
+    const nc = ws.getCell(r, 2);
+    nc.value = {richText:[{text:(row.crop || '—') + '\n', font:font({size:11, bold:true, color:{argb:PX.deep}})},
+      ...(subl ? [{text:subl + '\n', font:font({size:8, color:{argb:PX.muted}})}] : []),
+      {text:j.text, font:font({size:8.5, color:{argb:PX.ink}})}]};
+    nc.alignment = {vertical:'middle', wrapText:true};
+    fill(nc, 'FFFBFAF5'); nc.border = {right: side('medium', PX.orange), bottom: side('thin', PX.soft)};
+    // The weeks, run together into one bar per stage, its name on it where it fits.
+    const seq = months.flatMap(mo=> mo.keys).map(k=> readCell(row.cells[k]));
+    for(let i = 0; i < nW; i++){
+      const c = ws.getCell(r, C0 + i), cell = seq[i];
+      const isMonth = i % 4 === 0;
+      c.border = {bottom: side('thin', PX.soft), left: c.col === nowCol ? side('medium', PX.orange) : isMonth ? side('thin', 'FFE2E0D4') : undefined};
+      if(!cell){ fill(c, PX.card); continue; }
+      const st = STAGE[cell.s];
+      fill(c, argb(st.color));
+      c.border = {top: side('thick', PX.card), bottom: side('thick', PX.card), left: c.col === nowCol ? side('medium', PX.orange) : undefined};
+      if(i === 0 || !seq[i - 1] || seq[i - 1].s !== cell.s){
+        // How far the bar runs, and what it gives.
+        let k = i, kg = 0; while(k < nW && seq[k] && seq[k].s === cell.s){ kg += seq[k].kg || 0; k++; }
+        const w = (k - i) * xlPx(PORTAL_WEEK_W);
+        const opts = cell.s === 'H' ? (kg ? [`Harvest · ${fmt(Math.round(kg))} kg`, `${kgShort(kg)} kg`, 'Harvest'] : ['Harvest']) : [SEG_NAME[cell.s] || st.name];
+        const lab = opts.find(t=> t.length * 6.4 + 8 <= w) || '';
+        if(lab){ c.value = lab; c.font = font({size:8.5, bold:true, color:{argb:argb(st.ink)}}); c.alignment = {vertical:'middle', horizontal:'left', indent:0}; }
+      }
+    }
+    r++;
+  }
+  if(!rows.length){
+    band(r, 30, PX.card); ws.mergeCells(r, 1, r, last);
+    const e = ws.getCell(r, 1); e.value = 'No plantings yet.'; e.font = font({size:10, color:{argb:PX.muted}}); e.alignment = {vertical:'middle', indent:1}; r++;
+  }
+
+  // Harvest by crop: each crop on its own, then its varieties, by month.
+  const crops = cropTotals(rows, months);
+  band(r, 2, PX.deep); r++;
+  band(r, 22, PX.band); ws.mergeCells(r, 1, r, last);
+  const bh = ws.getCell(r, 1);
+  bh.value = {richText:[{text:'HARVEST BY CROP', font:font({size:9, bold:true, color:{argb:PX.deep}})}, {text:'     kg a month · each crop on its own', font:font({size:9, color:{argb:PX.muted}})}]};
+  bh.alignment = {vertical:'middle', indent:1};
+  r++;
+  const harvestRow = async (label, sub, per, total, picSrc, isVar)=>{
+    ws.getRow(r).height = isVar ? 20 : 32;
+    const bg = isVar ? PX.varRow : PX.cropRow;
+    const pc = ws.getCell(r, 1); fill(pc, bg); pc.border = {bottom: side('thin', PX.soft)};
+    if(picSrc) putPic(await picFor(picSrc), r, 22);
+    const lc = ws.getCell(r, 2); fill(lc, bg);
+    lc.value = {richText:[{text:label, font:font({size: isVar ? 9 : 10, bold:!isVar, color:{argb:PX.deep}})},
+      ...(sub ? [{text:'  ' + sub, font:font({size:8, color:{argb:PX.muted}})}] : []),
+      {text:`${isVar ? '   ' : '\n'}${fmt(Math.round(total))} kg`, font:font({size:9, bold:true, color:{argb: isVar ? PX.muted : 'FF5E7A2E'}})}]};
+    lc.alignment = {vertical:'middle', wrapText:!isVar, indent: isVar ? 2 : 0}; lc.border = {right: side('medium', PX.orange), bottom: side('thin', PX.soft)};
+    const top = Math.max(1, ...per);
+    months.forEach((mo, i)=>{
+      const c1 = C0 + i * 4; ws.mergeCells(r, c1, r, c1 + 3);
+      const v = per[i], c = ws.getCell(r, c1);
+      c.value = v ? Math.round(v) : 0; c.numFmt = '#,##0';
+      c.font = font({size:9, bold: !!v, color:{argb: v ? PX.ink : 'FFB8B4A2'}}); c.alignment = {horizontal:'center', vertical:'middle'};
+      // The busier the month, the stronger its green, as the portal's bars.
+      const a = v ? 0.12 + 0.45 * v / top : 0, mix = ch=> Math.round(255 - (255 - ch) * a);
+      const shade = v ? 'FF' + [126, 155, 63].map(mix).map(n=> n.toString(16).padStart(2, '0')).join('').toUpperCase() : bg;
+      for(let w = 0; w < 4; w++){ const cc = ws.getCell(r, c1 + w); fill(cc, shade); cc.border = {left: w === 0 ? side('thin', 'FFFFFFFF') : undefined, bottom: side('thin', PX.soft)}; }
+    });
+    r++;
+  };
+  if(!crops.length){
+    band(r, 24, PX.cropRow); ws.mergeCells(r, 1, r, last);
+    const e = ws.getCell(r, 1); e.value = 'No harvest kilograms yet'; e.font = font({size:9, color:{argb:PX.muted}}); e.alignment = {vertical:'middle', indent:1}; r++;
+  }
+  for(const gc of crops){
+    const one = gc.vars.length === 1 && gc.vars[0].name ? gc.vars[0].name : '';
+    await harvestRow(gc.crop, one, gc.per, gc.total, cropImgSrc(guideMatch(gc.crop)), false);
+    for(const x of cropFootRows(gc)) await harvestRow(x.name || 'No variety named', '', x.per, x.total, '', true);
+  }
+
+  band(r, 8, PX.paper); r++;
+  band(r, 18, PX.paper); ws.mergeCells(r, 1, r, last);
+  const foot = ws.getCell(r, 1);
+  foot.value = `Exported from the TIPFA Members Portal on ${dayText(new Date(), true)}. The second sheet is the TIPFA template, for Import from Excel.`;
+  foot.font = font({size:8, italic:true, color:{argb:PX.muted}}); foot.alignment = {vertical:'middle', indent:1};
+
+  ws.views = [{state:'frozen', xSplit:2, ySplit:h0 + 2, topLeftCell: colName(Math.max(C0, nowCol - 6)) + (h0 + 3), showGridLines:false, zoomScale:100}];
 }
 
 /* ============================================================

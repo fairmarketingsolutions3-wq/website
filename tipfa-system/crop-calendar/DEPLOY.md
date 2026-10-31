@@ -179,7 +179,7 @@ sizes; Safari and Firefox were not available in the test environment.
 - [ ] As the farm, add a cherry tomato planting with a sowing date and a number of
       plants; its weeks and harvest kg fill in. Change a week by hand. As the
       owner, **Crop calendars** shows it.
-- [ ] **Export to Excel** downloads a file that opens in Excel in the template layout.
+- [ ] **Export to Excel** downloads a file whose first sheet looks like the portal's calendar and whose second is the template; importing that file back reads the template.
 - [ ] Register a second administrator. It waits; approve it from the owner.
 - [ ] Suspend the test farm. Its page shows "access paused".
 - [ ] **Forgotten your password?** sends an email that arrives (check spam).
@@ -230,6 +230,15 @@ shown. Crops are never added to one another, since kilograms of tomatoes and
 of melons are not one figure. A crop planted in more than one variety has a row
 for each variety under it; one planted in a single variety names it. The Excel
 export keeps the template's TOTAL HARVEST row as it is.
+
+**Export to Excel** gives a workbook of two sheets. The first, **Crop Calendar**,
+is the calendar as the portal shows it, without its buttons: the heading and
+the farm's season, how the farm is set up, the four figures (plantings, area
+planted, planned harvest, busiest month), the colours' key, every planting with
+its picture, name, variety, plants and where it stands today, its stages as
+coloured bars with their names, this week marked in orange, and the harvest by
+crop and variety, month by month. The second, **Template (for import)**, is the
+TIPFA template filled in; **Import from Excel** reads it back.
 
 ### The crop guide
 Under **Crop guide**, administrators see every crop's figures and a calculator:
