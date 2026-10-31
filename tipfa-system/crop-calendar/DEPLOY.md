@@ -218,6 +218,12 @@ harvest, across the years, with nothing to page through (**3 years**, **1 year**
 **6 months** and **3 months** show a window of the three years instead, to page
 through with the arrows).
 
+On a phone both views keep the computer's arrangement, the crops in a column
+on the left and the season beside them, with months named in full and the
+weeks (Weeks) or days (Days) marked under them. The season is then wider than
+the screen and slides sideways under a finger, opening on today; the crops'
+column stays where it is.
+
 Under the calendar, in both views, **Harvest by crop** gives each crop's
 kilograms month by month, on its own row with what it gives over the months
 shown. Crops are never added to one another, since kilograms of tomatoes and
