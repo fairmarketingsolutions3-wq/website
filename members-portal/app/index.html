@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v28">
+<meta name="tipfa-build" content="v29">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -4146,7 +4146,7 @@ function renderCalendar(c){
     <div class="card cc-toolbar">
       <div class="cc-row">
         ${viewSwitchHTML()}
-        ${dv ? dayNavHTML(dayRange(orderedRows(f).map(r=> rowDays(f, r)))) : `${viewNavHTML(spanMonths(months), 'shiftWindow')}
+        ${dv ? dayNavHTML(dayRange(orderedRows(f).map(r=> rowDays(f, r)))) : `${viewNavHTML(spanMonths(months, f), 'shiftWindow')}
         <button class="btn small ghost" onclick="goToToday()">${icon('today')} This week</button>`}
         <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}">${icon(state.wide ? 'shrink' : 'expand')} ${state.wide ? 'Exit full screen' : 'Full screen'}</button>
         <span class="grow"></span>
@@ -4192,7 +4192,7 @@ function renderCalendar(c){
     ${state.editRow ? editorPanel(f) : ''}
     ${state.fillRow ? fillPanel(f) : ''}
     ${toolbar}
-    <div class="card cc-card${dv ? ' dv-card' : ''}">${dv ? daysHTML(f, {readOnly:false}) : gridHTML(f, spanMonths(months), {readOnly:false})}</div>`;
+    <div class="card cc-card${dv ? ' dv-card' : ''}">${dv ? daysHTML(f, {readOnly:false}) : gridHTML(f, spanMonths(months, f), {readOnly:false})}</div>`;
   if(dv) return;
   bindGrid(c.querySelector('.cc-grid'), f);
   bindTooltips(c.querySelector('.cc-grid'), f);
@@ -4286,18 +4286,41 @@ function gridLayout(months){
 }
 let gridView = null;     // the months and layout the grid on screen was drawn for
 
-/* ---- How much of the three years is on screen ----------------------- */
-const SPANS = [{n:36, label:'3 years', short:'3 yrs'}, {n:12, label:'1 year', short:'1 yr'}, {n:6, label:'6 months', short:'6 mo'}, {n:3, label:'3 months', short:'3 mo'}];
-// Unless someone has chosen, a year on a computer and three months on a phone:
-// big enough to read, with three years one tap away.
+/* ---- How much is on screen ---------------------------------------------
+   The whole season by default, as in Days: from the first coloured week to
+   the last harvest, across the years, with nothing to page through. Or a
+   window of the three years: all of them, a year, six or three months. */
+const SPANS = [{n:0, label:'Whole season', short:'All'}, {n:36, label:'3 years', short:'3 yrs'}, {n:12, label:'1 year', short:'1 yr'}, {n:6, label:'6 months', short:'6 mo'}, {n:3, label:'3 months', short:'3 mo'}];
 function viewSpan(){
-  if(!state.span){
-    const dflt = isMobile() ? 3 : 12;
-    let s = dflt;
-    try{ s = Number(localStorage.getItem('tipfa-cc-span')) || dflt; }catch(e){}
-    state.span = SPANS.some(x=> x.n === s) ? s : dflt;
+  if(state.span == null){
+    let s = 0;
+    try{ const v = localStorage.getItem('tipfa-cc-weekspan'); if(v !== null) s = Number(v); }catch(e){}
+    state.span = SPANS.some(x=> x.n === s) ? s : 0;
   }
   return state.span;
+}
+// The months from the first a planting has a coloured week in to the last one;
+// at least three, and the three from this month when nothing is planned yet.
+function seasonMonths(f){
+  let lo = null, hi = null;
+  (f.rows || []).forEach(r=>{
+    if(r.archived) return;
+    Object.keys(r.cells || {}).forEach(k=>{
+      if(!readCell(r.cells[k])) return;
+      const ym = k.slice(0, 7);
+      if(!lo || ym < lo) lo = ym;
+      if(!hi || ym > hi) hi = ym;
+    });
+  });
+  const now = new Date();
+  let y = lo ? Number(lo.slice(0, 4)) : now.getFullYear(), m = lo ? Number(lo.slice(5, 7)) : now.getMonth() + 1;
+  const count = lo ? Math.max(3, (Number(hi.slice(0, 4)) - y) * 12 + Number(hi.slice(5, 7)) - m + 1) : 3;
+  const out = [];
+  for(let i = 0; i < count; i++){
+    out.push({y, m, keys:[1,2,3,4].map(w=> weekKey(y, m, w))});
+    if(++m > 12){ m = 1; y++; }
+  }
+  return out;
 }
 // Full screen: the calendar takes the whole window, menus out of the way.
 function toggleWide(on){
@@ -4309,8 +4332,9 @@ function toggleWide(on){
 document.addEventListener('keydown', e=>{ if(e.key === 'Escape' && state.wide && !state.pop && !state.navOpen) toggleWide(false); });
 // The months of the window that are shown: all of them, or the year or half
 // year asked for — by default the one holding this week.
-function spanMonths(months){
+function spanMonths(months, f){
   const n = viewSpan();
+  if(!n) return seasonMonths(f);
   if(n >= months.length) return months;
   let at = state.spanAt;
   if(at === null || at === undefined){
@@ -4323,13 +4347,14 @@ function spanMonths(months){
 }
 function setSpan(n){
   state.span = n; state.spanAt = null; state.scroll = null;
-  try{ localStorage.setItem('tipfa-cc-span', String(n)); }catch(e){}
+  try{ localStorage.setItem('tipfa-cc-weekspan', String(n)); }catch(e){}
   renderKeepingPlace();
 }
 // One step back or on. Past either end of the three years the window itself
 // moves a year, so the arrows go on as far as anyone needs.
 function stepView(d, shiftFn){
   const n = viewSpan();
+  if(!n) return;
   if(n >= WINDOW_MONTHS){ window[shiftFn](d); return; }
   const at = (state.spanAt || 0) + d * n;
   if(at < 0){ state.spanAt = at + 12; window[shiftFn](-1); return; }
@@ -4341,11 +4366,11 @@ function viewNavHTML(shown, shiftFn){
   const a = shown[0], b = shown[shown.length - 1];
   const label = a.y === b.y && a.m === 1 && b.m === 12 ? String(a.y) : `${MONTH_ABBR[a.m-1]} ${a.y} – ${MONTH_ABBR[b.m-1]} ${b.y}`;
   const n = viewSpan(), unit = n >= 12 ? 'One year' : n === 6 ? 'Six months' : 'Three months';
-  return `<div class="cc-window" role="group" aria-label="Calendar dates">
+  return `${n ? `<div class="cc-window" role="group" aria-label="Calendar dates">
       <button onclick="stepView(-1,'${shiftFn}')" aria-label="${unit} earlier" title="${unit} earlier">${icon('chevL')}</button>
       <span class="cw-label">${label}</span>
       <button onclick="stepView(1,'${shiftFn}')" aria-label="${unit} later" title="${unit} later">${icon('chevR')}</button>
-    </div>
+    </div>` : `<span class="cw-label cw-static" title="Every planting, from its first week to its last harvest">${label}</span>`}
     <div class="cc-span" role="group" aria-label="How much to show at once">${SPANS.map(s=>
       `<button class="${s.n === n ? 'on' : ''}" aria-pressed="${s.n === n}" onclick="setSpan(${s.n})" title="Show ${s.label}">${isMobile() ? s.short : s.label}</button>`).join('')}</div>`;
 }
@@ -6156,6 +6181,7 @@ function showPlanStart(f, sown){
   const idx = (d.getFullYear() - f.startYear) * 12 + d.getMonth();
   if(idx < 0 || idx >= WINDOW_MONTHS) return false;
   const n = viewSpan();
+  if(!n) return true;                      // the whole season is on screen already
   state.spanAt = n >= WINDOW_MONTHS ? 0 : Math.floor(idx / n) * n;
   return true;
 }
@@ -6914,7 +6940,7 @@ function renderCalendarsAdmin(c){
         <button class="btn small ghost" onclick="state.viewFarm=null;state.scroll=null;render();">&larr; All crop calendars</button>
         <span style="flex:1"></span>
         ${viewSwitchHTML()}
-        ${calView() === 'days' ? dayNavHTML(dayRange(orderedRows(f).map(r=> rowDays(f, r)))) : viewNavHTML(spanMonths(months), 'shiftAdminYear')}
+        ${calView() === 'days' ? dayNavHTML(dayRange(orderedRows(f).map(r=> rowDays(f, r)))) : viewNavHTML(spanMonths(months, f), 'shiftAdminYear')}
         <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}">${icon(state.wide ? 'shrink' : 'expand')} ${state.wide ? 'Exit full screen' : 'Full screen'}</button>
         <button class="btn small gold" onclick="exportFarmExcelWindow('${esc(id)}')">${icon('down')} Export to Excel</button>
       </div>
@@ -6935,7 +6961,7 @@ function renderCalendarsAdmin(c){
         <div class="metric"><div class="lbl">Busiest month</div><div class="val" style="font-size:20px;">${esc(fig.peak)}</div></div>
       </div>
       ${liveRows(f).length ? `<div class="card cc-card${calView() === 'days' ? ' dv-card' : ''}">${calView() === 'days' ? daysHTML(f, {readOnly:true, key:id})
-          : gridHTML(f, spanMonths(months), {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
+          : gridHTML(f, spanMonths(months, f), {readOnly:true, key:`${id}:${adminYear()}`})}</div>`
         : emptyState('Nothing planned yet', `${esc(f.name)} has not added a planting to its calendar.`)}
       ${archivedRows(f).length ? `<div class="section-label">Archived plantings</div>
         <div class="card" style="overflow-x:auto;">${archiveTableHTML(f, archivedRows(f).sort((a, b)=> String(b.archived).localeCompare(String(a.archived))), true)}</div>` : ''}`;

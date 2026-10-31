@@ -212,7 +212,11 @@ a year when a season runs on — so nothing has to be paged through (**1 year**,
 **6 months** and **3 months** zoom in when wanted). A planting planned from the
 crop guide is drawn to the day; one coloured by hand is drawn by its weeks.
 **Weeks** is the TIPFA template's grid, where weeks are coloured by hand; it is
-also what is stored, exported to Excel and added up.
+also what is stored, exported to Excel and added up. It too opens on the
+**Whole season**: from the first coloured week of any planting to its last
+harvest, across the years, with nothing to page through (**3 years**, **1 year**,
+**6 months** and **3 months** show a window of the three years instead, to page
+through with the arrows).
 
 ### The crop guide
 Under **Crop guide**, administrators see every crop's figures and a calculator:
