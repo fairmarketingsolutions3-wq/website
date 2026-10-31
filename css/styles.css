@@ -2259,3 +2259,10 @@ html[data-theme="dark"] .page-portal .nav.scrolled .nav-toggle span { background
 html[data-theme="dark"] .page-portal .theme-toggle { border-color: #CFE0B4; color: #F2C766; }
 html[data-theme="dark"] .page-portal .theme-toggle:hover { background: rgba(207, 224, 180, 0.14); color: #F2C766; }
 html[data-theme="dark"] .portal-stage, html[data-theme="dark"] .portal-frame { background: #141A12; }
+
+/* Members Portal on a phone: the header steps aside while the calendar is scrolled down. */
+.page-portal .nav { transition: transform 0.32s var(--ease-out), padding 0.45s var(--ease-out), background 0.5s var(--ease-out); }
+.page-portal.nav-away .nav { transform: translateY(-100%); }
+.page-portal .portal-stage { transition: margin-top 0.32s var(--ease-out); }
+.page-portal.nav-away .portal-stage { border-top-width: 0; }
+@media (prefers-reduced-motion: reduce) { .page-portal .nav, .page-portal .portal-stage { transition: none; } }

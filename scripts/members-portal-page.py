@@ -88,12 +88,30 @@ page = f'''<!DOCTYPE html>
     // The calendar fills the screen below the website's header.
     (function () {{
       var root = document.documentElement;
+      var frame = document.getElementById('portalFrame'), away = false;
       function fit() {{
-        var nav = document.getElementById('nav'), frame = document.getElementById('portalFrame');
-        root.style.setProperty('--navh', (nav ? nav.offsetHeight : 64) + 'px');
-        var top = frame.getBoundingClientRect().top + window.scrollY;
-        frame.style.height = Math.max(520, window.innerHeight - top) + 'px';
+        var nav = document.getElementById('nav');
+        var h = away ? 0 : (nav ? nav.offsetHeight : 64);
+        root.style.setProperty('--navh', h + 'px');
+        // Below the header and the orange rule under it.
+        frame.style.height = Math.max(420, window.innerHeight - h - (away ? 0 : 3)) + 'px';
       }}
+      // On a phone the website's header steps aside while the calendar is
+      // scrolled down, and comes back as soon as it is scrolled up.
+      function navAway(a) {{
+        if (a === away) return;
+        away = a; document.body.classList.toggle('nav-away', a); fit();
+      }}
+      frame.addEventListener('load', function () {{
+        var w, last = 0;
+        try {{ w = frame.contentWindow; w.addEventListener('scroll', function () {{
+          var y = w.scrollY;
+          if (window.innerWidth > 900) {{ navAway(false); last = y; return; }}
+          if (y > last + 6 && y > 80) navAway(true);
+          else if (y < last - 6 || y < 40) navAway(false);
+          last = y;
+        }}, {{ passive: true }}); }} catch (e) {{}}
+      }});
       // Light or dark: the page and the system inside it change together.
       function setTheme(t) {{
         if (t === 'dark') root.setAttribute('data-theme', 'dark'); else root.removeAttribute('data-theme');

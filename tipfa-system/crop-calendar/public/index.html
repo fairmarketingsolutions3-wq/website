@@ -25,7 +25,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v33">
+<meta name="tipfa-build" content="v34">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2472,6 +2472,68 @@ html.embedded .topbar:has(#topbarRight:empty){display:none;}
   .cc-grid tfoot tr.crop.var th{padding-left:14px;}
   .cc-grid.fit tfoot tr.crop.var td, .cc-grid.fit tfoot tr.crop.var th{height:34px;}
 }
+
+/* ============================================================
+   The calendar on a phone: as on a computer, the whole farm at once.
+   Names sit in a narrow column beside the season, each planting on one
+   compact row; its dates are a tap away, in its editor. Above the
+   calendar only what is needed: the figures in one strip, the buttons in
+   two short rows.
+   ============================================================ */
+.dv.is-mobile .dv-corner{padding:6px 8px;font-size:10px;letter-spacing:.06em;line-height:1.25;}
+.dv.is-mobile .dv-corner .cc-corner-sub{font-size:9.5px;letter-spacing:0;text-transform:none;font-weight:400;opacity:.8;}
+.dv.is-mobile .dv-months{height:30px;}
+.dv.is-mobile .dv-months span{font-size:11px;letter-spacing:0;}
+.dv.is-mobile .dv-row{display:flex;min-height:60px;}
+.dv.is-mobile .dv-pin{width:var(--pin);padding:6px 6px 6px 8px;background:rgba(251,250,245,.92);border-right:2px solid var(--harvest-orange);}
+.dv.is-mobile .dv-pin .cc-crop-cell{gap:6px;}
+.dv.is-mobile .dv-pin .cc-ico.has-pic{width:30px;height:30px;border-radius:10px;}
+.dv.is-mobile .dv-pin .cc-ico.has-pic .cc-stage{width:14px;height:14px;right:-4px;bottom:-4px;}
+.dv.is-mobile .dv-pin .cc-ico.has-pic .cc-stage svg{width:9px;height:9px;}
+.dv.is-mobile .cn-name{font-size:12.5px;font-weight:600;overflow:hidden;text-overflow:ellipsis;}
+.dv.is-mobile .dv-pin .sub{display:none;}
+.dv.is-mobile .cc-now{font-size:10px;overflow:hidden;text-overflow:ellipsis;}
+.dv.is-mobile .cc-prog{margin-top:3px;}
+.dv.is-mobile .cc-rowbtns .cc-edit, .dv.is-mobile .cc-rowbtns .cc-arch{display:none;}
+.dv.is-mobile .dv-track{height:auto;padding:0;}
+.dv.is-mobile .dv-bar{top:50%;height:30px;margin-top:-15px;}
+.dv.is-mobile .dv-seg b{font-size:10px;padding:0 4px;}
+.dv.is-mobile .dv-row .dv-seg:first-child{border-radius:7px 3px 3px 7px;}
+.dv.is-mobile .dv-row .dv-seg:last-child{border-radius:3px 7px 7px 3px;}
+.dv.is-mobile .dv-row .dv-seg:only-child{border-radius:7px;}
+.dv.is-mobile .dv-seg.pin{box-shadow:0 0 0 1.5px #fff;}
+.dv.is-mobile .dv-empty{left:6px;font-size:10.5px;line-height:1.25;}
+.dv.is-mobile .dv-lines{left:var(--pin);}
+.dv.is-mobile .dv-unit{height:34px;font-size:13px;padding:0 10px;}
+/* Its harvest, as on a computer: the crop's name beside its months. */
+.dv.is-mobile .dv-frow{flex-wrap:nowrap;}
+.dv.is-mobile .dv-frow.bych .dv-fl{width:100%;font-size:10.5px;padding:8px 10px;}
+.dv.is-mobile .dv-fl{width:var(--pin);padding:6px 6px 6px 8px;font-size:11.5px;}
+.dv.is-mobile .dv-fc{height:auto;min-height:40px;}
+.dv.is-mobile .dv-frow.crop.var .dv-fl{padding-left:14px;}
+.dv.is-mobile .dv-fl.hf .hf-w{flex-wrap:wrap;row-gap:0;column-gap:4px;}
+.dv.is-mobile .dv-fl.hf .crop-pic.xs{width:18px;height:18px;}
+.dv.is-mobile .dv-fl.hf .hf-n{flex:1 1 60%;}
+.dv.is-mobile .dv-fl.hf .hf-n small{display:none;}
+.dv.is-mobile .dv-fl.hf .hf-t{flex-basis:100%;background:none;padding:0;font-size:10px;line-height:1.1;}
+
+/* Above the calendar, on a phone. */
+html[data-view="mobile"] body.cc-calpage .page-sub, html[data-view="mobile"] body.cc-calpage .cc-layout-line,
+html[data-view="mobile"] body.cc-calpage .cc-hint{display:none;}
+html[data-view="mobile"] .grid4{grid-template-columns:repeat(4, minmax(0, 1fr));gap:6px;margin-bottom:10px;}
+html[data-view="mobile"] .grid4 .metric{padding:8px 8px 9px;min-height:0;border-radius:12px;}
+html[data-view="mobile"] .grid4 .metric::after, html[data-view="mobile"] .grid4 .metric::before{display:none;}
+html[data-view="mobile"] .grid4 .metric .lbl{font-size:8.5px;letter-spacing:.06em;line-height:1.2;white-space:normal;}
+html[data-view="mobile"] .grid4 .metric .val{font-size:15px !important;line-height:1.2;margin-top:3px;white-space:nowrap;}
+html[data-view="mobile"] .grid4 .metric .val span[style]{font-size:10px !important;}
+html[data-view="mobile"] .cc-toolbar .cc-row{gap:6px;}
+html[data-view="mobile"] .cc-toolbar .lg{display:none;}
+html[data-view="mobile"] .cc-toolbar .btn.small{padding:7px 11px;}
+.dv.is-mobile .dv-corner{display:flex;}
+.dv.is-mobile .dv-pin .cn-name{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.15;font-size:12px;}
+.cc-grid tfoot td.tight .fv{font-size:8.5px;letter-spacing:-.04em;}
+.dv.is-mobile .dv-pin .cc-crop-cell{gap:5px;}
+.dv.is-mobile .dv-pin{padding-left:6px;padding-right:4px;}
 /* ===== Dark: written by darkcss.py from the rules above, at every build ===== */
 :root[data-theme="dark"] body{background:var(--paper);}
 :root[data-theme="dark"] .canopy{background:radial-gradient(38vmax 32vmax at 12% 8%,  var(--canopy-1), transparent 62%),
@@ -2749,6 +2811,8 @@ html.embedded .topbar:has(#topbarRight:empty){display:none;}
 :root[data-theme="dark"] .dv-frow.bych{background:#2c341c;}
 :root[data-theme="dark"] .dv-frow.bych .dv-fl{color:var(--dk-green-text);}
 :root[data-theme="dark"] .dv-frow.crop.var{background:#3f3515;}
+:root[data-theme="dark"] .dv.is-mobile .dv-pin{background:rgba(31,41,25,.92);}
+:root[data-theme="dark"] .dv.is-mobile .dv-seg.pin{box-shadow:0 0 0 1.5px #222d1b;}
 /* ============================================================
    Dark — the colours chosen by hand. The rest of the dark
    appearance is written from the light rules by darkcss.py.
@@ -4555,11 +4619,11 @@ function renderCalendar(c){
         ${viewSwitchHTML()}
         ${dv ? dayNavHTML(dayRange(orderedRows(f).map(r=> rowDays(f, r)))) : `${viewNavHTML(spanMonths(months, f), 'shiftWindow')}
         <button class="btn small ghost" onclick="goToToday()">${icon('today')} This week</button>`}
-        <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}">${icon(state.wide ? 'shrink' : 'expand')} ${state.wide ? 'Exit full screen' : 'Full screen'}</button>
+        <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}" aria-label="Full screen" title="${state.wide ? 'Exit full screen' : 'Full screen'}">${icon(state.wide ? 'shrink' : 'expand')}<span class="lg"> ${state.wide ? 'Exit full screen' : 'Full screen'}</span></button>
         <span class="grow"></span>
         <button class="btn small" onclick="openEditor(null)">${icon('plus')} Add a planting</button>
-        <button class="btn small ghost" onclick="exportFarmExcel()">${icon('down')} Export to Excel</button>
-        <span class="btn small ghost cc-file">${icon('up')} Import from Excel
+        <button class="btn small ghost" onclick="exportFarmExcel()">${icon('down')} Export<span class="lg"> to Excel</span></button>
+        <span class="btn small ghost cc-file">${icon('up')} Import<span class="lg"> from Excel</span>
           <input type="file" accept=".xlsx" onchange="importFarmExcel(this)" aria-label="Import a filled-in crop calendar template"></span>
       </div>
       ${dv ? `<div class="cc-hint">${isMobile() ? 'Every planting at its dates, from the nursery to the last harvest. Tap one to change its dates or timings.'
@@ -4939,10 +5003,10 @@ function footHTML(f, view){
   const name = gr=> gr.length === 1 ? `${MONTHS[gr[0].m-1]} ${gr[0].y}`
     : `${MONTH_ABBR[gr[0].m-1]} ${gr[0].y} – ${MONTH_ABBR[gr[gr.length-1].m-1]} ${gr[gr.length-1].y}`;
   const cellW = g * L.monthW;
-  const num = v=> !v ? '0' : cellW >= 52 ? fmt(v) : kgShort(v);
+  const num = v=> !v ? '0' : cellW >= 52 ? fmt(v) : v >= 1000 ? kgShort(v) : String(Math.round(v));
   // Each figure stands on a bar as tall as its share of the row's best period.
   const cells = vals=>{ const top = Math.max(1, ...vals);
-    return vals.map((v, i)=> `<td colspan="${groups[i].length * 4}" class="${v?'':'zero'}" title="${name(groups[i])}: ${fmt(v)} kg">${v ? `<span class="sky" style="--h:${(v / top).toFixed(3)};--d:${i * 40}ms"></span>` : ''}<span class="fv">${num(v)}</span></td>`).join(''); };
+    return vals.map((v, i)=> `<td colspan="${groups[i].length * 4}" class="${v?'':'zero'}${groups[i].length * L.monthW < 30 ? ' tight' : ''}" title="${name(groups[i])}: ${fmt(v)} kg">${v ? `<span class="sky" style="--h:${(v / top).toFixed(3)};--d:${i * 40}ms"></span>` : ''}<span class="fv">${num(v)}</span></td>`).join(''); };
   const crops = cropTotals(liveRows(f), months);
   const nW = months.length * 4;
   // Each crop on its own, never added to another: kilograms of tomatoes and of
@@ -6773,7 +6837,8 @@ function datesLine(x){
 }
 function dayLayout(nDays){
   const room = gridRoom(), mobile = isMobile();
-  const pin = mobile ? 0 : room > 1300 ? 300 : room > 1100 ? 270 : 230;
+  // A phone keeps the computer's arrangement, names beside the season, in a narrow column.
+  const pin = mobile ? Math.round(Math.min(126, Math.max(114, room * 0.35))) : room > 1300 ? 300 : room > 1100 ? 270 : 230;
   return {room, pin, track: room - pin, px: (room - pin) / nDays, mobile};
 }
 function daysHTML(f, opts){
@@ -6824,24 +6889,35 @@ function daysHTML(f, opts){
     body += dayRowHTML(f, r, x, ri, {ro, px, X, L, R});
   });
 
-  // Harvest by month under the plantings: each crop on its own, then its varieties.
+  // Harvest under the plantings: each crop on its own, then its varieties. By
+  // month when the months are wide enough to print a figure, otherwise by two,
+  // three, six or twelve months together (a whole season on a phone).
   const crops = cropTotals(rows, R.months);
-  // Narrow months (a whole season on a phone) get small, whole figures, so they never run together.
-  const cell = (v, mo, i, t)=>{ const w = mW(mo), tight = w < 34;
-    return `<span class="${v ? '' : 'zero'}${tight ? ' tight' : ''}" style="left:${X(mo.a).toFixed(1)}px;width:${w.toFixed(1)}px" title="${MONTHS[mo.m - 1]} ${mo.y}: ${fmt(v)} kg">${v && t ? `<i class="sky" style="--h:${(v / t).toFixed(3)};--d:${i * 40}ms"></i>` : ''}<em>${v ? (w >= 46 ? fmt(Math.round(v)) : v >= 1000 || !tight ? kgShort(v) : String(Math.round(v))) : (w >= 16 ? '0' : '')}</em></span>`; };
+  const narrow = Math.min(...R.months.map(mW));
+  const g = [1, 2, 3, 6, 12].find(k=> narrow * k >= 40) || 12;
+  const groups = [];
+  for(let i = 0; i < R.months.length; i += g){
+    const gr = R.months.slice(i, i + g), a = gr[0], z = gr[gr.length - 1];
+    groups.push({a: a.a, b: z.b, label: gr.length === 1 ? `${MONTHS[a.m - 1]} ${a.y}` : `${MONTH_ABBR[a.m - 1]} ${a.y} – ${MONTH_ABBR[z.m - 1]} ${z.y}`});
+  }
+  const sumOf = per=> groups.map((gr, gi)=> per.slice(gi * g, gi * g + g).reduce((t, v)=> t + v, 0));
+  const unit = g === 1 ? 'a month' : g === 3 ? 'a quarter' : g === 6 ? 'a half year' : g === 12 ? 'a year' : `every ${g} months`;
+  const cell = (v, gr, i, t)=>{ const w = mW(gr), tight = w < 34;
+    return `<span class="${v ? '' : 'zero'}${tight ? ' tight' : ''}" style="left:${X(gr.a).toFixed(1)}px;width:${w.toFixed(1)}px" title="${gr.label}: ${fmt(v)} kg">${v && t ? `<i class="sky" style="--h:${(v / t).toFixed(3)};--d:${i * 40}ms"></i>` : ''}<em>${v ? (w >= 46 ? fmt(Math.round(v)) : v >= 1000 ? kgShort(v) : String(Math.round(v))) : (w >= 16 ? '0' : '')}</em></span>`; };
+  const cells = per=>{ const vals = sumOf(per), t = Math.max(1, ...vals); return vals.map((v, i)=> cell(v, groups[i], i, t)).join(''); };
   const foot = `<div class="dv-foot">
-    <div class="dv-frow bych"><div class="dv-fl">${L.mobile ? 'Harvest by crop' : 'HARVEST BY CROP'} <small>kg a month · each crop on its own</small></div></div>
-    ${crops.length ? crops.map(gc=>{ const t = Math.max(1, ...gc.per);
-      return `<div class="dv-frow crop"><div class="dv-fl hf" title="${esc(gc.crop)}: ${fmt(Math.round(gc.total))} kg">${cropFootLabel(gc)}</div><div class="dv-fc">${gc.per.map((v, i)=> cell(v, R.months[i], i, t)).join('')}</div></div>`
-        + cropFootRows(gc).map(x=>{ const tv = Math.max(1, ...x.per);
-          return `<div class="dv-frow crop var"><div class="dv-fl hf" title="${esc(gc.crop)} · ${esc(x.name || 'no variety named')}: ${fmt(Math.round(x.total))} kg">${varFootLabel(x)}</div><div class="dv-fc">${x.per.map((v, i)=> cell(v, R.months[i], i, tv)).join('')}</div></div>`; }).join(''); }).join('')
+    <div class="dv-frow bych"><div class="dv-fl">HARVEST BY CROP <small>kg ${unit} · each crop on its own</small></div></div>
+    ${crops.length ? crops.map(gc=>
+      `<div class="dv-frow crop"><div class="dv-fl hf" title="${esc(gc.crop)}: ${fmt(Math.round(gc.total))} kg">${cropFootLabel(gc)}</div><div class="dv-fc">${cells(gc.per)}</div></div>`
+        + cropFootRows(gc).map(x=>
+          `<div class="dv-frow crop var"><div class="dv-fl hf" title="${esc(gc.crop)} · ${esc(x.name || 'no variety named')}: ${fmt(Math.round(x.total))} kg">${varFootLabel(x)}</div><div class="dv-fc">${cells(x.per)}</div></div>`).join('')).join('')
       : `<div class="dv-frow crop"><div class="dv-fl" style="font-weight:400;color:var(--muted);">No harvest kilograms yet</div></div>`}
   </div>`;
 
   const key = `${opts.key || state.member}|days|${R.a}|${R.b}`;
   return `<div class="dv${L.mobile ? ' is-mobile' : ''}" style="--pin:${L.pin}px;--track:${L.track.toFixed(1)}px;width:${L.room}px" data-key="${esc(key)}">
     <div class="dv-head">
-      <div class="dv-corner"><span class="cc-corner-name">${esc(f.name)}</span><span class="cc-corner-sub">${rows.length} planting${rows.length === 1 ? '' : 's'} · in days</span></div>
+      <div class="dv-corner"><span class="cc-corner-name">${esc(f.name)}</span><span class="cc-corner-sub">${rows.length} planting${rows.length === 1 ? '' : 's'}${L.mobile ? '' : ' · in days'}</span></div>
       <div class="dv-axis">${years}${months}${days}</div>
     </div>
     <div class="dv-body"><div class="dv-lines" aria-hidden="true">${lines}${now}</div>${body}</div>
@@ -6876,9 +6952,9 @@ function dayRowHTML(f, r, x, ri, v){
         <span class="cc-now">${esc(j.text)}</span>
         <span class="cc-prog"><i style="--p:${j.p.toFixed(3)};--d:${Math.min(ri, 24) * 45}ms"></i></span></span>
       ${btns}</div></div>
-    <div class="dv-track" ${open}>
+    <div class="dv-track" ${open}${mobile && dl ? ` title="${esc(dl)}"` : ''}>
       <div class="dv-bar">${segs || `<span class="dv-empty">No days yet — ${ro ? 'nothing planned' : 'tap to add its dates'}</span>`}</div>
-      ${dl ? `<div class="dv-dates" style="${dpos}">${esc(dl)}${x.exact ? '' : ' <span class="dv-wk" title="Coloured by hand: drawn by its weeks">by week</span>'}</div>` : ''}
+      ${dl && !mobile ? `<div class="dv-dates" style="${dpos}">${esc(dl)}${x.exact ? '' : ' <span class="dv-wk" title="Coloured by hand: drawn by its weeks">by week</span>'}</div>` : ''}
     </div>
   </div>`;
 }
