@@ -25,7 +25,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v37">
+<meta name="tipfa-build" content="v38">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2569,6 +2569,52 @@ html[data-view="mobile"] .cc-toolbar .btn.small{padding:7px 11px;}
 .dv.is-wide .dv-pin{background:#FBFAF5;}
 .dv.is-wide .dv-frow.crop .dv-fl{background:#FFFBF0;}
 .dv.is-wide .dv-frow.crop.var .dv-fl{background:#FFFDF6;}
+
+/* ============================================================
+   Registering a farm: six short steps
+   ============================================================ */
+.reg-card{padding:18px 18px 16px;}
+.reg-steps{list-style:none;display:flex;gap:4px;margin:0 0 6px;padding:0;counter-reset:none;}
+.reg-steps li{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;min-width:0;}
+.reg-steps .n{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;font:700 11.5px 'Poppins',sans-serif;
+  background:#ECEBE2;color:var(--muted);border:2px solid transparent;transition:background .3s, color .3s;}
+.reg-steps .t{font:600 9.5px/1.15 'Poppins',sans-serif;color:var(--muted);text-align:center;letter-spacing:.01em;}
+.reg-steps li.done .n{background:var(--leaf-green);color:#fff;}
+.reg-steps li.now .n{background:var(--deep-green);color:var(--field-cream);border-color:var(--harvest-orange);}
+.reg-steps li.now .t{color:var(--deep-green);}
+.reg-count{font:600 10.5px 'Poppins',sans-serif;letter-spacing:.1em;text-transform:uppercase;color:var(--harvest-orange);margin:8px 0 2px;}
+.reg-h{margin:0 0 2px;font:700 18px 'Poppins',sans-serif;color:var(--deep-green);}
+.reg-card .opt{font:400 10.5px 'Inter',sans-serif;color:var(--muted);text-transform:none;letter-spacing:0;margin-left:4px;}
+.reg-card textarea{width:100%;font:inherit;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;background:#fff;resize:vertical;}
+.reg-item{border:1px solid var(--line);border-radius:14px;padding:10px 12px 4px;margin:10px 0;background:#FBFAF5;}
+.reg-item-h{display:flex;align-items:center;justify-content:space-between;gap:8px;font:600 13px 'Poppins',sans-serif;color:var(--deep-green);}
+.reg-chips{display:flex;flex-wrap:wrap;gap:6px;margin:2px 0 6px;}
+.reg-chip{position:relative;cursor:pointer;}
+.reg-chip input{position:absolute;opacity:0;pointer-events:none;}
+.reg-chip span{display:inline-block;padding:7px 12px;border-radius:99px;border:1.5px solid var(--line);background:#fff;font-size:12.5px;color:var(--ink);
+  transition:background .2s, border-color .2s, color .2s;}
+.reg-chip input:checked + span{background:var(--deep-green);border-color:var(--deep-green);color:var(--field-cream);}
+.reg-chip input:focus-visible + span{outline:2px solid var(--harvest-orange);outline-offset:2px;}
+.reg-gps{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.reg-gps .helper{margin:0;}
+.reg-nav{display:flex;justify-content:space-between;gap:10px;margin-top:14px;}
+.reg-nav .btn{min-width:120px;justify-content:center;}
+.reg-sum h4{display:flex;justify-content:space-between;align-items:center;margin:14px 0 4px;font:700 12px 'Poppins',sans-serif;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--deep-green);border-bottom:1px solid var(--line-soft);padding-bottom:4px;}
+.reg-edit{border:none;background:none;color:var(--tipfa-green);font:600 11.5px 'Inter',sans-serif;cursor:pointer;text-decoration:underline;text-transform:none;letter-spacing:0;}
+.reg-setup{list-style:none;margin:4px 0;padding:0;}
+.reg-setup li{display:flex;align-items:flex-start;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line-soft);font-size:13px;}
+.reg-setup li .helper{margin:0;}
+.reg-setup .crop-pic.xs{width:26px;height:26px;flex:none;}
+.reg-agree{display:flex;gap:10px;align-items:flex-start;margin:14px 0 2px;font-size:13px;line-height:1.4;cursor:pointer;}
+.reg-agree input{margin-top:3px;width:18px;height:18px;accent-color:var(--deep-green);}
+html[data-view="mobile"] .reg-steps .t{display:none;}
+/* A farm's registration answers, for the Secretariat. */
+.wait-card .status-facts + .status-facts{border-top:1px dashed var(--line-soft);padding-top:8px;margin-top:8px;}
+.profile-row td{background:#FBFAF5;}
+.farm-profile{padding:8px 4px 10px;}
+.farm-profile h4{margin:0 0 6px;font:700 12px 'Poppins',sans-serif;letter-spacing:.08em;text-transform:uppercase;color:var(--deep-green);}
+.farm-profile .status-facts{grid-template-columns:max-content 1fr;}
 /* ===== Dark: written by darkcss.py from the rules above, at every build ===== */
 :root[data-theme="dark"] body{background:var(--paper);}
 :root[data-theme="dark"] .canopy{background:radial-gradient(38vmax 32vmax at 12% 8%,  var(--canopy-1), transparent 62%),
@@ -2853,6 +2899,17 @@ html[data-view="mobile"] .cc-toolbar .btn.small{padding:7px 11px;}
 :root[data-theme="dark"] .dv.is-wide .dv-pin{background:#1f2919;}
 :root[data-theme="dark"] .dv.is-wide .dv-frow.crop .dv-fl{background:#3d3214;}
 :root[data-theme="dark"] .dv.is-wide .dv-frow.crop.var .dv-fl{background:#3f3515;}
+:root[data-theme="dark"] .reg-steps .n{background:#1a2215;}
+:root[data-theme="dark"] .reg-steps li.now .t{color:var(--dk-green-text);}
+:root[data-theme="dark"] .reg-h{color:var(--dk-green-text);}
+:root[data-theme="dark"] .reg-card textarea{background:#222d1b;}
+:root[data-theme="dark"] .reg-item{background:#1f2919;}
+:root[data-theme="dark"] .reg-item-h{color:var(--dk-green-text);}
+:root[data-theme="dark"] .reg-chip span{background:#222d1b;}
+:root[data-theme="dark"] .reg-sum h4{color:var(--dk-green-text);}
+:root[data-theme="dark"] .reg-edit{color:var(--dk-green-text);}
+:root[data-theme="dark"] .profile-row td{background:#1f2919;}
+:root[data-theme="dark"] .farm-profile h4{color:var(--dk-green-text);}
 /* ============================================================
    Dark — the colours chosen by hand. The rest of the dark
    appearance is written from the light rules by darkcss.py.
@@ -3077,6 +3134,7 @@ const EYE_OFF_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none
 const ICONS = {
   leaf:   '<path d="M12 22V9"/><path d="M12 9C12 9 7 8 5 4c4-1 7 2 7 5z"/><path d="M12 12c0-3 3-6 7-5-2 4-7 5-7 5z"/>',
   plus:   '<path d="M12 5v14"/><path d="M5 12h14"/>',
+  pin:    '<path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/>',
   house:  '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M12 4v16"/>',
   grid:   '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
   down:   '<path d="M12 4v12"/><path d="M6 10l6 6 6-6"/><path d="M4 20h16"/>',
@@ -3391,7 +3449,7 @@ function farmCreateDoc(f){
     name:f.name||'', contact:f.contact||'', phone:f.phone||'', email:f.email||'',
     location:f.location||'', registered:f.registered||todayStr(), status:'pending',
     units:f.units, rows:f.rows, startYear:f.startYear||DEFAULT_START_YEAR,
-    updatedAt:new Date().toISOString()
+    updatedAt:new Date().toISOString(), ...(f.profile ? {profile:f.profile} : {})
   }));
 }
 // What an approved farm sends when it changes its calendar. Its status, email
@@ -3429,7 +3487,7 @@ async function withRollback(acct, work){
   }
 }
 
-async function cloudRegisterFarm(vals, password, code){
+async function cloudRegisterFarm(vals, password, code, built){
   useSlot('farm');
   const { doc, getDoc, setDoc, updateDoc, deleteField } = CLOUD.fs;
   const acct = await createOrAdopt(vals.email, password);
@@ -3438,8 +3496,15 @@ async function cloudRegisterFarm(vals, password, code){
     if(!acct.fresh && (await getDoc(doc(CLOUD.db, COL.farms, id))).exists()){
       const e = new Error('This farm already has a crop calendar. Sign in instead.'); e.code = 'calendar-exists'; throw e;
     }
-    const farm = blankFarm(vals);
-    await setDoc(doc(CLOUD.db, COL.farms, id), Object.assign(farmCreateDoc(farm), {signupCode: code}));
+    const farm = built || blankFarm(vals);
+    try{ await setDoc(doc(CLOUD.db, COL.farms, id), Object.assign(farmCreateDoc(farm), {signupCode: code})); }
+    catch(e){
+      // Database rules from before the profile refuse a record that has one: the farm is
+      // registered without it rather than not at all. (Publish the current rules to keep it.)
+      if(!farm.profile || !/permission/i.test(String(e && (e.code || e.message)))) throw e;
+      delete farm.profile;
+      await setDoc(doc(CLOUD.db, COL.farms, id), Object.assign(farmCreateDoc(farm), {signupCode: code}));
+    }
     await updateDoc(doc(CLOUD.db, COL.farms, id), {signupCode: deleteField()});   // not kept
     FARMS[id] = normaliseFarm(farm);
     CLOUD_STATE.cloudIds.add(id);
@@ -3763,7 +3828,7 @@ function emptyState(title, body, action){
    The front door
    ============================================================ */
 function showLoginTab(t){ state.loginTab = t; state.showRegister = false; state.adminSignup = false; state.forgot = null; render(); }
-function toggleRegister(on){ state.showRegister = on; state.regMsg = ''; render(); }
+function toggleRegister(on){ state.showRegister = on; state.regMsg = ''; if(on && !state.reg) state.reg = regBlank(); render(); }
 function toggleAdminSignup(on){ state.adminSignup = on; state.regMsg = ''; render(); }
 function showForgot(which){ state.forgot = which; render(); }
 
@@ -3850,25 +3915,7 @@ function forgotPane(which, cloud){
 
 function memberDoor(cloud){
   if(state.forgot === 'member') return forgotPane('member', cloud);
-  if(state.showRegister) return `
-    <div class="card">
-      <div class="grid2">
-        <div><label class="f">Farm name</label><input id="reg-name" placeholder="e.g. Fair Farms"></div>
-        <div><label class="f">Contact person</label><input id="reg-contact" placeholder="Full name"></div>
-        <div><label class="f">Phone</label><input id="reg-phone" placeholder="+255 7XX XXX XXX"></div>
-        <div><label class="f">Email</label><input id="reg-email" type="email" placeholder="farm@example.com"></div>
-      </div>
-      <label class="f">Location</label><input id="reg-location" placeholder="e.g. Iringa, Southern Highlands">
-      <label class="f">Set a password</label>${pwdField('reg-password', cloud ? 'At least 6 characters' : 'At least 4 characters')}
-      <label class="f">Confirm password</label>${pwdField('reg-password2','Re-enter password')}
-      ${cloud ? `<label class="f">Membership code from the Secretariat</label><input id="reg-code" placeholder="Code issued by TIPFA">` : ''}
-      <button class="btn" style="width:100%;margin-top:6px;" onclick="submitRegistration(this)">Create my farm's calendar</button>
-      <p class="helper" id="reg-error" style="color:var(--red);margin-top:8px;"></p>
-    </div>
-    <p class="login-note"><a href="#" onclick="toggleRegister(false);return false;">&larr; Back to sign-in</a></p>
-    <p class="login-note">Every new farm is checked by the Secretariat before it can plan. You will be let in as soon as you are approved.</p>
-    <p class="login-note">You start with one greenhouse. If your farm has more, or one large house divided into blocks,
-      you can set that up afterwards — it is optional.</p>`;
+  if(state.showRegister) return registerWizardHTML(cloud);
   return `
     ${state.regMsg ? `<div class="msg-banner">${CHECK_ICON} ${esc(state.regMsg)}</div>` : ''}
     ${state.restoreError ? `<p class="helper" style="color:var(--red);">${esc(state.restoreError)}</p>` : ''}
@@ -3926,24 +3973,29 @@ function findAccount(identifier){
 }
 
 async function submitRegistration(btn){
+  regCollect();
   const err = document.getElementById('reg-error');
-  const vals = {name:val('reg-name'), contact:val('reg-contact'), phone:val('reg-phone'),
-                email:val('reg-email').toLowerCase(), location:val('reg-location')};
-  const pw = (document.getElementById('reg-password')||{}).value || '';
-  const pw2 = (document.getElementById('reg-password2')||{}).value || '';
-  const cloud = cloudOn();
-  if(!vals.name) return flagError(err, 'Enter your farm name.');
-  if(cloud && !vals.email) return flagError(err, 'Enter an email address — the shared database signs you in with it.');
-  if(!cloud && !vals.email && !vals.phone) return flagError(err, 'Enter a phone number or an email address to sign in with.');
-  if(pw.length < (cloud ? 6 : 4)) return flagError(err, `Choose a password of at least ${cloud ? 'six' : 'four'} characters.`);
-  if(pw !== pw2) return flagError(err, 'The two passwords do not match.');
+  const cloud = cloudOn(), d = regState().d;
+  const bad = regCheck(REG_STEPS.length - 1, cloud);
+  if(bad) return flagError(err, bad);
+  const vals = {name:d.name, contact:d.contact, phone:d.phone, email:(d.email || '').toLowerCase(), location:regLocation(d)};
+  const pw = REG_PW[0];
+  // Every step is checked again: a step can be changed after it was passed.
+  for(let s = 0; s < REG_STEPS.length - 1; s++){
+    if(s === 0) continue;                  // its fields are not on screen; checked below
+    const b2 = regCheck(s, cloud); if(b2){ regState().step = s; render(); return flagError(document.getElementById('reg-error'), b2); }
+  }
+  if(!vals.name || !vals.phone || (cloud && !vals.email) || pw.length < (cloud ? 6 : 4) || pw !== REG_PW[1]){ regState().step = 0; render(); return flagError(document.getElementById('reg-error'), 'Check your account details and password.'); }
   if(CLOUD_CONFIGURED && !cloud) return flagError(err, 'The crop calendar cannot be reached. Check the connection and try again.');
+  const farm = regBuildFarm(d, vals);
+  farm.rows.forEach(r=> delete r.planned);
   if(btn) btn.classList.add('is-busy');
 
   if(cloud){
     try{
-      const id = await withTimeout(cloudRegisterFarm(vals, pw, val('reg-code')), 20000, 'Registering');
+      const id = await withTimeout(cloudRegisterFarm(vals, pw, d.code, farm), 20000, 'Registering');
       CLOUD_STATE.uid = id; CLOUD_STATE.role = 'farm'; CLOUD_STATE.email = vals.email;
+      state.reg = null; REG_PW = ['', ''];
       curtainTransition(()=>{ enterSession('member', {member:id}); render(); });
     }catch(e){ if(btn) btn.classList.remove('is-busy'); flagError(err, cloudErrorText(e)); }
     return;
@@ -3955,11 +4007,12 @@ async function submitRegistration(btn){
   const id = uid('farm_');
   const salt = uid('s');
   const hash = await hashPassword(pw, salt);
-  FARMS[id] = normaliseFarm(blankFarm(vals));
+  FARMS[id] = normaliseFarm(farm);
   const acct = {id, role:'farm', name:vals.name, phone:vals.phone, salt, hash};
   if(vals.email) ACCOUNTS[vals.email] = acct;
   if(vals.phone) ACCOUNTS[vals.phone.replace(/\s+/g,'').toLowerCase()] = acct;
   saveLocal();
+  state.reg = null; REG_PW = ['', ''];
   curtainTransition(()=>{ enterSession('member', {member:id}); render(); });
 }
 
@@ -4501,6 +4554,317 @@ function renderTabContent(c){
   if(state.tab === 'members') return renderMembers(c);
   if(state.tab === 'guide') return renderGuideAdmin(c);
   return renderCalendarsAdmin(c);
+}
+
+/* ============================================================
+   Registering a farm
+   A new member answers everything the association needs to know, in six
+   short steps, and the system sets the farm up from the answers: its
+   greenhouses, screenhouses and fields with their blocks, and every crop
+   already growing planned from the crop guide, week by week, with its
+   harvest. The rest (where the farm is, how it is watered, who it sells to,
+   what it wants from TIPFA) is kept as the farm's profile, for the
+   Secretariat to read when it approves the farm.
+   ============================================================ */
+const REG_STEPS = ['Account', 'Location', 'Farm setup', 'Crops', 'About the farm', 'Check & send'];
+const TZ_REGIONS = ['Arusha', 'Dar es Salaam', 'Dodoma', 'Geita', 'Iringa', 'Kagera', 'Katavi', 'Kigoma', 'Kilimanjaro', 'Lindi',
+  'Manyara', 'Mara', 'Mbeya', 'Morogoro', 'Mtwara', 'Mwanza', 'Njombe', 'Pemba North', 'Pemba South', 'Pwani', 'Rukwa', 'Ruvuma',
+  'Shinyanga', 'Simiyu', 'Singida', 'Songwe', 'Tabora', 'Tanga', 'Unguja North', 'Unguja South', 'Unguja Urban West'];
+const REG_CHOICES = {
+  role: ['Owner', 'Manager', 'Agronomist or supervisor', 'Other'],
+  years: ['Less than a year', '1–2 years', '3–5 years', '6–10 years', 'More than 10 years'],
+  irrigation: ['Drip', 'Sprinkler', 'Hand watering', 'Rain-fed'],
+  water: ['Borehole', 'River or stream', 'Dam', 'Piped (mains)', 'Rainwater harvesting'],
+  certs: ['GlobalG.A.P.', 'Organic', 'TPHPA export registration', 'None yet'],
+  markets: ['Export', 'Supermarkets', 'Hotels and restaurants', 'Local market', 'Processors', 'Through TIPFA'],
+  wants: ['Markets and buyers', 'Training', 'Inputs at group prices', 'Finance', 'Certification support', 'Extension visits'],
+  heard: ['A TIPFA member', 'The TIPFA team', 'Social media', 'An event or training', 'Other'],
+};
+
+function regBlank(){
+  return {step:0, d:{
+    name:'', contact:'', role:'Owner', phone:'', email:'', code:'',
+    region:'', district:'', ward:'', town:'', gps:null,
+    acres:'', units:[{type:'Greenhouse', name:'Greenhouse 1', size:'', blocks:'0'}],
+    crops:[],
+    years:'', irrigation:[], water:[], certs:[], markets:[], workersP:'', workersS:'', wants:[], challenges:'', heard:'',
+    agree:false,
+  }};
+}
+function regState(){ if(!state.reg) state.reg = regBlank(); return state.reg; }
+
+// Everything typed on the step on screen goes into the answers before anything is redrawn.
+function regCollect(){
+  const d = regState().d;
+  document.querySelectorAll('[data-reg]').forEach(el=>{
+    const path = el.dataset.reg.split('.');
+    let o = d; for(let i = 0; i < path.length - 1; i++) o = o[path[i]];
+    const k = path[path.length - 1];
+    if(el.type === 'checkbox' && el.dataset.many){ const list = o[k] || (o[k] = []); const on = el.checked, v = el.value;
+      if(on && !list.includes(v)) list.push(v); if(!on) o[k] = list.filter(x=> x !== v); }
+    else if(el.type === 'checkbox') o[k] = el.checked;
+    else if(el.type !== 'password') o[k] = el.value.trim ? el.value.trim() : el.value;
+  });
+}
+// Redrawn after a change that alters the step itself (a crop chosen); the answers are taken first.
+function regRedraw(){ regCollect(); regRender(); }
+// Redrawn after the answers were already taken and changed here: taking them again would undo the change.
+function regRender(){ const keep = {}; ['reg-password', 'reg-password2'].forEach(id=>{ const el = document.getElementById(id); if(el) keep[id] = el.value; });
+  render(); Object.keys(keep).forEach(id=>{ const el = document.getElementById(id); if(el) el.value = keep[id]; }); }
+function regAddUnit(){ regCollect(); const d = regState().d; const type = 'Greenhouse';
+  d.units.push({type, name:`${type} ${d.units.filter(u=> u.type === type).length + 1}`, size:'', blocks:'0'}); regRender(); }
+function regDropUnit(i){ regCollect(); const d = regState().d; if(d.units.length > 1) d.units.splice(i, 1); d.crops.forEach(c=>{ if(c.where && Number(c.where.split(':')[0]) >= d.units.length) c.where = '0:'; }); regRender(); }
+function regAddCrop(){ regCollect(); regState().d.crops.push({crop:'', variety:'', where:'0:', sown:'', plants:''}); regRender(); }
+function regDropCrop(i){ regCollect(); regState().d.crops.splice(i, 1); regRender(); }
+function regTypeChanged(i, el){ const d = regState().d; regCollect();
+  const u = d.units[i], old = u.name;
+  // A unit still called by its old type's default name is renamed for its new type.
+  if(/^(Greenhouse|Screenhouse|Open field|Nursery) \d+$/.test(old)) u.name = `${u.type} ${d.units.filter((x, j)=> j <= i && x.type === u.type).length}`;
+  regRender(); }
+function regLocate(btn){
+  regCollect();
+  const out = document.getElementById('reg-gps');
+  if(!navigator.geolocation){ if(out) out.textContent = 'This phone or browser cannot give its location.'; return; }
+  btn.classList.add('is-busy');
+  navigator.geolocation.getCurrentPosition(p=>{
+    regState().d.gps = {lat: Math.round(p.coords.latitude * 1e5) / 1e5, lng: Math.round(p.coords.longitude * 1e5) / 1e5};
+    regRender();
+  }, e=>{ btn.classList.remove('is-busy'); if(out) out.textContent = 'The location could not be found' + (e && e.code === 1 ? ' — location was not allowed.' : '.'); },
+  {enableHighAccuracy:true, timeout:15000});
+}
+
+/* ---- What the answers set up ---------------------------------------- */
+// The places a crop can be in: each unit, or each of its blocks.
+function regPlaces(d){
+  const out = [];
+  d.units.forEach((u, i)=>{
+    const n = Math.max(0, Math.min(26, Number(u.blocks) || 0)), name = u.name || `${u.type} ${i + 1}`;
+    if(!n) out.push({key:`${i}:`, label:name});
+    for(let b = 0; b < n; b++) out.push({key:`${i}:${b}`, label:`${name} · Block ${String.fromCharCode(65 + b)}`});
+  });
+  return out;
+}
+function regSowLabel(g){ return !g ? 'Sowing date' : g.tree ? 'Harvest season starts' : g.direct ? 'Planting date' : 'Sowing date'; }
+// The farm the answers describe: units and blocks, plantings planned, the profile.
+function regBuildFarm(d, vals){
+  const f = blankFarm(vals);
+  f.units = d.units.map((u, i)=>{
+    const n = Math.max(0, Math.min(26, Number(u.blocks) || 0));
+    const unit = {id: uid('u'), name: u.name || `${u.type} ${i + 1}`, type: UNIT_TYPES.includes(u.type) ? u.type : 'Greenhouse', blocks: []};
+    if(Number(u.size) > 0) unit.size = Number(u.size);
+    for(let b = 0; b < n; b++) unit.blocks.push({id: uid('b'), name: `Block ${String.fromCharCode(65 + b)}`});
+    return unit;
+  });
+  const sowYears = d.crops.map(c=> Number((c.sown || '').slice(0, 4))).filter(Boolean);
+  f.startYear = Math.min(new Date().getFullYear(), ...sowYears);
+  const until = new Date(f.startYear + 3, 0, 1);
+  const inPlace = {};
+  d.crops.forEach(c=>{ inPlace[c.where] = (inPlace[c.where] || 0) + 1; });
+  f.rows = d.crops.filter(c=> c.crop).map(c=>{
+    const g = guideFor(c.crop), [ui, bi] = (c.where || '0:').split(':');
+    const unit = f.units[Number(ui)] || f.units[0], block = bi === '' || bi == null ? null : unit.blocks[Number(bi)];
+    // The ground it has: its block's share of the unit, or the unit, shared with what else grows there.
+    const ground = unit.size ? unit.size / (unit.blocks.length && block ? unit.blocks.length : 1) / (inPlace[c.where] || 1) : 0;
+    const r = {id: uid('r'), unit: unit.id, block: block ? block.id : '', crop: g ? g.name : c.crop, area: Math.round(ground), notes: '', cells: {}};
+    if(c.variety) r.variety = c.variety;
+    if(g && c.sown){
+      const p = planFromGuide(effGuide(g, null, c.variety), {until, sown: c.sown, moved: '', plants: Number(c.plants) || 0});
+      if(!p.error){
+        r.cells = p.cells;
+        r.plan = {guide: g.id, sown: c.sown, moved: '', plants: Number(c.plants) || 0, sig: guideSig(effGuide(g, null, c.variety)), cs: cellsSig(p.cells)};
+        r.planned = p;           // for the summary only; not saved
+      }
+    } else if(g && Number(c.plants) > 0) r.plan = {guide: '', sown: '', moved: '', plants: Number(c.plants)};
+    return r;
+  });
+  f.profile = {
+    role: d.role, region: d.region, district: d.district, ward: d.ward, town: d.town,
+    ...(d.gps ? {gps: d.gps} : {}),
+    acres: Number(d.acres) || 0,
+    years: d.years, irrigation: d.irrigation, water: d.water, certs: d.certs, markets: d.markets,
+    workers: {permanent: Number(d.workersP) || 0, seasonal: Number(d.workersS) || 0},
+    wants: d.wants, challenges: d.challenges.slice(0, 1000), heard: d.heard,
+    at: new Date().toISOString(), v: 1,
+  };
+  return f;
+}
+function regLocation(d){ return [d.ward, d.district, d.region].filter(Boolean).join(', '); }
+
+/* ---- Checking each step ----------------------------------------------- */
+function regCheck(step, cloud){
+  const d = regState().d;
+  if(step === 0){
+    if(!d.name) return 'Enter your farm name.';
+    if(!d.contact) return 'Enter the name of the person TIPFA should speak to.';
+    if(!d.phone) return 'Enter a phone number.';
+    if(d.phone.replace(/\D/g, '').length < 9) return 'Check the phone number — it looks too short.';
+    if(cloud && !d.email) return 'Enter an email address — it is how you will sign in.';
+    if(d.email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) return 'Check the email address.';
+    const pw = (document.getElementById('reg-password') || {}).value || '', pw2 = (document.getElementById('reg-password2') || {}).value || '';
+    if(pw.length < (cloud ? 6 : 4)) return `Choose a password of at least ${cloud ? 'six' : 'four'} characters.`;
+    if(pw !== pw2) return 'The two passwords do not match.';
+    if(cloud && !d.code) return 'Enter the membership code the Secretariat gave you.';
+  }
+  if(step === 1){
+    if(!d.region) return 'Choose the region the farm is in.';
+    if(!d.district) return 'Enter the district.';
+  }
+  if(step === 2){
+    if(!d.units.length) return 'Add at least one greenhouse, screenhouse or field.';
+    for(const u of d.units) if(!u.name) return 'Give every greenhouse or field a name.';
+    if(new Set(d.units.map(u=> u.name.toLowerCase())).size !== d.units.length) return 'Two of them have the same name — give each its own.';
+  }
+  if(step === 3){
+    for(const [i, c] of d.crops.entries()){
+      if(!c.crop) return `Choose the crop for planting ${i + 1}, or remove it.`;
+      const g = guideFor(c.crop);
+      if(!c.sown) return `Enter the ${regSowLabel(g).toLowerCase()} for ${g ? g.name : 'planting ' + (i + 1)}.`;
+      if(c.plants !== '' && !(Number(c.plants) > 0)) return `The number of plants for ${g ? g.name : 'planting ' + (i + 1)} must be above nought.`;
+    }
+  }
+  if(step === 5 && !d.agree) return 'Tick the box to confirm the answers are correct.';
+  return '';
+}
+// The password lives only in its field; it is kept here between steps, never in the answers.
+let REG_PW = ['', ''];
+function regGo(delta, cloud){
+  regCollect();
+  const r = regState(), err = document.getElementById('reg-error');
+  if(delta > 0){ const bad = regCheck(r.step, cloud); if(bad) return flagError(err, bad); }
+  if(r.step === 0){ REG_PW = [(document.getElementById('reg-password') || {}).value || '', (document.getElementById('reg-password2') || {}).value || '']; }
+  r.step = Math.max(0, Math.min(REG_STEPS.length - 1, r.step + delta));
+  render();
+  if(r.step === 0){ const a = document.getElementById('reg-password'), b = document.getElementById('reg-password2'); if(a) a.value = REG_PW[0]; if(b) b.value = REG_PW[1]; }
+  const top = document.querySelector('.reg-steps'); if(top) top.scrollIntoView({block:'start', behavior:'smooth'});
+}
+
+/* ---- Drawing it ------------------------------------------------------- */
+function regInput(path, value, attrs){ return `<input data-reg="${path}" value="${esc(value)}" ${attrs || ''}>`; }
+function regSelect(path, value, options, attrs, blank){
+  return `<select data-reg="${path}" ${attrs || ''}>${blank !== undefined ? `<option value="">${esc(blank)}</option>` : ''}${options.map(o=>{
+    const [v, l] = Array.isArray(o) ? o : [o, o]; return `<option value="${esc(v)}" ${v === value ? 'selected' : ''}>${esc(l)}</option>`; }).join('')}</select>`;
+}
+function regChips(path, chosen, options){
+  return `<div class="reg-chips">${options.map(o=> `<label class="reg-chip"><input type="checkbox" data-reg="${path}" data-many="1" value="${esc(o)}" ${chosen.includes(o) ? 'checked' : ''}><span>${esc(o)}</span></label>`).join('')}</div>`;
+}
+function regStepHTML(step, d, cloud){
+  if(step === 0) return `
+    <h3 class="reg-h">Your account</h3>
+    <p class="helper">Who you are, and how you will sign in.</p>
+    <label class="f">Farm name</label>${regInput('name', d.name, 'placeholder="e.g. Fair Farms"')}
+    <div class="grid2">
+      <div><label class="f">Contact person</label>${regInput('contact', d.contact, 'placeholder="Full name"')}</div>
+      <div><label class="f">Your role</label>${regSelect('role', d.role, REG_CHOICES.role)}</div>
+      <div><label class="f">Phone</label>${regInput('phone', d.phone, 'type="tel" placeholder="+255 7XX XXX XXX"')}</div>
+      <div><label class="f">Email</label>${regInput('email', d.email, 'type="email" placeholder="farm@example.com"')}</div>
+    </div>
+    <label class="f">Set a password</label>${pwdField('reg-password', cloud ? 'At least 6 characters' : 'At least 4 characters')}
+    <label class="f">Confirm password</label>${pwdField('reg-password2', 'Re-enter password')}
+    ${cloud ? `<label class="f">Membership code from the Secretariat</label>${regInput('code', d.code, 'placeholder="Code issued by TIPFA"')}` : ''}`;
+  if(step === 1) return `
+    <h3 class="reg-h">Where the farm is</h3>
+    <p class="helper">So the Secretariat can visit, and plan collection and extension by area.</p>
+    <label class="f">Region</label>${regSelect('region', d.region, TZ_REGIONS, '', 'Choose a region')}
+    <div class="grid2">
+      <div><label class="f">District</label>${regInput('district', d.district, 'placeholder="e.g. Kilolo"')}</div>
+      <div><label class="f">Ward or village</label>${regInput('ward', d.ward, 'placeholder="e.g. Ilula"')}</div>
+    </div>
+    <label class="f">Nearest town <span class="opt">optional</span></label>${regInput('town', d.town, 'placeholder="e.g. Iringa"')}
+    <label class="f">The farm on the map <span class="opt">optional</span></label>
+    <div class="reg-gps"><button type="button" class="btn small ghost" onclick="regLocate(this)">${icon('pin')} Use this phone's location</button>
+      <span id="reg-gps" class="helper">${d.gps ? `Saved: ${d.gps.lat}, ${d.gps.lng}` : 'Best done standing on the farm.'}</span></div>`;
+  if(step === 2) return `
+    <h3 class="reg-h">How the farm is set up</h3>
+    <p class="helper">Every greenhouse, screenhouse, field or nursery you grow in. Your calendar is laid out from this — you can change it later.</p>
+    <label class="f">Total farm size in acres <span class="opt">optional</span></label>${regInput('acres', d.acres, 'type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 2.5"')}
+    ${d.units.map((u, i)=> `<div class="reg-item">
+      <div class="reg-item-h"><strong>${esc(u.name || 'Unit ' + (i + 1))}</strong>${d.units.length > 1 ? `<button type="button" class="cc-rowbtn" onclick="regDropUnit(${i})" aria-label="Remove">${icon('trash')}</button>` : ''}</div>
+      <div class="grid2">
+        <div><label class="f">Type</label>${regSelect(`units.${i}.type`, u.type, UNIT_TYPES, `onchange="regTypeChanged(${i}, this)"`)}</div>
+        <div><label class="f">Name</label>${regInput(`units.${i}.name`, u.name, 'placeholder="e.g. Greenhouse 1"')}</div>
+        <div><label class="f">Size in m² <span class="opt">optional</span></label>${regInput(`units.${i}.size`, u.size, 'type="number" min="0" inputmode="numeric" placeholder="e.g. 500"')}</div>
+        <div><label class="f">Divided into blocks?</label>${regSelect(`units.${i}.blocks`, String(u.blocks), [['0', 'No — one space'], ...[2, 3, 4, 5, 6, 8, 10, 12].map(n=> [String(n), `${n} blocks`])])}</div>
+      </div></div>`).join('')}
+    <button type="button" class="btn small ghost" onclick="regAddUnit()">${icon('plus')} Add another greenhouse or field</button>`;
+  if(step === 3){
+    const places = regPlaces(d), crops = CROP_GUIDE.slice().sort((a, b)=> a.name.localeCompare(b.name));
+    return `
+    <h3 class="reg-h">What you are growing</h3>
+    <p class="helper">Each crop in the ground now, or sown in the nursery. The crop guide plans every week for you — nursery, transplanting, growth, flowering and harvest with its kilograms. Nothing growing yet? Leave this empty and add plantings later.</p>
+    ${d.crops.map((c, i)=>{ const g = guideFor(c.crop), vars = g && g.varieties ? g.varieties : [];
+      return `<div class="reg-item">
+      <div class="reg-item-h"><strong>${g ? esc(g.name) : 'Planting ' + (i + 1)}</strong><button type="button" class="cc-rowbtn" onclick="regDropCrop(${i})" aria-label="Remove">${icon('trash')}</button></div>
+      <div class="grid2">
+        <div><label class="f">Crop</label>${regSelect(`crops.${i}.crop`, c.crop, crops.map(x=> [x.id, x.name]), 'onchange="regRedraw()"', 'Choose a crop')}</div>
+        <div><label class="f">Variety ${vars.length ? '' : '<span class="opt">optional</span>'}</label>${vars.length ? regSelect(`crops.${i}.variety`, c.variety, vars.map(v=> v.name), '', 'Not sure / other') : regInput(`crops.${i}.variety`, c.variety, 'placeholder="Name on the seed packet"')}</div>
+        <div><label class="f">Where</label>${regSelect(`crops.${i}.where`, c.where, places.map(p=> [p.key, p.label]))}</div>
+        <div><label class="f">${regSowLabel(g)}</label>${regInput(`crops.${i}.sown`, c.sown, 'type="date"')}</div>
+        <div><label class="f">Number of ${g && g.tree ? 'trees' : 'plants'}</label>${regInput(`crops.${i}.plants`, c.plants, 'type="number" min="1" inputmode="numeric" placeholder="e.g. 1000"')}</div>
+      </div></div>`; }).join('')}
+    <button type="button" class="btn small ghost" onclick="regAddCrop()">${icon('plus')} Add a crop</button>`;
+  }
+  if(step === 4) return `
+    <h3 class="reg-h">About the farm</h3>
+    <p class="helper">So TIPFA knows how you farm, who you sell to, and how it can help. Tick all that apply.</p>
+    <label class="f">How long have you grown under cover or for market?</label>${regSelect('years', d.years, REG_CHOICES.years, '', 'Choose')}
+    <label class="f">Irrigation</label>${regChips('irrigation', d.irrigation, REG_CHOICES.irrigation)}
+    <label class="f">Water source</label>${regChips('water', d.water, REG_CHOICES.water)}
+    <label class="f">Certification</label>${regChips('certs', d.certs, REG_CHOICES.certs)}
+    <label class="f">Who you sell to</label>${regChips('markets', d.markets, REG_CHOICES.markets)}
+    <div class="grid2">
+      <div><label class="f">Permanent workers</label>${regInput('workersP', d.workersP, 'type="number" min="0" inputmode="numeric" placeholder="e.g. 4"')}</div>
+      <div><label class="f">Seasonal workers</label>${regInput('workersS', d.workersS, 'type="number" min="0" inputmode="numeric" placeholder="e.g. 10"')}</div>
+    </div>
+    <label class="f">What you want from TIPFA</label>${regChips('wants', d.wants, REG_CHOICES.wants)}
+    <label class="f">Your biggest challenges <span class="opt">optional</span></label>
+    <textarea data-reg="challenges" rows="3" placeholder="e.g. finding buyers in the glut, whitefly, water in the dry season">${esc(d.challenges)}</textarea>
+    <label class="f">How did you hear about TIPFA?</label>${regSelect('heard', d.heard, REG_CHOICES.heard, '', 'Choose')}`;
+  // Check & send: everything given, and what will be set up from it.
+  const f = regBuildFarm(d, {name: d.name, contact: d.contact, phone: d.phone, email: d.email, location: regLocation(d)});
+  const list = a=> a && a.length ? a.map(esc).join(', ') : '—';
+  const row = (k, v)=> v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+  return `
+    <h3 class="reg-h">Check and send</h3>
+    <p class="helper">This is what TIPFA will receive, and how your calendar will be set up.</p>
+    <div class="reg-sum">
+      <h4>Your account <button type="button" class="reg-edit" onclick="regJump(0)">Change</button></h4>
+      <dl class="status-facts">${row('Farm', esc(d.name))}${row('Contact', `${esc(d.contact)} · ${esc(d.role)}`)}${row('Phone', esc(d.phone))}${row('Email', esc(d.email))}</dl>
+      <h4>Location <button type="button" class="reg-edit" onclick="regJump(1)">Change</button></h4>
+      <dl class="status-facts">${row('Where', esc(regLocation(d)))}${row('Nearest town', esc(d.town))}${row('Map', d.gps ? `${d.gps.lat}, ${d.gps.lng}` : '')}</dl>
+      <h4>Your calendar will have <button type="button" class="reg-edit" onclick="regJump(2)">Change</button></h4>
+      <ul class="reg-setup">${f.units.map(u=> `<li><span><strong>${esc(u.name)}</strong> · ${esc(u.type.toLowerCase())}${u.size ? ` · ${fmt(u.size)} m²` : ''}${u.blocks.length ? ` · ${u.blocks.length} blocks (${u.blocks.map(b=> esc(b.name.replace('Block ', ''))).join(', ')})` : ''}</span></li>`).join('')}</ul>
+      <h4>Plantings, planned from the crop guide <button type="button" class="reg-edit" onclick="regJump(3)">Change</button></h4>
+      ${f.rows.length ? `<ul class="reg-setup">${f.rows.map(r=>{ const p = r.planned, u = f.units.find(x=> x.id === r.unit), b = u.blocks.find(x=> x.id === r.block);
+        const when = p && p.hWeeks ? `harvest ${dayText(p.firstH, true)}${p.hWeeks > 1 ? ' – ' + dayText(p.lastH, true) : ''}` : 'no harvest in these years';
+        return `<li>${cropPic(guideMatch(r.crop), 'xs')}<span><strong>${esc(r.crop)}</strong>${r.variety ? ` · ${esc(r.variety)}` : ''} · ${esc(u.name)}${b ? ' · ' + esc(b.name) : ''}<br>
+          <span class="helper">${p ? `${when}${p.total != null ? ` · ${fmt(p.total)} kg` : ''}` : 'no date given — add it later'}</span></span></li>`; }).join('')}</ul>`
+        : '<p class="helper">No plantings yet — you can add them once you are approved.</p>'}
+      <h4>About the farm <button type="button" class="reg-edit" onclick="regJump(4)">Change</button></h4>
+      <dl class="status-facts">${row('Farm size', d.acres ? `${esc(d.acres)} acres` : '')}${row('Experience', esc(d.years))}${row('Irrigation', list(d.irrigation))}${row('Water', list(d.water))}
+        ${row('Certification', list(d.certs))}${row('Sells to', list(d.markets))}${row('Workers', (d.workersP || d.workersS) ? `${esc(d.workersP || 0)} permanent · ${esc(d.workersS || 0)} seasonal` : '')}
+        ${row('Wants', list(d.wants))}${row('Challenges', esc(d.challenges))}${row('Heard of TIPFA', esc(d.heard))}</dl>
+    </div>
+    <label class="reg-agree"><input type="checkbox" data-reg="agree" ${d.agree ? 'checked' : ''}> These answers are correct, and TIPFA may keep them to serve my farm.</label>`;
+}
+function regJump(step){ regCollect(); regState().step = step; render(); }
+
+function registerWizardHTML(cloudOrNot){
+  const cloud = !!cloudOrNot;          // the buttons carry it as true or false
+  const r = regState(), d = r.d, step = r.step, lastStep = REG_STEPS.length - 1;
+  return `
+    <div class="card reg-card">
+      <ol class="reg-steps" aria-label="Registration steps">${REG_STEPS.map((s, i)=> `<li class="${i < step ? 'done' : i === step ? 'now' : ''}"><span class="n">${i < step ? '✓' : i + 1}</span><span class="t">${s}</span></li>`).join('')}</ol>
+      <div class="reg-count">Step ${step + 1} of ${REG_STEPS.length}</div>
+      ${regStepHTML(step, d, cloud)}
+      <p class="helper" id="reg-error" style="color:var(--red);margin-top:8px;"></p>
+      <div class="reg-nav">
+        ${step ? `<button type="button" class="btn ghost" onclick="regGo(-1, ${cloud})">&larr; Back</button>` : '<span></span>'}
+        ${step < lastStep ? `<button type="button" class="btn" onclick="regGo(1, ${cloud})">Next &rarr;</button>`
+          : `<button type="button" class="btn" onclick="submitRegistration(this)">Register my farm</button>`}
+      </div>
+    </div>
+    <p class="login-note"><a href="#" onclick="toggleRegister(false);return false;">&larr; Back to sign-in</a></p>
+    <p class="login-note">Every new farm is checked by the Secretariat before it can plan. You will be let in as soon as you are approved, with your calendar already set up from your answers.</p>`;
 }
 
 /* ============================================================
@@ -8016,6 +8380,26 @@ function renderAccountStatus(c){
     </div>`;
 }
 
+/* ---- A farm's registration answers, for the Secretariat ----------------- */
+function farmProfileHTML(f, full){
+  const p = f.profile;
+  const list = a=> a && a.length ? a.map(esc).join(', ') : '';
+  const row = (k, v)=> v ? `<dt>${k}</dt><dd>${v}</dd>` : '';
+  const units = (f.units || []).map(u=> `${esc(u.name)}${u.size ? ` · ${fmt(u.size)} m²` : ''}${u.blocks && u.blocks.length ? ` · ${u.blocks.length} blocks` : ''}`).join('<br>');
+  const crops = [...new Set(liveRows(f).map(r=> r.crop + (r.variety ? ` (${r.variety})` : '')))].map(esc).join(', ');
+  if(!p) return `<dl class="status-facts">${row('Set up', units)}${row('Growing', crops)}</dl>${full ? '<p class="helper" style="margin:6px 0 0;">Registered before the full registration, so there is no profile.</p>' : ''}`;
+  const where = [p.ward, p.district, p.region].filter(Boolean).map(esc).join(', ');
+  const map = p.gps ? `<a href="https://www.google.com/maps?q=${p.gps.lat},${p.gps.lng}" target="_blank" rel="noopener">${p.gps.lat}, ${p.gps.lng}</a>` : '';
+  const basic = `${row('Role', esc(p.role))}${row('Where', where)}${row('Nearest town', esc(p.town))}${row('Map', map)}
+    ${row('Farm size', p.acres ? `${fmt(p.acres)} acres` : '')}${row('Set up', units)}${row('Growing', crops)}`;
+  if(!full) return `<dl class="status-facts">${basic}${row('Sells to', list(p.markets))}${row('Wants', list(p.wants))}</dl>`;
+  return `<dl class="status-facts">${basic}${row('Experience', esc(p.years))}${row('Irrigation', list(p.irrigation))}${row('Water', list(p.water))}
+    ${row('Certification', list(p.certs))}${row('Sells to', list(p.markets))}
+    ${row('Workers', p.workers && (p.workers.permanent || p.workers.seasonal) ? `${p.workers.permanent || 0} permanent · ${p.workers.seasonal || 0} seasonal` : '')}
+    ${row('Wants from TIPFA', list(p.wants))}${row('Challenges', esc(p.challenges))}${row('Heard of TIPFA', esc(p.heard))}</dl>`;
+}
+function toggleFarmProfile(id){ state.profileFarm = state.profileFarm === id ? null : id; onLiveData(); }
+
 /* ---- Deciding --------------------------------------------------------- */
 async function decide(kind, id, status, btn){
   const subject = kind === 'farm' ? (FARMS[id] || {}).name : operatorName(id);
@@ -8121,6 +8505,7 @@ function renderMembers(c){
           ${f.email ? `<dt>Email</dt><dd>${esc(f.email)}</dd>` : ''}
           ${f.location ? `<dt>Location</dt><dd>${esc(f.location)}</dd>` : ''}
         </dl>
+        ${farmProfileHTML(f, true)}
         <div class="wc-actions">${decisionButtons('farm', f)}</div>
       </div>`).join('')}
       ${waitingOps.map(o=> `<div class="card wait-card is-admin">
@@ -8146,11 +8531,12 @@ function renderMembers(c){
           <td>${[f.contact, f.phone, f.email].filter(Boolean).map(esc).join('<br>') || '—'}</td>
           <td>${esc(f.location || '—')}</td>
           <td>${statusPill(f.status)}${decidedText(f) ? `<div class="helper" style="margin:4px 0 0;">${decidedText(f)}</div>` : ''}</td>
-          <td class="row-actions">${f.status === 'approved' || f.status === 'suspended' ? `<button class="btn small ghost" onclick="state.tab='calendarsA';openAdminFarm('${esc(f.id)}')">View calendar</button>` : ''}
+          <td class="row-actions"><button class="btn small ghost" onclick="toggleFarmProfile('${esc(f.id)}')" aria-expanded="${state.profileFarm === f.id}">${state.profileFarm === f.id ? 'Hide details' : 'Details'}</button>
+            ${f.status === 'approved' || f.status === 'suspended' ? `<button class="btn small ghost" onclick="state.tab='calendarsA';openAdminFarm('${esc(f.id)}')">View calendar</button>` : ''}
             ${decisionButtons('farm', f)}
             ${local ? `<button class="btn small ghost" onclick="adminResetFarmPassword('${esc(f.id)}')" title="Set a new password for this farm on this device">New password</button>` : ''}
             <button class="btn small ghost danger" onclick="removeFarm('${esc(f.id)}', this)" title="Delete this farm and its calendar for good">${icon('trash')} Remove</button></td>
-        </tr>`).join('')}</tbody></table>`
+        </tr>${state.profileFarm === f.id ? `<tr class="profile-row"><td colspan="5"><div class="farm-profile"><h4>${esc(f.name)} · registration answers</h4>${farmProfileHTML(f, true)}</div></td></tr>` : ''}`).join('')}</tbody></table>`
       : `<p class="helper" style="margin:0;">${farms.length ? 'No farm matches that search.' : 'No farm has registered yet.'}</p>`}
     </div>
 

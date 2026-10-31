@@ -52,6 +52,22 @@ Read this before going live; step 6 depends on it.
 - **Registering needs a sign-up code** from the Secretariat: one code for farms, a
   different one for administrators. The codes are stored where no browser can read
   them; the security rules check them.
+- **A new farm registers in six short steps, and its calendar is set up from its
+  answers.** (1) Account: farm name, contact person and their role, phone, email,
+  password, sign-up code. (2) Location: region, district, ward or village,
+  nearest town, and the farm on the map from the phone's location. (3) Farm
+  setup: every greenhouse, screenhouse, field or nursery, its size and how many
+  blocks it is divided into. (4) Crops: each crop growing now, with its variety,
+  where it is, its sowing date and its number of plants. (5) About the farm:
+  experience, irrigation, water source, certification, who it sells to, workers,
+  what it wants from TIPFA, its challenges, how it heard of TIPFA. (6) Check and
+  send: everything given, with the calendar that will be set up. The greenhouses
+  and blocks are made from step 3, and every crop from step 4 is planned from the
+  crop guide, week by week, with its harvest; the answers to steps 2 and 5 are
+  kept with the farm as its **profile**, which administrators read on the waiting
+  card and under **Details** in **Members & approvals**. A farm cannot change its
+  profile afterwards. The profile needs the current `firestore.rules`: with rules
+  published before it, a farm still registers and is set up, without its profile.
 
 All of this is enforced by `firestore.rules`, not just by what the page shows.
 Those rules were tested against the Firebase emulator before handover, including

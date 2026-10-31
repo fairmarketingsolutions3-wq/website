@@ -80,12 +80,15 @@ service cloud.firestore {
     }
 
     // Everything a farm document may hold. signupCode is allowed only so the
-    // create rule can check it; it is deleted straight afterwards.
+    // create rule can check it; it is deleted straight afterwards. profile is
+    // the farm's answers on registering (where it is, how it farms, who it sells
+    // to), written once with the farm and not changed by it afterwards.
     function farmShape(d) {
       return d.keys().hasOnly(['name', 'contact', 'phone', 'email', 'location', 'registered',
                                'units', 'rows', 'startYear', 'updatedAt', 'signupCode',
-                               'status', 'statusBy', 'statusAt', 'photo'])
+                               'status', 'statusBy', 'statusAt', 'photo', 'profile'])
         && photoOk(d)
+        && (!('profile' in d) || (d.profile is map && d.profile.size() <= 40))
         && d.name is string && d.name.size() > 0 && d.name.size() <= 120
         && d.units is list && d.units.size() >= 1 && d.units.size() <= 200
         && d.rows is list && d.rows.size() <= 1000;
