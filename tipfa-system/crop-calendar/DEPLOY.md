@@ -218,6 +218,13 @@ harvest, across the years, with nothing to page through (**3 years**, **1 year**
 **6 months** and **3 months** show a window of the three years instead, to page
 through with the arrows).
 
+Under the calendar, in both views, **Harvest by crop** gives each crop's
+kilograms month by month, on its own row with what it gives over the months
+shown. Crops are never added to one another, since kilograms of tomatoes and
+of melons are not one figure. A crop planted in more than one variety has a row
+for each variety under it; one planted in a single variety names it. The Excel
+export keeps the template's TOTAL HARVEST row as it is.
+
 ### The crop guide
 Under **Crop guide**, administrators see every crop's figures and a calculator:
 pick a crop, the number of seedlings and a sowing date, and it shows what a

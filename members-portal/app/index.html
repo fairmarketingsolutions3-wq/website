@@ -15,7 +15,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v30">
+<meta name="tipfa-build" content="v31">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -2428,6 +2428,40 @@ a.brandblock{color:inherit;text-decoration:none;}
 html.embedded .topbar .brandblock{display:none;}
 html.embedded .topbar{justify-content:flex-end;padding-top:8px;padding-bottom:8px;}
 html.embedded .topbar:has(#topbarRight:empty){display:none;}
+
+/* Harvest by crop: each crop on its own row with what it gives over the months
+   shown, and its varieties under it when it has more than one. */
+.hf-w{display:flex;align-items:center;gap:6px;min-width:0;width:100%;}
+.dv-fl.hf{padding-right:12px;}
+.hf-n{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hf-n small{font:500 11px 'Inter',sans-serif;color:var(--muted);margin-left:3px;}
+.hf-n small .vdot{width:8px;height:8px;margin-right:3px;}
+.hf-t{flex:none;font:700 11.5px 'Inter',sans-serif;color:var(--deep-green);font-variant-numeric:tabular-nums;
+  background:#EEF3E4;border-radius:999px;padding:2px 8px;}
+.cc-grid tfoot tr.crop.var th, .cc-grid tfoot tr.crop.var td{background:#FFFDF6;}
+.cc-grid tfoot tr.crop.var th{font-weight:500;font-size:11.5px;padding-left:26px;}
+.cc-grid.fit tfoot tr.crop.var td, .cc-grid.fit tfoot tr.crop.var th{height:28px;}
+.cc-grid tfoot tr.crop.var .sky, .dv-frow.crop.var .sky{opacity:.6;}
+.cc-grid tfoot tr.crop.var .hf-t, .dv-frow.var .hf-t{background:none;padding:0;font-weight:600;color:var(--muted);}
+.dv-frow.bych{background:#E4EBD8;min-height:32px;}
+.dv-frow.bych .dv-fl{width:auto;color:var(--deep-green);font-size:11px;letter-spacing:.08em;}
+.dv-frow.crop.var{min-height:30px;background:#FFFDF6;}
+.dv-frow.crop.var .dv-fl{font-weight:500;font-size:12px;padding-left:34px;color:var(--ink);}
+.dv-frow.crop.var .dv-fc em{font-size:11.5px;font-weight:600;}
+.dv.is-mobile .dv-frow.crop.var .dv-fl{padding-left:24px;}
+.dv.is-mobile .dv-frow.crop.var .dv-fc{height:28px;}
+.dv-fc span.tight{padding-bottom:6px;}
+.dv-fc span.tight em, .dv.is-mobile .dv-fc span.tight em{font-size:8.5px;letter-spacing:-.04em;}
+/* Phones, Weeks: the crop's name over its kilograms, so the name keeps its room. */
+@media (max-width: 640px){
+  .cc-grid tfoot th.hf .hf-w{flex-wrap:wrap;row-gap:0;column-gap:4px;}
+  .cc-grid tfoot th.hf .crop-pic.xs{width:18px;height:18px;}
+  .cc-grid tfoot th.hf .hf-n{flex:1 1 60%;}
+  .cc-grid tfoot th.hf .hf-n small{display:none;}
+  .cc-grid tfoot th.hf .hf-t{flex-basis:100%;background:none;padding:0;font-size:10.5px;line-height:1.1;}
+  .cc-grid tfoot tr.crop.var th{padding-left:14px;}
+  .cc-grid.fit tfoot tr.crop.var td, .cc-grid.fit tfoot tr.crop.var th{height:34px;}
+}
 </style>
 </head>
 <body>
@@ -4076,8 +4110,9 @@ function orderedRows(f){
 /* ============================================================
    The template's arithmetic
    TOTAL HARVEST adds every harvest kilogram in a month, across every
-   planting (=SUM over the month's four week columns). HARVEST BY CROP adds
-   them for one crop (=SUMPRODUCT on the crop column). Crops typed with
+   planting (=SUM over the month's four week columns); the Excel template
+   keeps it, the calendar does not show it. HARVEST BY CROP adds them for one
+   crop (=SUMPRODUCT on the crop column), and for each of its varieties. Crops typed with
    different capitals or spacing are the same crop here, as they are to
    Excel's comparison.
    ============================================================ */
@@ -4096,9 +4131,29 @@ function cropTotals(rows, months){
   });
   return [...by.values()].map(g=>{
     const per = monthTotals(g.rows, months);
-    return {crop: g.crop, per, total: per.reduce((a, b)=> a + b, 0)};
+    // And its varieties, each on its own.
+    const vs = new Map();
+    g.rows.forEach(r=>{ const n = (r.variety || '').trim(); if(!vs.has(n)) vs.set(n, []); vs.get(n).push(r); });
+    const gd = guideMatch(g.crop);
+    const vars = [...vs].map(([name, rs])=>{
+      const vp = monthTotals(rs, months);
+      return {name, v: varietyOf(gd, name), per: vp, total: vp.reduce((a, b)=> a + b, 0)};
+    }).filter(x=> x.total > 0).sort((a, b)=> (!a.name - !b.name) || b.total - a.total);
+    return {crop: g.crop, per, total: per.reduce((a, b)=> a + b, 0), vars};
   }).filter(g=> g.total > 0).sort((a, b)=> b.total - a.total);
 }
+// The label of a crop's harvest row: its picture and name, its variety when it
+// has only one, and what it gives over the months shown.
+function cropFootLabel(gc){
+  const one = gc.vars.length === 1 && gc.vars[0].name ? gc.vars[0] : null;
+  return `<span class="hf-w">${cropPic(guideMatch(gc.crop), 'xs')}<span class="hf-n">${esc(gc.crop)}${one ? ` <small>${varietyDot(one.v)}${esc(one.name)}</small>` : ''}</span>${footKg(gc.total)}</span>`;
+}
+function footKg(v){ return `<span class="hf-t">${isMobile() ? kgShort(v) : fmt(Math.round(v))} kg</span>`; }
+// A variety's row under its crop, when the crop has more than one.
+function varFootLabel(x){
+  return `<span class="hf-w"><span class="hf-n">${varietyDot(x.v)}${x.name ? esc(x.name) : 'No variety named'}</span>${footKg(x.total)}</span>`;
+}
+function cropFootRows(gc){ return gc.vars.length > 1 ? gc.vars : []; }
 function farmFigures(f, months){
   const rows = liveRows(f);
   const per = monthTotals(rows, months);
@@ -4527,7 +4582,6 @@ function footHTML(f, view){
   const g = L.group;
   const groups = [];
   for(let i = 0; i < months.length; i += g) groups.push(months.slice(i, i + g));
-  const per = monthTotals(liveRows(f), months);
   const sumOf = arr=> groups.map((gr, gi)=> arr.slice(gi * g, gi * g + gr.length).reduce((a, b)=> a + b, 0));
   const unit = g === 1 ? 'month' : g === 3 ? 'quarter' : g === 6 ? 'half year' : g === 12 ? 'year' : `${g} months`;
   const name = gr=> gr.length === 1 ? `${MONTHS[gr[0].m-1]} ${gr[0].y}`
@@ -4539,10 +4593,12 @@ function footHTML(f, view){
     return vals.map((v, i)=> `<td colspan="${groups[i].length * 4}" class="${v?'':'zero'}" title="${name(groups[i])}: ${fmt(v)} kg">${v ? `<span class="sky" style="--h:${(v / top).toFixed(3)};--d:${i * 40}ms"></span>` : ''}<span class="fv">${num(v)}</span></td>`).join(''); };
   const crops = cropTotals(liveRows(f), months);
   const nW = months.length * 4;
+  // Each crop on its own, never added to another: kilograms of tomatoes and of
+  // melons are not one figure. Its varieties follow it.
   return `<tfoot>
-    <tr class="tot"><th class="stk" title="Total harvest, kg per ${unit}">${isMobile() ? 'TOTAL' : 'TOTAL HARVEST'} <span class="per">kg</span></th>${cells(sumOf(per))}</tr>
-    <tr class="bych"><th class="stk">${isMobile() ? 'By crop' : 'Harvest by crop'}</th><td colspan="${nW}" class="per-note">kg per ${unit}</td></tr>
-    ${crops.length ? crops.map(gc=> `<tr class="crop"><th class="stk" title="${esc(gc.crop)}">${cropPic(guideMatch(gc.crop), 'xs')}${esc(gc.crop)}</th>${cells(sumOf(gc.per))}</tr>`).join('')
+    <tr class="bych"><th class="stk">HARVEST BY CROP</th><td colspan="${nW}" class="per-note">kg per ${unit} · each crop on its own</td></tr>
+    ${crops.length ? crops.map(gc=> `<tr class="crop"><th class="stk hf" title="${esc(gc.crop)}: ${fmt(Math.round(gc.total))} kg">${cropFootLabel(gc)}</th>${cells(sumOf(gc.per))}</tr>`
+        + cropFootRows(gc).map(x=> `<tr class="crop var"><th class="stk hf" title="${esc(gc.crop)} · ${esc(x.name || 'no variety named')}: ${fmt(Math.round(x.total))} kg">${varFootLabel(x)}</th>${cells(sumOf(x.per))}</tr>`).join('')).join('')
       : `<tr class="crop"><th class="stk" style="font-weight:400;color:var(--muted);">No harvest kilograms yet</th><td colspan="${nW}"></td></tr>`}
   </tfoot>`;
 }
@@ -4592,7 +4648,8 @@ function refreshAfterEdit(f, rowIds){
     fresh.innerHTML = footHTML(f, gridView);
     const nf = fresh.querySelector('tfoot');
     const oldCells = foot.querySelectorAll('th, td'), newCells = nf.querySelectorAll('th, td');
-    if(oldCells.length === newCells.length){
+    const rowsOf = t=> [...t.querySelectorAll('tr')].map(tr=> tr.className).join('|');
+    if(oldCells.length === newCells.length && rowsOf(foot) === rowsOf(nf)){
       newCells.forEach((n, i)=>{ const o = oldCells[i];
         if(o.innerHTML !== n.innerHTML){ o.innerHTML = n.innerHTML; if(o.tagName === 'TD' && !REDUCED_MOTION){ o.classList.remove('bump'); void o.offsetWidth; o.classList.add('bump'); } }
         if(o.className !== n.className) o.className = n.className;
@@ -6415,13 +6472,18 @@ function daysHTML(f, opts){
     body += dayRowHTML(f, r, x, ri, {ro, px, X, L, R});
   });
 
-  // Totals by month, under the plantings.
-  const per = monthTotals(rows, R.months), top = Math.max(1, ...per);
+  // Harvest by month under the plantings: each crop on its own, then its varieties.
   const crops = cropTotals(rows, R.months);
-  const cell = (v, mo, i, t)=> `<span class="${v ? '' : 'zero'}" style="left:${X(mo.a).toFixed(1)}px;width:${mW(mo).toFixed(1)}px" title="${MONTHS[mo.m - 1]} ${mo.y}: ${fmt(v)} kg">${v && t ? `<i class="sky" style="--h:${(v / t).toFixed(3)};--d:${i * 40}ms"></i>` : ''}<em>${v ? (mW(mo) >= 46 ? fmt(Math.round(v)) : kgShort(v)) : (mW(mo) >= 16 ? '0' : '')}</em></span>`;
+  // Narrow months (a whole season on a phone) get small, whole figures, so they never run together.
+  const cell = (v, mo, i, t)=>{ const w = mW(mo), tight = w < 34;
+    return `<span class="${v ? '' : 'zero'}${tight ? ' tight' : ''}" style="left:${X(mo.a).toFixed(1)}px;width:${w.toFixed(1)}px" title="${MONTHS[mo.m - 1]} ${mo.y}: ${fmt(v)} kg">${v && t ? `<i class="sky" style="--h:${(v / t).toFixed(3)};--d:${i * 40}ms"></i>` : ''}<em>${v ? (w >= 46 ? fmt(Math.round(v)) : v >= 1000 || !tight ? kgShort(v) : String(Math.round(v))) : (w >= 16 ? '0' : '')}</em></span>`; };
   const foot = `<div class="dv-foot">
-    <div class="dv-frow tot"><div class="dv-fl">${L.mobile ? 'Total harvest' : 'TOTAL HARVEST'} <small>kg a month</small></div><div class="dv-fc">${per.map((v, i)=> cell(v, R.months[i], i, top)).join('')}</div></div>
-    ${crops.map(gc=>{ const t = Math.max(1, ...gc.per); return `<div class="dv-frow crop"><div class="dv-fl" title="${esc(gc.crop)}">${cropPic(guideMatch(gc.crop), 'xs')}${esc(gc.crop)}</div><div class="dv-fc">${gc.per.map((v, i)=> cell(v, R.months[i], i, t)).join('')}</div></div>`; }).join('')}
+    <div class="dv-frow bych"><div class="dv-fl">${L.mobile ? 'Harvest by crop' : 'HARVEST BY CROP'} <small>kg a month · each crop on its own</small></div></div>
+    ${crops.length ? crops.map(gc=>{ const t = Math.max(1, ...gc.per);
+      return `<div class="dv-frow crop"><div class="dv-fl hf" title="${esc(gc.crop)}: ${fmt(Math.round(gc.total))} kg">${cropFootLabel(gc)}</div><div class="dv-fc">${gc.per.map((v, i)=> cell(v, R.months[i], i, t)).join('')}</div></div>`
+        + cropFootRows(gc).map(x=>{ const tv = Math.max(1, ...x.per);
+          return `<div class="dv-frow crop var"><div class="dv-fl hf" title="${esc(gc.crop)} · ${esc(x.name || 'no variety named')}: ${fmt(Math.round(x.total))} kg">${varFootLabel(x)}</div><div class="dv-fc">${x.per.map((v, i)=> cell(v, R.months[i], i, tv)).join('')}</div></div>`; }).join(''); }).join('')
+      : `<div class="dv-frow crop"><div class="dv-fl" style="font-weight:400;color:var(--muted);">No harvest kilograms yet</div></div>`}
   </div>`;
 
   const key = `${opts.key || state.member}|days|${R.a}|${R.b}`;
