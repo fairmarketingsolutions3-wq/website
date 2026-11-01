@@ -354,11 +354,24 @@ the weeks, or use Fill weeks). Any week of any planting can always be changed
 by hand.
 
 ### Archive
-A planting whose season is over shows a box button beside it (and **Archive** in
-its editor). Archiving takes it off the calendar, its totals and the Excel
-export, and keeps it under the farm's **Archive** page with its dates, plants
-and harvest, where it can be restored or deleted. Administrators see a farm's
+Archiving is done for the calendar as a whole: **Archive finished season** at the
+top of the calendar (with the number ready) archives every planting whose last
+week has passed, together. Plantings still growing or planned stay. Archiving
+takes them off the calendar, its totals and the Excel export, and keeps them
+under the farm's **Archive** page with their dates, plants, harvest and the area
+they had, where each can be restored or deleted. Administrators see a farm's
 archived plantings, read only, under its calendar.
+
+### Area
+Area belongs to the ground, not to a planting: it is set under **Greenhouses &
+blocks**, on each greenhouse (or field) and, if it is divided, on each block.
+Blocks left blank share evenly what the greenhouse's area leaves. The calendar
+shows each planting with the area of its block or greenhouse, the Excel export
+fills the AREA column from it, and **Area planted** counts each greenhouse or
+block in use once, however many plantings follow one another there. Calendars
+from before v41, which kept an area on each planting, move it to the greenhouse
+or block on first opening (the largest one given there); an AREA column
+imported from Excel does the same for a greenhouse or block with no area yet.
 
 ### Backups
 Under **Crop calendars**, **Export every farm (Excel)** downloads one workbook: the

@@ -25,7 +25,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v40">
+<meta name="tipfa-build" content="v41">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -1451,7 +1451,7 @@ table.cc-grid{border-collapse:separate;border-spacing:0;font-size:12px;table-lay
 .lay-pic.blocks span:last-child{border-right:none;}
 
 .unit-card{border-left:3px solid var(--leaf-green);}
-.unit-head{display:grid;grid-template-columns:1.6fr 1fr auto;gap:10px;align-items:end;}
+.unit-head{display:grid;grid-template-columns:1.6fr 1fr .8fr auto;gap:10px;align-items:end;}
 .unit-head .uh-actions{display:flex;gap:6px;padding-bottom:10px;}
 .unit-meta{font-size:12px;color:var(--muted);margin:2px 0 10px;}
 .block-list{display:flex;flex-wrap:wrap;gap:8px;align-items:center;}
@@ -1460,6 +1460,10 @@ table.cc-grid{border-collapse:separate;border-spacing:0;font-size:12px;table-lay
 .block-chip input{border:none;background:transparent;margin:0;padding:4px 2px;width:96px;font-size:12.5px;
   color:var(--deep-green);font-weight:600;box-shadow:none;}
 .block-chip input:focus{outline:none;box-shadow:none;background:#fff;border-radius:6px;}
+.block-chip input.bc-size{width:62px;text-align:right;color:var(--muted);border-left:1px solid #D5DFC5;border-radius:0;padding-left:6px;}
+.block-chip input.bc-size:focus{color:inherit;}
+.block-chip .bc-unit{font-size:11px;color:var(--muted);margin:0 4px 0 1px;}
+.cc-archbtn[disabled]{opacity:.5;cursor:default;}
 .block-chip .n{font-size:10.5px;color:var(--muted);margin-right:2px;white-space:nowrap;}
 .block-chip button{border:none;background:none;cursor:pointer;color:var(--muted);display:flex;padding:3px;border-radius:50%;}
 .block-chip button:hover{color:var(--red);background:#F6E3DF;}
@@ -2759,6 +2763,7 @@ html[data-view="mobile"] .reg-steps .t{display:none;}
 :where(:root[data-theme="dark"]) .block-chip{background:#2a301a;border:1px solid #3a4726;}
 :where(:root[data-theme="dark"]) .block-chip input{color:var(--dk-green-text);}
 :where(:root[data-theme="dark"]) .block-chip input:focus{background:#222d1b;}
+:where(:root[data-theme="dark"]) .block-chip input.bc-size{border-left:1px solid #3a4726;}
 :where(:root[data-theme="dark"]) .block-chip button:hover{background:#2f1c17;}
 :where(:root[data-theme="dark"]) .ass-table th,
 :where(:root[data-theme="dark"]) .ass-table td{border-bottom:1px solid #1a2215;}
@@ -3245,7 +3250,8 @@ function normaliseFarm(f){
     if(!UNIT_TYPES.includes(u.type)) u.type = 'Greenhouse';
     if(!u.name) u.name = `${u.type} ${i+1}`;
     if(!Array.isArray(u.blocks)) u.blocks = [];
-    u.blocks.forEach((b, j)=>{ if(!b.id) b.id = uid('b'); if(!b.name) b.name = `Block ${j+1}`; });
+    u.blocks.forEach((b, j)=>{ if(!b.id) b.id = uid('b'); if(!b.name) b.name = `Block ${j+1}`; tidySize(b); });
+    tidySize(u);
   });
   if(!Array.isArray(f.rows)) f.rows = [];
   const unitIds = new Set(f.units.map(u=> u.id));
@@ -3257,10 +3263,29 @@ function normaliseFarm(f){
     if(!r.block) r.block = '';
     if(!r.cells || typeof r.cells !== 'object') r.cells = {};
     r.crop = r.crop || ''; r.notes = r.notes || '';
-    r.area = Number(r.area) || 0;
   });
+  sizesFromPlantings(f);
   if(!f.startYear) f.startYear = DEFAULT_START_YEAR;
   return f;
+}
+// The size of a greenhouse or block, in square metres; none is no key at all.
+function tidySize(x){ const n = Number(x.size); if(n > 0) x.size = n; else delete x.size; }
+/* Area belongs to the ground — a greenhouse, a field, a block — not to the
+   planting on it. Calendars from before kept an area on each planting: a
+   greenhouse or block with no size takes the largest area a planting on the
+   calendar in it had, and those plantings let theirs go. Archived plantings
+   keep theirs, as the ground they had when their season ended, and give none:
+   a size cleared on purpose does not come back from them. */
+function sizesFromPlantings(f){
+  f.rows.forEach(r=>{
+    const a = Number(r.area) || 0;
+    if(a > 0 && !r.archived){
+      const u = f.units.find(x=> x.id === r.unit), b = r.block ? u.blocks.find(x=> x.id === r.block) : null, place = b || u;
+      if(!place.size || place.legacy) { place.size = Math.max(place.legacy ? place.size : 0, a); place.legacy = true; }
+    }
+    if(r.archived && a > 0) r.area = a; else delete r.area;
+  });
+  f.units.forEach(u=>{ delete u.legacy; u.blocks.forEach(b=> delete b.legacy); });
 }
 
 /* ============================================================
@@ -4656,20 +4681,17 @@ function regBuildFarm(d, vals){
     const n = Math.max(0, Math.min(26, Number(u.blocks) || 0));
     const unit = {id: uid('u'), name: u.name || `${u.type} ${i + 1}`, type: UNIT_TYPES.includes(u.type) ? u.type : 'Greenhouse', blocks: []};
     if(Number(u.size) > 0) unit.size = Number(u.size);
-    for(let b = 0; b < n; b++) unit.blocks.push({id: uid('b'), name: `Block ${String.fromCharCode(65 + b)}`});
+    for(let b = 0; b < n; b++) unit.blocks.push({id: uid('b'), name: `Block ${String.fromCharCode(65 + b)}`,
+      ...(unit.size ? {size: Math.round(unit.size / n)} : {})});
     return unit;
   });
   const sowYears = d.crops.map(c=> Number((c.sown || '').slice(0, 4))).filter(Boolean);
   f.startYear = Math.min(new Date().getFullYear(), ...sowYears);
   const until = new Date(f.startYear + 3, 0, 1);
-  const inPlace = {};
-  d.crops.forEach(c=>{ inPlace[c.where] = (inPlace[c.where] || 0) + 1; });
   f.rows = d.crops.filter(c=> c.crop).map(c=>{
     const g = guideFor(c.crop), [ui, bi] = (c.where || '0:').split(':');
     const unit = f.units[Number(ui)] || f.units[0], block = bi === '' || bi == null ? null : unit.blocks[Number(bi)];
-    // The ground it has: its block's share of the unit, or the unit, shared with what else grows there.
-    const ground = unit.size ? unit.size / (unit.blocks.length && block ? unit.blocks.length : 1) / (inPlace[c.where] || 1) : 0;
-    const r = {id: uid('r'), unit: unit.id, block: block ? block.id : '', crop: g ? g.name : c.crop, area: Math.round(ground), notes: '', cells: {}};
+    const r = {id: uid('r'), unit: unit.id, block: block ? block.id : '', crop: g ? g.name : c.crop, notes: '', cells: {}};
     if(c.variety) r.variety = c.variety;
     if(g && c.sown){
       const p = planFromGuide(effGuide(g, null, c.variety), {until, sown: c.sown, moved: '', plants: Number(c.plants) || 0});
@@ -4880,6 +4902,32 @@ function registerWizardHTML(cloudOrNot){
    ============================================================ */
 function unitOf(f, id){ return f.units.find(u=> u.id === id) || f.units[0]; }
 function blockOf(u, id){ return id ? u.blocks.find(b=> b.id === id) || null : null; }
+/* Area is the ground's: set under Greenhouses & blocks, on the greenhouse or
+   on each block. Blocks with no size of their own share evenly what of the
+   greenhouse the others do not take; a greenhouse is never smaller than its
+   blocks together. */
+function blockArea(u, b){
+  if(Number(b.size)) return Number(b.size);
+  const sized = u.blocks.filter(x=> Number(x.size) > 0), rest = (Number(u.size) || 0) - sized.reduce((t, x)=> t + Number(x.size), 0);
+  return rest > 0 ? Math.round(rest / (u.blocks.length - sized.length)) : 0;
+}
+function unitArea(u){ return Math.max(Number(u.size) || 0, u.blocks.reduce((t, b)=> t + (Number(b.size) || 0), 0)); }
+// The ground a planting is on: its block, or its whole greenhouse.
+function placeArea(f, r){
+  if(r.archived && r.area) return r.area;
+  const u = unitOf(f, r.unit), b = blockOf(u, r.block);
+  return b ? blockArea(u, b) : unitArea(u);
+}
+// The ground in use: each greenhouse or block with something on it, once —
+// however many plantings follow one another there.
+function areaPlanted(f, rows){
+  const whole = new Set(rows.filter(r=> !r.block).map(r=> r.unit)), blocks = new Set();
+  rows.forEach(r=>{ if(r.block && !whole.has(r.unit)) blocks.add(r.unit + '/' + r.block); });
+  let t = 0;
+  whole.forEach(id=> t += unitArea(unitOf(f, id)));
+  blocks.forEach(k=>{ const [ui, bi] = k.split('/'), u = unitOf(f, ui), b = blockOf(u, bi); if(b) t += blockArea(u, b); });
+  return t;
+}
 function showUnits(f){ return f.units.length > 1; }
 function showBlocks(f){ return f.units.some(u=> u.blocks.length); }
 // "Greenhouse" when every unit is one, otherwise the neutral word.
@@ -4987,7 +5035,7 @@ function farmFigures(f, months){
   per.forEach((v, i)=>{ if(v > 0 && (peak < 0 || v > per[peak])) peak = i; });
   return {
     plantings: rows.length,
-    area: rows.reduce((t, r)=> t + (Number(r.area) || 0), 0),
+    area: areaPlanted(f, rows),
     total, per,
     peak: peak >= 0 ? `${MONTHS[months[peak].m-1].slice(0,3)} ${months[peak].y}` : '—',
   };
@@ -5031,6 +5079,7 @@ function renderCalendar(c){
         <button class="btn small ghost cc-widebtn" onclick="toggleWide()" aria-pressed="${!!state.wide}" aria-label="Full screen" title="${state.wide ? 'Exit full screen' : 'Full screen'}">${icon(state.wide ? 'shrink' : 'expand')}<span class="lg"> ${state.wide ? 'Exit full screen' : 'Full screen'}</span></button>
         <span class="grow"></span>
         <button class="btn small" onclick="openEditor(null)">${icon('plus')} Add a planting</button>
+        ${archiveButtonHTML(f)}
         <button class="btn small ghost" onclick="exportFarmExcel()">${icon('down')} Export<span class="lg"> to Excel</span></button>
         <span class="btn small ghost cc-file">${icon('up')} Import<span class="lg"> from Excel</span>
           <input type="file" accept=".xlsx" onchange="importFarmExcel(this)" aria-label="Import a filled-in crop calendar template"></span>
@@ -5327,7 +5376,7 @@ function gridHTML(f, months, opts){
   // so a greenhouse just added can be planted from here.
   const unitHead = u=>{
     const inUnit = liveRows(f).filter(x=> x.unit === u.id);
-    const area = inUnit.reduce((t, x)=> t + (Number(x.area)||0), 0);
+    const area = unitArea(u);
     return `<tr class="cc-unit"><th colspan="${nW + 1}"><span class="u-ico">${icon('house')}</span>${esc(u.name)}
         <span class="u-meta">${esc(u.type)} · ${inUnit.length ? `${inUnit.length} planting${inUnit.length===1?'':'s'}` : 'nothing planned yet'}${area?` · ${fmt(area)} m²`:''}</span>
         ${ro ? '' : `<button class="cc-rowbtn" onclick="openEditor(null,'${u.id}')" title="Add a planting to ${esc(u.name)}" aria-label="Add a planting to ${esc(u.name)}">${icon('plus')}</button>`}</th></tr>`;
@@ -5387,7 +5436,7 @@ function rowHTML(r, ri){
   const {f, L, keys, base, ro} = gridView;
   const mobile = isMobile();
   const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${guideFor(r.plan.guide) && guideFor(r.plan.guide).tree ? 'trees' : 'plants'}` : '';
-  const sub = [offGuide(r) ? 'not in the crop guide' : '', locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const sub = [offGuide(r) ? 'not in the crop guide' : '', locationText(f, r), varietyShort(r), placeArea(f, r) ? `${fmt(placeArea(f, r))} m²` : '', plants].filter(Boolean).join(' · ');
   const j = rowJourney(r);
   const tip = [r.crop || '(no crop named)', sub, j.text, r.notes].filter(Boolean).join(' — ');
   const cropInner = `<div class="cc-crop-cell">
@@ -5399,8 +5448,7 @@ function rowHTML(r, ri){
       ${ro ? '' : `<span class="cc-rowbtns">
         ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed. Its weeks were coloured by hand, so they were left as they are — update them" aria-label="The crop guide for ${esc(r.crop)} has changed: update its weeks">${icon('refresh')}</button>` : ''}
         <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants" aria-label="Edit ${esc(r.crop)}: crop, dates and plants">${icon('pencil')}</button>
-        ${j.cls === 'done' ? `<button class="cc-rowbtn cc-arch" onclick="archiveRow('${r.id}')" title="Season done — archive it" aria-label="Archive ${esc(r.crop)}">${icon('archive')}</button>`
-          : mobile ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}</span>`}
+        ${mobile ? '' : `<button class="cc-rowbtn" onclick="openFill('${r.id}')" title="Fill a run of weeks" aria-label="Fill a run of weeks for ${esc(r.crop)}">${icon('fill')}</button>`}</span>`}
     </div>`;
   const st = keys.map(k=> readCell(r.cells[k]));
   let weeks = '';
@@ -5745,7 +5793,7 @@ function openEditor(rowId, unitId){
   } else {
     const last = orderedRows(f).slice(-1)[0];
     const unit = unitId || (last ? last.unit : f.units[0].id);
-    state.editRow = {id:null, unit, block:'', crop:'', area:'', notes:'', sown:'', moved:'', plants:'', kgpp:'', adj:null, manual:false, variety:''};
+    state.editRow = {id:null, unit, block:'', crop:'', notes:'', sown:'', moved:'', plants:'', kgpp:'', adj:null, manual:false, variety:''};
   }
   if(state.tab !== 'calendar'){ state.tab = 'calendar'; rememberSession(); }
   render();
@@ -5754,7 +5802,7 @@ function openEditor(rowId, unitId){
 }
 function editState(r){
   const p = r.plan || {};
-  return {id:r.id, unit:r.unit, block:r.block, crop:r.crop, area:r.area || '', notes:r.notes,
+  return {id:r.id, unit:r.unit, block:r.block, crop:r.crop, notes:r.notes,
           sown:p.sown || '', moved:p.moved || '', plants:p.plants || '', kgpp:p.kgpp != null ? p.kgpp : '',
           adj: p.adj ? Object.assign({}, p.adj) : null, manual: !!p.manual, variety: r.variety || ''};
 }
@@ -5771,14 +5819,13 @@ function editorPanel(f){
         ${u.blocks.map(b=> `<option value="${b.id}" ${b.id===e.block?'selected':''}>${esc(b.name)}</option>`).join('')}</select></div>`);
   return `<div class="card cc-panel">
     <h3>${e.id ? 'Edit planting' : 'Add a planting'}</h3>
-    <p class="helper" style="margin:0 0 12px;">${where.length ? 'Where it is, what it is, and how much ground it takes.'
-      : `What it is and how much ground it takes. Your farm is one ${esc(u.type.toLowerCase())}, so there is nowhere to choose.`}</p>
+    <p class="helper" style="margin:0 0 12px;">${where.length ? 'Where it is and what it is.'
+      : `What it is. Your farm is one ${esc(u.type.toLowerCase())}, so there is nowhere to choose.`}
+      The area is the ${where.length ? 'greenhouse’s or block’s' : `${esc(u.type.toLowerCase())}’s`}, set under <a href="#" onclick="switchTab('layout');return false;">Greenhouses &amp; blocks</a>.</p>
     <div class="grid4">
       ${where.join('')}
       <div><label class="f">Crop</label><input id="ed-crop" list="cc-crops" value="${esc(e.crop)}" placeholder="e.g. Cherry tomato"
         oninput="state.editRow.crop=this.value;guideBoxUpdate()" onkeydown="if(event.key==='Enter') saveEditor()"></div>
-      <div><label class="f">Area (m²)</label><input id="ed-area" type="number" min="0" step="any" inputmode="decimal" value="${esc(e.area)}"
-        oninput="state.editRow.area=this.value" placeholder="e.g. 500"></div>
       <div style="${where.length >= 2 ? 'grid-column:1/-1;' : ''}"><label class="f">Notes</label><input id="ed-notes" value="${esc(e.notes)}"
         oninput="state.editRow.notes=this.value" placeholder="Variety, spacing, anything worth keeping"></div>
     </div>
@@ -5789,7 +5836,6 @@ function editorPanel(f){
       <button class="btn small ghost" onclick="state.editRow=null;render();">Cancel</button>
       ${e.id ? `<span class="push"></span>
         <button class="btn small ghost" onclick="openFill('${e.id}')">${icon('fill')} Fill weeks</button>
-        <button class="btn small ghost" onclick="archiveRow('${e.id}')">${icon('archive')} Archive</button>
         <button class="btn small ghost" onclick="duplicateRow('${e.id}')">${icon('copy')} Duplicate</button>
         <button class="btn small ghost" style="color:var(--red);" onclick="deleteRow('${e.id}')">${icon('trash')} Delete</button>` : ''}
     </div>
@@ -5799,10 +5845,9 @@ function editorPanel(f){
 function keepEditor(){ const y = window.scrollY; render(); window.scrollTo(0, y); }
 function saveEditor(){
   const f = currentFarm(), e = state.editRow;
-  e.crop = val('ed-crop'); e.area = val('ed-area'); e.notes = val('ed-notes');
+  e.crop = val('ed-crop'); e.notes = val('ed-notes');
   if(!e.crop) return flagError(document.getElementById('ed-error'), 'Pick the crop from the crop guide.');
   if(!guideMatch(e.crop)) return flagError(document.getElementById('ed-error'), `${e.crop} is not in the crop guide. Pick one of its crops — or ask the Secretariat to add it under Crop guide.`);
-  if(e.area !== '' && (isNaN(Number(e.area)) || Number(e.area) < 0)) return flagError(document.getElementById('ed-error'), 'Area must be a number of square metres.');
   const u = unitOf(f, e.unit);
   const block = u.blocks.some(b=> b.id === e.block) ? e.block : '';
   const variety = (e.variety && e.variety !== '__other' ? e.variety : '').slice(0, 80);
@@ -5858,7 +5903,7 @@ function saveEditor(){
       if(n && !confirm(`Plan ${e.crop} again from the crop guide? Its ${n} coloured week${n===1?'':'s'} will be replaced by the new plan.`)) return;
       r.cells = planned.cells;
     }
-    Object.assign(r, {unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes});
+    Object.assign(r, {unit:u.id, block, crop:e.crop, notes:e.notes});
     if(variety) r.variety = variety; else delete r.variety;
     if(plan) r.plan = plan; else if(facts) r.plan = facts; else delete r.plan;
     state.calMsg = plan && !same ? `${CHECK_ICON} ${esc(e.crop)} planned again: ${planText()}`
@@ -5867,7 +5912,7 @@ function saveEditor(){
     if(plan && !same){ showPlanStart(f, plan.sown); state.growRow = r.id; }
     state.editRow = null;
   } else {
-    const r = {id:uid('r'), unit:u.id, block, crop:e.crop, area:Number(e.area)||0, notes:e.notes, cells: plan ? planned.cells : {}};
+    const r = {id:uid('r'), unit:u.id, block, crop:e.crop, notes:e.notes, cells: plan ? planned.cells : {}};
     if(plan) plan.cs = cellsSig(r.cells);
     if(variety) r.variety = variety;
     if(plan) r.plan = plan; else if(facts) r.plan = facts;
@@ -6018,9 +6063,7 @@ function renderLayout(c){
     ${f.units.map((u, i)=> unitCard(f, u, i)).join('')}
     <div class="card" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
       <button class="btn" onclick="addUnits(1)">${icon('plus')} Add another greenhouse</button>
-      <span class="block-add"><span class="helper" style="margin:0;">or add</span>
-        <input id="add-units-n" type="number" min="1" max="50" value="3" aria-label="How many to add">
-        <button class="btn small ghost" onclick="addUnits(Number(val('add-units-n'))||0)">at once</button></span>
+      <span class="helper" style="margin:0;">Give each its area above. Divided into blocks, give each block its own — or only the greenhouse’s, shared evenly between them.</span>
     </div>
 
     <div class="section-label">Farm details</div>
@@ -6038,20 +6081,22 @@ function unitCard(f, u, i){
       <div><label class="f">Name or number</label><input value="${esc(u.name)}" onchange="renameUnit('${u.id}', this.value)" aria-label="Name of ${esc(u.name)}"></div>
       <div><label class="f">Type</label><select onchange="setUnitType('${u.id}', this.value)">
         ${UNIT_TYPES.map(t=> `<option ${t===u.type?'selected':''}>${t}</option>`).join('')}</select></div>
+      <div><label class="f">Area (m²)</label><input type="number" min="0" step="any" inputmode="decimal" value="${u.size || ''}"
+        placeholder="${!u.size && unitArea(u) ? `${fmt(unitArea(u))} (its blocks)` : 'e.g. 800'}" onchange="setSize('${u.id}', '', this.value)" aria-label="Area of ${esc(u.name)} in square metres"></div>
       <div class="uh-actions">${f.units.length > 1 ? `<button class="btn small ghost" style="color:var(--red);" onclick="removeUnit('${u.id}')">${icon('trash')} Remove</button>` : ''}</div>
     </div>
-    <div class="unit-meta">${n} planting${n===1?'':'s'} on the calendar${u.blocks.length ? ` · divided into ${u.blocks.length} block${u.blocks.length===1?'':'s'}` : ' · not divided into blocks'}</div>
+    <div class="unit-meta">${n} planting${n===1?'':'s'} on the calendar${unitArea(u) ? ` · ${fmt(unitArea(u))} m²` : ''}${u.blocks.length ? ` · divided into ${u.blocks.length} block${u.blocks.length===1?'':'s'}` : ' · not divided into blocks'}</div>
     <div class="block-list">
       ${u.blocks.map(b=>{
         const nb = liveRows(f).filter(r=> r.block === b.id).length;
         return `<span class="block-chip"><input value="${esc(b.name)}" onchange="renameBlock('${u.id}','${b.id}', this.value)" aria-label="Block name">
+          <input class="bc-size" type="number" min="0" step="any" inputmode="decimal" value="${b.size || ''}" placeholder="${blockArea(u, b) || 'm²'}"
+            onchange="setSize('${u.id}','${b.id}', this.value)" aria-label="Area of ${esc(b.name)} in square metres" title="Area of ${esc(b.name)}, m²"><span class="bc-unit">m²</span>
           ${nb ? `<span class="n">${nb}</span>` : ''}
           <button onclick="removeBlock('${u.id}','${b.id}')" aria-label="Remove ${esc(b.name)}" title="Remove block">${icon('close')}</button></span>`;
       }).join('')}
       <span class="block-add">
         <button class="btn small ghost" onclick="addBlocks('${u.id}', 1)">${icon('plus')} ${u.blocks.length ? 'Add a block' : 'Divide into blocks'}</button>
-        ${u.blocks.length ? '' : `<input id="add-blocks-${u.id}" type="number" min="1" max="60" value="4" aria-label="How many blocks">
-          <button class="btn small ghost" onclick="addBlocks('${u.id}', Number(val('add-blocks-${u.id}'))||0)">blocks at once</button>`}
       </span>
     </div>
   </div>`;
@@ -6095,6 +6140,13 @@ function addBlocks(unitId, n){
     const k = u.blocks.length;
     u.blocks.push({id:uid('b'), name: k < 26 ? `Block ${String.fromCharCode(65 + k)}` : `Block ${k + 1}`});
   }
+  touch(state.member); renderKeepingPlace();
+}
+// The area of a greenhouse (no block given) or of one of its blocks.
+function setSize(unitId, blockId, v){
+  const u = unitOf(currentFarm(), unitId), x = blockId ? blockOf(u, blockId) : u, n = Number(String(v).replace(',', '.'));
+  if(!x) return;
+  if(String(v).trim() === '' || !(n > 0)) delete x.size; else x.size = Math.round(n * 10) / 10;
   touch(state.member); renderKeepingPlace();
 }
 function renameBlock(unitId, blockId, v){
@@ -6203,16 +6255,36 @@ function followGuideNow(){
    its totals, and is kept here with its dates, plants and harvest, to be
    restored or deleted. Nothing about it changes by being archived.
    ============================================================ */
-function archiveRow(id){
-  const f = currentFarm(), r = f.rows.find(x=> x.id === id);
-  if(!r) return;
-  if(!confirm(`Archive ${r.crop || 'this planting'}?\n\nIt leaves the calendar and its totals, and is kept under Archive with its dates and harvest. You can restore it at any time.`)) return;
-  r.archived = new Date().toISOString();
-  if(state.editRow && state.editRow.id === id) state.editRow = null;
-  if(state.fillRow && state.fillRow.id === id) state.fillRow = null;
-  state.calMsg = `${CHECK_ICON} ${esc(r.crop || 'The planting')} archived. It is kept under <a href="#" onclick="switchTab('archive');return false;">Archive</a>.`;
+// The plantings whose last week has passed: the season is over for them.
+function finishedRows(f){ return liveRows(f).filter(r=> rowJourney(r).cls === 'done'); }
+/* Archiving is done for the calendar as a whole, from the top: when a season
+   is over, every planting whose harvest has finished goes to the Archive
+   together. Plantings still growing stay where they are. */
+function archiveFinished(){
+  const f = currentFarm(), rows = finishedRows(f);
+  if(!rows.length) return;
+  const names = [...new Set(rows.map(r=> r.crop || 'Unnamed'))];
+  const left = liveRows(f).length - rows.length;
+  if(!confirm(`Archive the finished season?\n\n${rows.length} planting${rows.length === 1 ? '' : 's'} whose harvest is over — ${names.join(', ')} — will leave the calendar and its totals, and be kept under Archive with their dates and harvest.` +
+      (left ? ` The ${left} still growing or planned stay on the calendar.` : '') + `\n\nYou can restore any of them at any time.`)) return;
+  const when = new Date().toISOString();
+  rows.forEach(r=>{
+    // The ground it had, kept with it, as the greenhouse may change later.
+    const a = placeArea(f, r);
+    if(a) r.area = a;
+    r.archived = when;
+  });
+  const gone = new Set(rows.map(r=> r.id));
+  if(state.editRow && gone.has(state.editRow.id)) state.editRow = null;
+  if(state.fillRow && gone.has(state.fillRow.id)) state.fillRow = null;
+  state.calMsg = `${CHECK_ICON} The finished season is archived: ${rows.length} planting${rows.length === 1 ? '' : 's'}, kept under <a href="#" onclick="switchTab('archive');return false;">Archive</a>.`;
   touch(state.member);
   render();
+}
+function archiveButtonHTML(f){
+  const n = finishedRows(f).length;
+  return `<button class="btn small ghost cc-archbtn" onclick="archiveFinished()" ${n ? '' : 'disabled'}
+    title="${n ? `Archive the ${n} planting${n === 1 ? '' : 's'} whose harvest is over` : 'Nothing to archive yet: no planting has finished its harvest'}">${icon('archive')} Archive<span class="lg"> finished season</span>${n ? ` (${n})` : ''}</button>`;
 }
 function restoreRow(id){
   const f = currentFarm(), r = f.rows.find(x=> x.id === id);
@@ -6249,7 +6321,7 @@ function archiveTableHTML(f, rows, ro){
     <thead><tr><th>Crop</th><th>Sown</th><th>Harvest</th><th>Plants</th><th>Harvest kg</th><th>Archived</th>${ro ? '' : '<th></th>'}</tr></thead>
     <tbody>${rows.map(r=>{ const s = seasonFacts(r), where = locationText(f, r);
       return `<tr>
-        <td>${cropPic(guideMatch(r.crop), 'xs')}<strong>${esc(r.crop || '—')}</strong>${r.variety ? ` <span class="helper" style="margin:0;">${esc(r.variety)}</span>` : ''}${where || r.area ? `<div class="helper" style="margin:2px 0 0;">${esc([where, r.area ? fmt(r.area) + ' m²' : ''].filter(Boolean).join(' · '))}</div>` : ''}</td>
+        <td>${cropPic(guideMatch(r.crop), 'xs')}<strong>${esc(r.crop || '—')}</strong>${r.variety ? ` <span class="helper" style="margin:0;">${esc(r.variety)}</span>` : ''}${(()=>{ const a = placeArea(f, r); return where || a ? `<div class="helper" style="margin:2px 0 0;">${esc([where, a ? fmt(a) + ' m²' : ''].filter(Boolean).join(' · '))}</div>` : ''; })()}</td>
         <td>${esc(s.sown)}${s.moved ? `<div class="helper" style="margin:2px 0 0;">transplanted ${esc(s.moved)}</div>` : ''}</td>
         <td>${esc(s.harvest)}</td>
         <td>${s.plants ? fmt(s.plants) : '—'}</td>
@@ -6275,7 +6347,7 @@ function renderArchive(c){
     </div>
     ${msg ? `<div class="msg-banner">${msg}</div>` : ''}
     ${rows.length ? `<div class="card" style="overflow-x:auto;">${archiveTableHTML(f, rows, false)}</div>`
-      : emptyState('Nothing archived yet', 'When a planting’s season is over, archive it from the calendar — the box button beside it, or Archive in its editor. It is kept here with its dates and harvest, and can be restored.')}`;
+      : emptyState('Nothing archived yet', 'When a season is over, press Archive finished season at the top of the calendar. Every planting whose harvest has finished comes here together, with its dates and harvest, and can be restored.')}`;
 }
 
 /* ============================================================
@@ -7367,13 +7439,12 @@ function dayRowHTML(f, r, x, ri, v){
   const {ro, px, X, L} = v, mobile = L.mobile;
   const g = r.plan && r.plan.guide ? guideFor(r.plan.guide) : null;
   const plants = r.plan && r.plan.plants ? `${fmt(r.plan.plants)} ${g && g.tree ? 'trees' : 'plants'}` : '';
-  const sub = [offGuide(r) ? 'not in the crop guide' : '', locationText(f, r), varietyShort(r), r.area ? `${fmt(r.area)} m²` : '', plants].filter(Boolean).join(' · ');
+  const sub = [offGuide(r) ? 'not in the crop guide' : '', locationText(f, r), varietyShort(r), placeArea(f, r) ? `${fmt(placeArea(f, r))} m²` : '', plants].filter(Boolean).join(' · ');
   const j = rowJourney(r);
   const open = ro ? '' : `onclick="openEditor('${r.id}')"`;
   const btns = ro ? '' : `<span class="cc-rowbtns">
       ${guideChanged(r) ? `<button class="cc-rowbtn cc-replan" onclick="replanRow('${r.id}')" title="The crop guide for ${esc(r.crop)} has changed. Its weeks were coloured by hand, so they were left as they are — update it" aria-label="The crop guide for ${esc(r.crop)} has changed: update it">${icon('refresh')}</button>` : ''}
-      <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants, timings" aria-label="Edit ${esc(r.crop)}">${icon('pencil')}</button>
-      ${j.cls === 'done' ? `<button class="cc-rowbtn cc-arch" onclick="archiveRow('${r.id}')" title="Season done — archive it" aria-label="Archive ${esc(r.crop)}">${icon('archive')}</button>` : ''}</span>`;
+      <button class="cc-rowbtn cc-edit" onclick="openEditor('${r.id}')" title="Edit — crop, dates, plants, timings" aria-label="Edit ${esc(r.crop)}">${icon('pencil')}</button></span>`;
   const segs = x.segs.map(s=>{
     const w = Math.max((s.b - s.a + 1) * px, s.s === 'T' || s.a === s.b ? 6 : 2), lab = s.s === 'T' ? '' : segText(s, w, mobile);
     const tip = `${STAGE[s.s] ? STAGE[s.s].name : s.s}: ${spanText(s.a, s.b)}${s.a !== s.b ? ` (${s.b - s.a + 1} days)` : ''}${s.kg ? ` · ${fmt(Math.round(s.kg))} kg` : ''}`;
@@ -7514,7 +7585,7 @@ function writeTemplateSheet(ws, f, months){
     const zebra = rn % 2 === 0 ? XL.zebra : XL.white;
     let unitName = '', blockName = '';
     if(r){ const u = unitOf(f, r.unit), b = blockOf(u, r.block); unitName = u.name; blockName = b ? b.name : ''; }
-    const left = [unitName, blockName, r ? tidyCrop(r.crop) : '', r && r.area ? Number(r.area) : null, r ? [r.variety ? `Variety: ${r.variety}` : '', r.notes].filter(Boolean).join(' · ') : ''];
+    const left = [unitName, blockName, r ? tidyCrop(r.crop) : '', r && placeArea(f, r) ? placeArea(f, r) : null, r ? [r.variety ? `Variety: ${r.variety}` : '', r.notes].filter(Boolean).join(' · ') : ''];
     left.forEach((v, j)=>{
       const c = row.getCell(j+1);
       c.value = v === '' ? null : v;
@@ -7797,7 +7868,7 @@ async function writePortalSheet(wb, ws, f){
     }
     const g = guideMatch(row.crop), j = rowJourney(row);
     const plants = row.plan && row.plan.plants ? `${fmt(row.plan.plants)} ${g && g.tree ? 'trees' : 'plants'}` : '';
-    const subl = [locationText(f, row), varietyShort(row), row.area ? `${fmt(row.area)} m²` : '', plants].filter(Boolean).join(' · ');
+    const subl = [locationText(f, row), varietyShort(row), placeArea(f, row) ? `${fmt(placeArea(f, row))} m²` : '', plants].filter(Boolean).join(' · ');
     ws.getRow(r).height = 44;
     const pc = ws.getCell(r, 1); fill(pc, 'FFFBFAF5'); pc.border = {bottom: side('thin', PX.soft)};
     putPic(await picFor(plantingImgSrc(g, row.variety)), r, 40);
@@ -8160,7 +8231,7 @@ function renderCalendarsAdmin(c){
   const total = perMonth.reduce((a, b)=> a + b, 0);
   const counted = countedIds();
   const plantings = counted.reduce((n, id)=> n + liveRows(FARMS[id]).length, 0);
-  const area = counted.reduce((n, id)=> n + liveRows(FARMS[id]).reduce((t, r)=> t + (Number(r.area)||0), 0), 0);
+  const area = counted.reduce((n, id)=> n + areaPlanted(FARMS[id], liveRows(FARMS[id])), 0);
   const q = norm(state.calSearch);
   const shown = ids.filter(id=> !q || [FARMS[id].name, FARMS[id].location, FARMS[id].contact].some(v=> norm(v).includes(q)));
   const waiting = pendingCount();
