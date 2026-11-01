@@ -160,10 +160,12 @@ service cloud.firestore {
         // an approved farm keeps its own calendar — and only that
         || (isSelf(uid) && resource.data.status == 'approved'
             && changedOnly(farmOwnFields()) && farmShape(request.resource.data))
-        // an administrator's decision
-        || (!isSelf(uid) && isDecision());
+        // an administrator's decision — on their own farm too, when they
+        // registered it with their administrator email: they already see and
+        // decide on every farm, so it gives them nothing more
+        || isDecision();
       // An approved administrator may remove a farm, calendar and all.
-      allow delete: if !isSelf(uid) && isApprovedOperator();
+      allow delete: if isApprovedOperator();
     }
 
     match /{document=**} {

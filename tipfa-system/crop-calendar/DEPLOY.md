@@ -473,6 +473,7 @@ Any static host works (cPanel, Netlify, Cloudflare Pages, an S3 bucket…):
 | A new administrator is stuck waiting | Someone already owns the system; an approved administrator must approve them. If nobody can, fix ownership in the console (step 6). |
 | A farm says its change was not saved | The farm was suspended while it had the page open. Reinstate it under Members & approvals. |
 | Password reset emails don't arrive | Check spam. Check the domain is under Authorized domains (step 5). |
+| Pressing Approve on a farm does nothing, or says the farm "was registered with your own administrator email" | The farm signed up with the same email as an administrator account, and rules older than v40 stop an account deciding on itself. Publish the current `firestore.rules` (an approved administrator may now approve or remove a farm on their own email), reload, and press Approve again. Better still, give each farm its own email. |
 | Saving the crop guide says the rules do not allow it | The published rules predate the crop guide. Publish the current `firestore.rules`. |
 | The site still looks old after a push | The version badge at the top right shows which build is open. If it is behind the `tipfa-build` number in `public/index.html`, the host has not deployed the latest commit — check Netlify's Deploys list — or the browser holds an old copy: reload. |
 

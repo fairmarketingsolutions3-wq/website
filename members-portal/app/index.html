@@ -25,7 +25,7 @@
      console is worse than an old copy showing old ones. Keeping the stamp in
      the head lets a device ask the server what it is serving by fetching the
      first two kilobytes instead of all 649. Bump this and nothing else. -->
-<meta name="tipfa-build" content="v39">
+<meta name="tipfa-build" content="v40">
 <meta name="theme-color" content="#405E35">
 <meta name="description" content="TIPFA Crop Calendar — each member farm plans its plantings week by week on the association's master template, and the Secretariat sees every farm's calendar in one place.">
 <link rel="icon" type="image/png" href="assets/brand/tipfa-symbol.png">
@@ -3434,7 +3434,7 @@ function showFatal(msg){
     bar.id = 'fatal-bar'; bar.className = 'fatal-bar';
     document.body.appendChild(bar);
   }
-  bar.innerHTML = `<strong>Something went wrong.</strong> ${esc(String(msg).slice(0,300))}
+  bar.innerHTML = `<strong>Something went wrong.</strong> ${esc(String(msg).slice(0,500))}
     <button onclick="this.parentNode.remove()">Dismiss</button>`;
 }
 window.addEventListener('error', e=> showFatal((e.error && e.error.message) || e.message || 'unknown error'));
@@ -8431,6 +8431,14 @@ async function decide(kind, id, status, btn){
     renderKeepingPlace();
   }catch(e){
     if(btn) btn.classList.remove('is-busy');
+    // Refused by the rules. Before the rules of v40 a farm registered with an
+    // administrator's own email could not be decided by that administrator.
+    if(String((e && e.code) || '').includes('permission-denied') || /insufficient permissions/i.test(String(e && e.message))){
+      const own = kind === 'farm' && cloudOn() && id === CLOUD_STATE.uid;
+      return showFatal(own
+        ? `${subject} was registered with your own administrator email, and the database\u2019s security rules do not yet let an administrator decide on their own account. In the Firebase console, open Firestore Database \u2192 Rules, publish the latest firestore.rules, wait a minute, reload this page and press Approve again. (Or ask another administrator to approve it.)`
+        : 'The decision was not saved: the database\u2019s security rules refused it. Check that your administrator account is approved, then in the Firebase console publish the latest firestore.rules, wait a minute, reload this page and try again.');
+    }
     showFatal('The decision was not saved: ' + cloudErrorText(e));
   }
 }
